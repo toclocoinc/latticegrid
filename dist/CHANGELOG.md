@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.2] - 2026-10-22
+
+### Added
+
+- `createStat` and the grid's `kpis` tiles take `sparkline` (an array of numbers, or `{ values, field, points, goodWhen }`): a small theme-coloured trend line drawn by the same code as `createKPI`'s, redrawn when the value updates.
+
+- `createStat` and `kpis` tiles take `status` (`'neutral' | 'info' | 'success' | 'warning' | 'danger'`, or a function of the value): a fixed tile tone from theme tokens that `bands` override. `bar.tone` remains the meter bar's tone.
+
+- `createStat` and `kpis` tiles take `accent`, a CSS colour or `var()` token applied through the public `--lat-stat-accent` custom property to the tile's accent marker.
+
+- The developer guide documents the layout window chrome tokens (`--lat-layout-chrome-bg`, `-chrome-ink`, `-chrome-ink-muted`, `-chrome-hover`, `-chrome-focus`, `-chrome-pad`) with a light-chrome example. No behaviour change.
+
 ## [1.111.1] - 2026-10-22
 
 ### Added

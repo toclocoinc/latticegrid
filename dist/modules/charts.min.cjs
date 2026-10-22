@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.1, charts module
+ * Lattice Grid 1.111.2, charts module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

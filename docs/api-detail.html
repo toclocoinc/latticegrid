@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.111.1</p>
+    <p class="rail__sub">Developer guide · v1.111.2</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.111.1</span>
+        <span class="chip">Version 1.111.2</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.2'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -9803,6 +9803,52 @@ resetTestDom();
 <span class="kw">const</span> g = gauge.element().querySelector('.lat-stat__visual').getAttribute('data-band');
 <span class="kw">return</span> `ring ${r} | gauge ${g} | name ${ring.element().getAttribute('aria-label')}`;</code></pre>
     </div>
+    <h4>Trend line, fixed status and accent</h4>
+    <p class="lead-in">
+      Three more options on a <code>createStat</code> tile and on every entry of the grid's
+      <code>kpis</code> strip, so a screen does not hand-build them. <code>sparkline</code> draws a
+      small trend line under the number with the same drawing <code>createKPI</code>'s tiles use,
+      coloured from theme tokens and redrawn whenever the tile refreshes. <code>status</code> gives
+      the tile a fixed tone (its leading edge and its value take the theme's variant colour) when
+      no <code>bands</code> decide one; <strong>bands win</strong> when both are set. The meter
+      bar's own tone is a different option, <code>bar.tone</code>, and is unchanged.
+      <code>accent</code> colours the tile's accent marker through a public custom property,
+      <code>--lat-stat-accent</code>, so a host never restyles an internal class: set it on the
+      tile with <code>accent</code>, or from your own stylesheet. A threshold tone or a fixed
+      <code>status</code> takes the edge over the accent.
+    </p>
+    <table>
+      <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>sparkline</code></td><td>An array of numbers, or <code>{ values, field, points, goodWhen }</code>. <code>values</code> is a literal series; <code>field</code> reads that field from the grid's rows in the order the grid shows them, keeping the last <code>points</code>; <code>goodWhen: 'up' | 'down'</code> colours the line good or bad by whether the series ended up or down. Fewer than two numbers draws nothing.</td></tr>
+        <tr><td><code>status</code></td><td><code>'neutral'</code>, <code>'info'</code>, <code>'success'</code>, <code>'warning'</code> or <code>'danger'</code>, or a function of the value returning one. Overridden by <code>bands</code>.</td></tr>
+        <tr><td><code>accent</code></td><td>A CSS colour or <code>var()</code> token, applied as <code>--lat-stat-accent</code> on the tile.</td></tr>
+      </tbody>
+    </table>
+    <div class="example">
+      <p class="example__label">A sparkline, a status that follows the value, and an accent</p>
+      <pre data-run="js" data-expect="points 4 | status danger | accent #d6336c" data-covers="config:StatConfig.sparkline config:StatConfig.status config:StatConfig.accent"><code><span class="kw">const</span> { createTestDom, resetTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createStat } = <span class="kw">await</span> import('../packages/dom/src/stat.js');
+
+resetTestDom();
+<span class="kw">const</span> dom = createTestDom({ width: 400, height: 200 });
+<span class="kw">const</span> box = () =&gt; { <span class="kw">const</span> el = dom.document.createElement('div'); dom.root.appendChild(el); <span class="kw">return</span> el; };
+
+<span class="kw">const</span> tile = createStat({
+  container: box(), title: 'Orders', value: 8,
+  sparkline: [3, 5, 4, 8],
+  status: (value) =&gt; (value &gt; 5 ? 'danger' : 'success'),
+  accent: '#d6336c',
+});
+<span class="kw">const</span> root = tile.element();
+<span class="kw">const</span> points = root.querySelector('polyline').getAttribute('points').split(' ').length;
+<span class="kw">return</span> `points ${points} | status ${root.getAttribute('data-status')} | accent ${root.style.getPropertyValue('--lat-stat-accent')}`;</code></pre>
+    </div>
+    <p class="lead-in">
+      In the grid's <code>kpis</code> strip the same options sit on each entry, for example
+      <code>kpis: [{ title: 'Orders', of: 'qty', fn: 'sum', sparkline: { field: 'qty', points: 12 }, status: 'info' }]</code>.
+    </p>
+
     <h4>A tile that computes its own value</h4>
     <p class="lead-in">
       Give a tile <code>compute</code> and no aggregation and it uses <code>compute</code>:
@@ -13375,6 +13421,42 @@ board.destroy();
 return [count, cards, over, more, cardsAfter, isBoard, flow].join(' | ');
 </code></pre>
 
+    <h3 id="layout-chrome-tokens">Window chrome tokens</h3>
+    <p class="lead-in">
+      A layout or dashboard window's title bar (its chrome) is coloured by six custom properties.
+      Set them on the layout's element, or on any ancestor, and every window's chrome follows;
+      never restyle the module's internal classes. Each has a built-in default and a dark-theme
+      value, so a host that sets nothing keeps the navy chrome.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Token</th><th>What it sets</th></tr></thead>
+        <tbody>
+          <tr><td class="name">--lat-layout-chrome-bg</td><td class="desc">The title bar's background.</td></tr>
+          <tr><td class="name">--lat-layout-chrome-ink</td><td class="desc">The title text colour.</td></tr>
+          <tr><td class="name">--lat-layout-chrome-ink-muted</td><td class="desc">The colour of the chrome's controls (grip, close, minimise and maximise).</td></tr>
+          <tr><td class="name">--lat-layout-chrome-hover</td><td class="desc">The background of a chrome control under the pointer.</td></tr>
+          <tr><td class="name">--lat-layout-chrome-focus</td><td class="desc">The focus ring colour of a chrome control. Defaults to the chrome ink.</td></tr>
+          <tr><td class="name">--lat-layout-chrome-pad</td><td class="desc">The title bar's padding, a CSS padding value (<code>4px 6px</code> by default).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="example">
+      <p class="example__label">A light chrome</p>
+      <pre><code>.dashboard {
+  --lat-layout-chrome-bg: #eef1f5;
+  --lat-layout-chrome-ink: #1b2430;
+  --lat-layout-chrome-ink-muted: #3d4a5c;
+  --lat-layout-chrome-hover: #dbe2ea;
+  --lat-layout-chrome-focus: #1a6bc7;
+  --lat-layout-chrome-pad: 6px 10px;
+}</code></pre>
+    </div>
+    <p class="lead-in">
+      Keep the ink at least 4.5:1 against the background and the background at least 3:1 against
+      the window body, so a window's edge is still visible.
+    </p>
+
     <h3 id="layout-config-examples">Layout config keys, executed</h3>
     <p class="lead-in">
       The reference table names each Layout config key on its own line; these five examples run a
@@ -14785,7 +14867,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.111.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.111.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

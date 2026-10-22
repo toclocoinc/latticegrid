@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.1, type declarations
+ * Lattice Grid 1.111.2, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -13004,6 +13004,43 @@ export interface StatConfig extends StatValueSpec {
    * and an object sets the bar's own options.
    */
   bar?: boolean | 'under' | 'instead' | StatBarOptions;
+  /**
+   * A small inline trend line in the tile, drawn the way `createKPI`'s tiles draw theirs
+   * and coloured from theme tokens. An array of numbers is the series; an object takes
+   * `values` (a literal series) or `field` (read the grid's rows in the order it shows
+   * them, keeping the last `points`). `goodWhen` colours the line good or bad by whether
+   * the series ended up or down. Redrawn on every refresh. Fewer than two numbers draws nothing.
+   */
+  sparkline?: number[] | StatSparkline;
+  /**
+   * A fixed tone for the tile, from the theme: the leading edge and the value take the
+   * variant's colour. A function receives the value and returns the tone, so it follows
+   * the value. It applies only when no `bands` decide a tone: bands win when both are set.
+   * Not the meter bar's tone: that is `bar.tone` ({@link StatBarOptions.tone}).
+   */
+  status?: StatTone | ((value: unknown) => StatTone | null | undefined);
+  /**
+   * A CSS colour or `var()` token for the tile's accent marker (its leading edge). It is
+   * set through the public custom property `--lat-stat-accent` on the tile, which a host
+   * may also set from its own stylesheet. A threshold tone or a fixed `status` takes the
+   * edge over it. The sparkline's line takes the accent colour too.
+   */
+  accent?: string;
+}
+
+/** A tone a tile's fixed `status` may take: the theme's variant names. */
+export type StatTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+
+/** The object form of a tile's `sparkline`. */
+export interface StatSparkline {
+  /** A literal series, in order. */
+  values?: number[];
+  /** A field of the grid's rows, read in the order the grid shows them. */
+  field?: string;
+  /** Keep only the last this many points. */
+  points?: number;
+  /** Colour the line good or bad by whether it ended `up` or `down` on where it began. */
+  goodWhen?: 'up' | 'down';
 }
 
 /** The options of a tile's bar mode. */

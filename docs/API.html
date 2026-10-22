@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.111.1</p>
+    <p class="rail__sub">API reference · v1.111.2</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.111.1</span>
+      <span class="chip">Version 1.111.2</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.111.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.111.2'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -25283,6 +25283,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">max</td><td class="type">number</td><td class="desc">The top of the scale a ring or gauge is drawn on. Defaults to `target`, else 100. <small>(optional)</small></td></tr>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc">The bottom of a gauge's scale. 0 by default; a ring always starts at 0. <small>(optional)</small></td></tr>
           <tr><td class="name">bar</td><td class="type">boolean | 'under' | 'instead' | <a href="#type-StatBarOptions">StatBarOptions</a></td><td class="desc">Show the value against its target as a {@link createMeter} bar. `true` or `'under'` draws it beneath the number, `'instead'` in the number's place, and an object sets the bar's own options. <small>(optional)</small></td></tr>
+          <tr><td class="name">sparkline</td><td class="type">number[] | <a href="#type-StatSparkline">StatSparkline</a></td><td class="desc">A small inline trend line in the tile, drawn the way `createKPI`'s tiles draw theirs and coloured from theme tokens. An array of numbers is the series; an object takes `values` (a literal series) or `field` (read the grid's rows in the order it shows them, keeping the last `points`). `goodWhen` colours the line good or bad by whether the series ended up or down. Redrawn on every refresh. Fewer than two numbers draws nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">status</td><td class="type"><a href="#type-StatTone">StatTone</a> | ((value: unknown) =&gt; <a href="#type-StatTone">StatTone</a> | null | undefined)</td><td class="desc">A fixed tone for the tile, from the theme: the leading edge and the value take the variant's colour. A function receives the value and returns the tone, so it follows the value. It applies only when no `bands` decide a tone: bands win when both are set. Not the meter bar's tone: that is `bar.tone` ({@link StatBarOptions.tone}). <small>(optional)</small></td></tr>
+          <tr><td class="name">accent</td><td class="type">string</td><td class="desc">A CSS colour or `var()` token for the tile's accent marker (its leading edge). It is set through the public custom property `--lat-stat-accent` on the tile, which a host may also set from its own stylesheet. A threshold tone or a fixed `status` takes the edge over it. The sparkline's line takes the accent colour too. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -26213,6 +26216,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">bands</td><td class="type"><a href="#type-MeterBand">MeterBand</a>[]</td><td class="desc">Thresholds that recolour the bar, as for {@link MeterConfig.bands}. <small>(optional)</small></td></tr>
           <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The bar's colour below every band. `info` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">caption</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a> | null) =&gt; string)</td><td class="desc">Text under the bar, such as `3 of 8`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-StatSparkline">StatSparkline</h4>
+    <p class="section-note">The object form of a tile's `sparkline`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">values</td><td class="type">number[]</td><td class="desc">A literal series, in order. <small>(optional)</small></td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">A field of the grid's rows, read in the order the grid shows them. <small>(optional)</small></td></tr>
+          <tr><td class="name">points</td><td class="type">number</td><td class="desc">Keep only the last this many points. <small>(optional)</small></td></tr>
+          <tr><td class="name">goodWhen</td><td class="type">'up' | 'down'</td><td class="desc">Colour the line good or bad by whether it ended `up` or `down` on where it began. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -43189,6 +43205,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-StatGoodDirection">StatGoodDirection</h4>
     <p class="section-note">Whether a rise in a KPI stat's value counts as good news.</p>
     <p class="type-def"><code>type StatGoodDirection = 'up' | 'down' | 'neither'</code></p>
+    <h4 id="type-StatTone">StatTone</h4>
+    <p class="section-note">A tone a tile's fixed `status` may take: the theme's variant names.</p>
+    <p class="type-def"><code>type StatTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'</code></p>
     <h4 id="type-TabsEventName">TabsEventName</h4>
     <p class="section-note">The events a tabbed grid raises. The strip's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these, and each tab's grid keeps raising its own events itself. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. Each event also has a config callback (`onBeforeTabChange`, `onTabChange`, `onTabChangeCancelled`); both routes fire. Only `beforeTabChange` is cancellable — it is the one that runs before anything moves. `tab:changed` and `tabChange:cancelled` report a decision already taken and carry no `preventDefault`.</p>
     <p class="type-def"><code>type TabsEventName = 'beforeTabChange' | 'tab:changed' | 'tabChange:cancelled'</code></p>
@@ -43317,7 +43336,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.111.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.111.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
