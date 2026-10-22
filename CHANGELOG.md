@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.7] - 2026-10-22
+
+### Fixed
+
+- The Designer's editing toolbar row was squashed to a sliver, every label and icon clipped top and bottom, when the host page loaded the grid stylesheet after the Designer mounted (the live site does): the grid's unlayered flex-column rule for the lattice class outranked the Designer root's grid layout by source order, so the top bar shrank. The root layout rule now outranks it whatever the load order, and the top bar never shrinks below its controls (BACKLOG-0005381).
+
 ## [1.111.6] - 2026-10-22
 
 ### Fixed
