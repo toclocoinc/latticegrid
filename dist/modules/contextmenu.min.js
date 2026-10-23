@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.7, contextmenu module
+ * Lattice Grid 1.111.8, contextmenu module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
