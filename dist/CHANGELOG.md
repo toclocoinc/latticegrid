@@ -9,6 +9,17 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.10] - 2026-10-23
+
+### Fixed
+
+- The Ctrl+Alt+P shortcut opened the tool panel but left keyboard focus on the
+  grid cell, so a keyboard or screen-reader user could not actually reach the
+  panel it had just opened (BACKLOG-0005441). The shortcut now moves focus onto
+  the panel's first control — its tab list when it has several panels — the
+  live region names the panel, and Escape inside the panel returns focus to the
+  cell that had it.
+
 ## [1.111.9] - 2026-10-23
 
 ### Fixed

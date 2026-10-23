@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.9, chart-waffle module
+ * Lattice Grid 1.111.10, chart-waffle module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
