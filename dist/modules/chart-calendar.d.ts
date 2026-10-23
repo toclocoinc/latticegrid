@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.8, chart-calendar module type declarations
+ * Lattice Grid 1.111.9, chart-calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

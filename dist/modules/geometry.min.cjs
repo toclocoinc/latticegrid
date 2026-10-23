@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.8, geometry module
+ * Lattice Grid 1.111.9, geometry module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

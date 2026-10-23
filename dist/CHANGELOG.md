@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.9] - 2026-10-23
+
+### Fixed
+
+- Typing straight into a date cell keeps the first digit: `03052026` committed as 30 May 2026 instead of 3 May 2026, because the key that opened the editor was cancelled instead of reaching the date field (BACKLOG-0005437).
+  - A date edit now keeps the representation the row held: epoch milliseconds in, epoch milliseconds out (it used to write a day string over a number); a day string stays a day string.
+
+- **A `number` column fed a string value such as `"1,234.50"` read through `Date.parse` once columnarised** (BACKLOG-0005438). *Recognise your own case: a CSV or API column typed `number` whose rows arrive as strings — the shape nearly every CSV and most APIs hand over — showed blank cells, a header-click sort ordered by nonsense, and the footer total was a number in the trillions.* `"1,234.50"` failed the plain `Number()` the generic `float64` coercion tried first, and the fallback it had for an unparseable string was `Date.parse`: most rows came back `null` (not a valid date either), and the odd one V8 does accept as a date became an epoch timestamp instead of the price it was. A `number` column now reads a string value the same locale-aware way a typed edit does — thousands separator, decimal mark and a currency symbol a CSV left in, all read correctly, in `en-US`, `de-DE` or any other configured locale — before the value ever reaches the generic coercion, so it is never read as a date. A string that genuinely is not a number (`"n/a"`, an empty cell) is stored as `NaN`: present, excluded from sums, counts and averages, and sorted after every real number, the same way any other unparseable `float64` cell already behaves, and is named once through a new informational diagnostic (`type.number.unparsed.*`).
+  - Date and datetime columns are unaffected: both already convert a raw value through their own `toStorage` before the generic coercion ever sees it, and continue to.
+
+- A column-menu action that rebuilds the header (Group by this column, Stop grouping, Hide column) dropped keyboard focus onto the grid root. Focus now returns to the heading of the same column, found by column id when the menu closes; a column that left the header sends it to the new group column's heading or the neighbouring heading, and a hidden column is announced through the live region (BACKLOG-0005440).
+
+- **A line chart's lowest y label sat on its first x label, and a narrow time axis wrote its month labels through each other** (BACKLOG-0005457). *Recognise your own case: a line chart on a date column in a short host shows "0.0" overprinted by "Jan 2024" in the bottom-left corner, and at phone widths the month labels run together.* The first label of a time or numeric x axis now starts at its own tick instead of centring into the y-axis gutter, so it never reaches the lowest y label (which keeps showing, including a genuine zero); and such an axis keeps every Nth label, counted from the first, as soon as two would touch. Charts whose labels did not meet are drawn exactly as before.
+
 ## [1.111.8] - 2026-10-23
 
 ### Fixed

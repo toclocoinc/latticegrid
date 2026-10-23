@@ -1,5 +1,5 @@
 {
-  "version": "1.111.8",
+  "version": "1.111.9",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 781,
+  "count": 782,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -3682,6 +3682,16 @@
       "fix": "Supply `tree.path` (a function returning the ancestry as an array) or `tree.parentKey`.",
       "snippet": "createGrid(el, { rowKey: 'id', tree: { parentKey: 'managerId' } });",
       "docs": "api/grid.html#type-TreeConfig"
+    },
+    {
+      "id": "type.number.unparsed.*",
+      "module": "core",
+      "severity": "info",
+      "since": "1.111.9",
+      "message": "column \"{colId}\" is declared type \"number\" but holds a value that is not a number in its locale; storing it as NaN, excluded from sorts and totals.",
+      "meaning": "Informational. A `number` column's raw value was a string that the column's locale could not read as a number — not a thousands separator or a decimal mark it misses, just not a number (\"n/a\", a label, an empty string). It is stored as `NaN`: present, excluded from sums, counts and averages, and sorted after every real number, the same way any other unparseable `float64` cell already is.",
+      "fix": "Clean the source data, or declare a different type if the column is not purely numeric.",
+      "docs": "api/grid.html#column-specs"
     },
     {
       "id": "type:*",
