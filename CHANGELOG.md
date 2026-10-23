@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.12] - 2026-10-23
+
+### Fixed
+
+- **The set filter on a pushdown source listed its values in descending count order, unlike the in-memory set filter** (BACKLOG-0005483). *Recognise your own case: a set filter over a DuckDB or other engine source says "Top 200 of 2,025 values" and the values are not in alphabetical order.* The engine still picks the top 200 by count, but the popup now shows them collated A to Z in the grid's locale with their counts, (Blanks) first, the cap note unchanged. A small A to Z / Count toggle in the popup switches to most frequent first and holds while the popup is open. Search still queries the engine. In-memory sources are unchanged.
+
+### Internal
+
+- The customer-path pack — the four real-browser files under `test/customer-path/` that reproduce defects a demo, notebook or customer found — runs in the release gate as a named step after the main suite, through the same `tools/testsuite.js` classifier, so a failing case fails the gate (a `# TODO` case does not) and the whole pack must finish within a 180 s budget the step reports; `npm run test:customer-path` runs it alone (BACKLOG-0004774).
+
 ## [1.111.11] - 2026-10-23
 
 ### Fixed

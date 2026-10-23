@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.11, geo-world-110m module
+ * Lattice Grid 1.111.12, geo-world-110m module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
