@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.10, hu-HU locale type declarations
+ * Lattice Grid 1.111.11, hu-HU locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

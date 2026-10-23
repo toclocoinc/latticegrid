@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.10, list module
+ * Lattice Grid 1.111.11, list module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.10, listview module
+ * Lattice Grid 1.111.11, listview module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

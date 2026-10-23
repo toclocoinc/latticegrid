@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.11] - 2026-10-23
+
+### Fixed
+
+- **Sorting from the keyboard threw focus back onto a body cell** (BACKLOG-0005439). *Recognise your own case: a keyboard or screen-reader user reaches a heading with Control+Alt+H, presses Enter to sort, and focus jumps to the data cell that was active before.* Focus now stays on that column's heading (the rebuilt heading, found by column id, when the header is re-rendered) and the live region announces the column and direction. Focus re-placement after a repaint only applies when a body cell had focus. Pointer behaviour and the existing body-cell focus restore are unchanged.
+
 ## [1.111.10] - 2026-10-23
 
 ### Fixed
