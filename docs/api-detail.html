@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.111.12</p>
+    <p class="rail__sub">Developer guide · v1.112.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.111.12</span>
+        <span class="chip">Version 1.112.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.12'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.112.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3288,9 +3288,16 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       (<em>A to Z</em>, <em>Count</em>) in the popup switches to most frequent first and holds while
       the popup is open. When the column has more than 200, the popup says so (<em>Top 200 of 8,412 values</em>) and typing in its
       search box asks the engine again with a <code>contains</code> condition on the column, so a
-      value past the first 200 is still one search away. The list covers the whole relation, not
-      only the rows the grid's current filters match &mdash; the same set a memory grid's
-      dictionary lists.</li>
+      value past the first 200 is still one search away. The list covers the rows kept by every
+      <em>other</em> active condition &mdash; the grid's filter tree with this column's own
+      conditions removed, plus the quick filter &mdash; combined with the search text. Those
+      predicates are pushed exactly as a row query's are, so on a Parquet source the engine
+      reads only the row groups the filters keep, and each count is the count the grid shows
+      after that value is picked. The column's own conditions are left out so a selection can
+      still be widened. This differs on purpose from the memory source, whose dictionary lists
+      every value the grid holds regardless of filters: a dictionary costs nothing to read, while
+      an unscoped engine list would read the whole file to show counts the grid will never
+      display. The tool panel's Filters section uses the same scoped list.</li>
       <li><strong>A pushdown adapter that cannot answer</strong> a distinct-values query (no
       <code>executeGroupedAggregates()</code>, no <code>count</code>, or a column it cannot group
       by): the popup offers the text condition editor instead and says why, and the console
@@ -14405,6 +14412,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">theme</td><td class="desc"><code>'light'</code> or <code>'dark'</code>; by default the grid's own.</td></tr>
           <tr><td class="name">tooltip</td><td class="desc">The columns the hover tooltip shows, as the grid's formatted cell text; <code>false</code> for none.</td></tr>
           <tr><td class="name">libs</td><td class="desc"><code>{ deck, maplibregl }</code>; default the page's globals.</td></tr>
+          <tr><td class="name">viewportFilter</td><td class="desc"><code>true</code> or <code>{ debounce }</code>: the map's view as a filter on the grid, the same contract <code>bindLeaflet</code> and <code>bindDeck</code> keep &mdash; written once at bind, as soon as the map's host has a size, and again after every <code>moveend</code> settles (debounced, default 150 ms), as one <code>withinBbox</code> on a <code>geojson</code>/<code>path</code> geometry column or a <code>between</code> pair on <code>lon</code>/<code>lng</code>. A matching condition set from elsewhere fits the map to its box once, without being written back. Off by default.</td></tr>
           <tr><td class="name">viewportCap</td><td class="desc">On a paged pushdown grid that holds only a window of its rows, the most rows fetched for the map's current view &mdash; the grid's filters and quick search plus a box for the view once panned or zoomed, through the adapter, instead of drawing the grid's page; a pan or zoom asks again. Past the cap none are drawn, <code>mapview:over</code> warns, and <code>provenance().over</code> says why. Default 20,000. <strong>Needs the pushdown source itself configured to count in the engine</strong> &mdash; <code>aggregates: { default: 'engine' }</code> on <code>createPushdownSource</code> &mdash; otherwise the view's count runs client-side and the map quietly falls back to the grid's page, with <code>provenance().computed</code> reading <code>'client'</code> instead of <code>'engine'</code>:
             <pre><code>const source = createPushdownSource({ adapter, aggregates: { default: 'engine' } });
 const grid = createGrid(el, { rowKey: 'id', source, columns });
@@ -14934,7 +14942,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.111.12 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.112.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

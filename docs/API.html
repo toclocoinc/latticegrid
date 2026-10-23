@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.111.12</p>
+    <p class="rail__sub">API reference · v1.112.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.111.12</span>
+      <span class="chip">Version 1.112.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.111.12'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.112.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -16017,6 +16017,65 @@ p = point();
 seen.push(`${p.radiusUnits} ${p.getRadius(p.data[0])}`);
 
 map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The map drives the grid: with viewportFilter the map's bounds are written as the grid's one bounding-box condition on every move</p>
+      <pre data-run="js" data-covers="export:createMapView config:MapViewOptions.viewportFilter" data-expect="3 | 2 | cleared"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom({ width: 600, height: 400 });
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [
+    { id: 'london', lat: 51.5, lng: -0.1 },
+    { id: 'paris', lat: 48.9, lng: 2.3 },
+    { id: 'tokyo', lat: 35.7, lng: 139.7 },
+  ],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre. The map reports a box the
+// example moves by hand; the real library fires `moveend` after a drag.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const maplibregl = {
+  Map: class {
+    constructor() { this.box = [-180, -85, 180, 85]; this.handlers = {}; maplibregl.last = this; }
+    on(t, fn) { (this.handlers[t] ??= new Set()).add(fn); } off(t, fn) { this.handlers[t]?.delete(fn); }
+    fire(t) { for (const fn of [...(this.handlers[t] || [])]) fn(); }
+    getBounds() { const [w, s, e, n] = this.box; return { getWest: () =&gt; w, getSouth: () =&gt; s, getEast: () =&gt; e, getNorth: () =&gt; n }; }
+    fitBounds([[w, s], [e, n]]) { this.box = [w, s, e, n]; }
+    addControl() {} removeControl() {} remove() {} resize() {} setStyle() {} getLayer() {} addLayer() {}
+    getZoom() { return 5; } getStyle() { return { version: 8, sources: {}, layers: [] }; } jumpTo() {} flyTo() {}
+  },
+};
+
+// `view` keeps the module from fitting the camera to the rows at bind, so the
+// stand-in's own box is what gets written; `debounce: 0` writes on the move itself.
+const map = createMapView(grid, {
+  container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' },
+  view: { zoom: 1 }, viewportFilter: { debounce: 0 },
+});
+const seen = [];
+seen.push(String(grid.rows.matchCount()));                 // the whole world: every row
+
+const theMap = maplibregl.last;
+theMap.box = [-10, 35, 20, 60];                             // the map was dragged over Europe
+theMap.fire('moveend');
+await new Promise((r) =&gt; setTimeout(r, 30));
+seen.push(String(grid.rows.matchCount()));                 // London and Paris
+
+map.destroy();
+seen.push(grid.filters.get() === null ? 'cleared' : 'left behind');   // destroy() prunes the condition
 return seen.join(' | ');</code></pre>
     </div>
 
@@ -30209,6 +30268,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto'</td><td class="desc">`light` or `dark`; default the grid's own (`data-theme` above it, `auto` read from the reader's colour-scheme preference). <small>(optional)</small></td></tr>
           <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. A route's tooltip leads with its route id and shows its first row's cells. <small>(optional)</small></td></tr>
           <tr><td class="name">libs</td><td class="type">{ deck?: unknown; maplibregl?: unknown }</td><td class="desc">The page's deck.gl and MapLibre GL. Default the globals `deck` and `maplibregl` their UMD builds set. Either missing: the map is left empty and `mapview:libs` warns, naming which. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">The map's view as a filter on the grid, the same contract `bindLeaflet` and `bindDeck` keep (BACKLOG-0005486): written at bind time from the map's own bounds once its host has a size, so the grid and the KPIs agree with the layers from the first paint, and again after every `moveend` — a drag, the wheel, or the view's own `update({ view })` — debounced (default 150 ms), as ONE condition: a `withinBbox` on a `geojson`/`path` geometry column, or a `between` pair on `lon`/`lng`. A matching condition set from elsewhere fits the map to its box once, without being written back. Off by default. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">On a paged pushdown grid that holds only a window of its matching rows, the most rows the map fetches for its own current view (BACKLOG-0005182), instead of drawing the grid's page: the grid's filters and quick search, plus a `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lng` for the box once the reader has panned or zoomed, through the adapter's `execute`. A pan or zoom asks again (debounced, aborting the request it supersedes); the last drawing stays up until the answer lands. More rows than the cap fall inside the view: none are drawn, `mapview:over` warns naming the count and the cap, and `provenance().over` carries the same reason for a host that wants to show "N of M" itself. Default 20,000; as {@link ChartSpec.viewportCap}. Needs the pushdown source's own count to run in the engine: pass `aggregates: { default: 'engine' }` to `createPushdownSource` (DuckDB, ClickHouse, Elasticsearch and Splunk all support it). Left at the client-side default, the view's row count is worked out in the browser instead, so the map falls back to drawing the grid's own page — `provenance().computed` reads `'client'`, not `'engine'`, with no warning, because that is also what a grid holding every matching row looks like. `provenance().computed` is the one place to check which happened. const source = createPushdownSource({ adapter, aggregates: { default: 'engine' } }); const grid = createGrid(el, { rowKey: 'id', source, columns }); const map = createMapView(grid, { container: '#map', geometry: { lat: 'lat', lng: 'lng' }, viewportCap: 5000, }); map.provenance().computed; // 'engine' once the view has answered <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -43359,7 +43419,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.111.12 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.112.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

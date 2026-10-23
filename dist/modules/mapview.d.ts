@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.12, mapview module type declarations
+ * Lattice Grid 1.112.0, mapview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -407,6 +407,18 @@ export interface MapViewOptions {
    * and `mapview:libs` warns, naming which.
    */
   libs?: { deck?: unknown; maplibregl?: unknown };
+  /**
+   * The map's view as a filter on the grid, the same contract `bindLeaflet`
+   * and `bindDeck` keep: written at bind time from the
+   * map's own bounds once its host has a size, so the grid and the KPIs
+   * agree with the layers from the first paint, and again after every
+   * `moveend` — a drag, the wheel, or the view's own `update({ view })` —
+   * debounced (default 150 ms), as ONE condition: a `withinBbox` on a
+   * `geojson`/`path` geometry column, or a `between` pair on `lon`/`lng`. A
+   * matching condition set from elsewhere fits the map to its box once,
+   * without being written back. Off by default.
+   */
+  viewportFilter?: boolean | { debounce?: number };
   /**
    * On a paged pushdown grid that holds only a window of its matching rows,
    * the most rows the map fetches for its own current view,

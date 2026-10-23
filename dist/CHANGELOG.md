@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.112.0] - 2026-10-23
+
+### Added
+
+- **The map view's own view can now filter its grid.** `createMapView(grid, { viewportFilter: true })` (or `{ debounce }`) makes the built-in MapLibre/deck.gl map view behave exactly as `bindLeaflet` and `bindDeck` already do (BACKLOG-0001539): the map's bounds, clamped to the globe, are written once at bind — the view the reader actually sees first, once the host has a size, after any fit to the rows — and again, debounced (default 150 ms), after every `moveend`, as the grid's ONE viewport condition: a `withinBbox` on a `geojson`/`path` geometry column, or a `between` pair on `lon`/`lng`. A matching condition set from elsewhere (a saved view, another panel on the same column) fits the map to its box once, without its own `moveend` being written back, and `destroy()` prunes the condition. Off by default, so every existing map view is unchanged. The write-once-at-bind, debounce, clamp and two-way adoption are the same code `modules/leaflet` and `modules/deckgl` already call (`shared/map-binding.js`'s `createViewportSync`), not a copy of it.
+
+### Fixed
+
+- An open header filter popup or column menu now follows its header cell when the page or any scrollable ancestor scrolls, and when the window resizes: it is re-placed with the same flip-and-clamp logic as on open, on the next animation frame. When the header cell scrolls out of the viewport or out of the box that clips it, the popup closes and focus returns as it does on Escape. The listeners exist only while the popup is open (BACKLOG-0005484).
+
+- **A set filter's value list on a pushdown source ignored the grid's other filters** (BACKLOG-0005485). *Recognise your own case: a grid over Parquet or another engine, narrowed with `grid.filters.set` to a window, lists counts far above the window's row count when you open a column's set filter, and the Fetched total jumps by hundreds of MB.* The engine's `GROUP BY` carried only the search text, so it ran over every row group. It now carries the grid's filter tree with that column's own conditions removed, plus the quick filter, so the planner pushes them exactly as a row query's and row-group pruning applies. Counts match what the grid shows after picking a value, and a column's own selection can still be widened. The tool panel's Filters section uses the same scoped list.
+
 ## [1.111.12] - 2026-10-23
 
 ### Fixed

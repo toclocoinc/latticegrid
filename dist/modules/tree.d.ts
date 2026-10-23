@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.12, tree module type declarations
+ * Lattice Grid 1.112.0, tree module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
