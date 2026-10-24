@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.112.0</p>
+    <p class="rail__sub">Developer guide · v1.113.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.112.0</span>
+        <span class="chip">Version 1.113.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.112.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.113.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3272,12 +3272,16 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
 
     <h3 id="filter-values">Where a filter's value list comes from</h3>
     <p class="lead-in">
-      A set filter lists a column's values to tick. Where that list comes from depends on the
-      source, and on a large source it matters: the list is built the moment the popup opens.
+      A set filter lists a column's values to tick. A condition filter whose type opts in with
+      <code>valuePicker</code> (the built-in text filter) offers the same kind of list for its
+      Equals, Not equals and Is-one-of operators, ticking several meaning <code>in</code>/
+      <code>notIn</code> rather than a repeated <code>eq</code>. Where either list comes from
+      depends on the source, and on a large source it matters: the list is built the moment the
+      popup opens.
     </p>
     <ul>
       <li><strong>Memory source</strong> (<code>rows</code>): the column's dictionary &mdash; every
-      value the grid holds, sorted alphabetically, with a blank last. Nothing is fetched.</li>
+      value the grid holds, sorted alphabetically, with <em>(Blanks)</em> first, as in the engine list. Nothing is fetched.</li>
       <li><strong>Pushdown source</strong> (<code>createPushdownSource</code>): the engine. Opening
       the popup sends one <code>GROUP BY</code> on the column with a count through the adapter's
       <code>executeGroupedAggregates()</code> &mdash; DuckDB, ClickHouse and Elasticsearch all
@@ -3297,7 +3301,9 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       still be widened. This differs on purpose from the memory source, whose dictionary lists
       every value the grid holds regardless of filters: a dictionary costs nothing to read, while
       an unscoped engine list would read the whole file to show counts the grid will never
-      display. The tool panel's Filters section uses the same scoped list.</li>
+      display. The tool panel's Filters section uses the same scoped list, and so does a condition
+      filter's own picker (BACKLOG-0005478) &mdash; minus the count per value and the A-to-Z/Count
+      toggle, which are the set filter's own chrome.</li>
       <li><strong>A pushdown adapter that cannot answer</strong> a distinct-values query (no
       <code>executeGroupedAggregates()</code>, no <code>count</code>, or a column it cannot group
       by): the popup offers the text condition editor instead and says why, and the console
@@ -14942,7 +14948,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.112.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.113.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

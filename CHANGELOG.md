@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.113.0] - 2026-10-24
+
+### Fixed
+
+- **Hiding a column from its column menu announced the menu item, not the result** (BACKLOG-0005462). *Recognise your own case: a keyboard user chooses Hide column and a screen reader says "Region: Hide column".* The live region now says the catalogue's `a11y.column.hidden` message ("Region hidden") in the grid's active locale; the key ships with a translation in every locale. The screen-reader script's activate-group step drops the finding 5440 fixed and gains a hide-column step.
+
+- **A condition filter's Equals/Is-one-of picker was switched off on a pushdown source that could list the column's values** (BACKLOG-0005478). *Recognise your own case: a text column with `filter: { type: 'text' }` over a pushdown source (`createPushdownSource` with `duckdbAdapter` or another adapter answering `columnValues`) — choosing Equals in the header filter showed a bare text box, never a list, even though the set filter on the next column over listed the engine's values fine.* `filtermenu.js` turned the picker off alongside the row scan it is not: BACKLOG-0001552 wired the engine's value list to the set filter only. The condition filter's Equals, Not equals and Is-one-of pickers now ask the same `columnValues` request — loaded on open, capped at the same limit, searchable, scoped to the rows the grid's other filters and the quick filter keep — and picking a value applies the condition exactly as typing it would. An adapter that cannot answer the request still leaves the text box with the same warning. In-memory sources and every other filter type are unchanged.
+
+- The engine set filter's order toggle (A to Z / Count) now has catalogue strings (`filter.order`, `filter.orderAz`, `filter.orderCount`) in every shipped locale instead of falling back to English, and is styled with theme tokens like Select all / Clear, with a visible pressed state and a keyboard focus ring (BACKLOG-0005488).
+
+- The in-memory set filter now lists (Blanks) first, the position the engine set filter already used; the filters documentation says so (BACKLOG-0005488).
+
 ## [1.112.0] - 2026-10-23
 
 ### Added

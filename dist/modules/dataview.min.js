@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.112.0, dataview module
+ * Lattice Grid 1.113.0, dataview module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
