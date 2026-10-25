@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.114.0] - 2026-10-25
+
+### Added
+
+- **The grid root publishes a settled signal: `aria-busy`** (BACKLOG-0005495). *Recognise your own case: a Playwright/Cypress test against `@toclocoinc/lattice-grid-testing` had to roll its own `waitForIdle` — mount, then `aria-busy`/`data-loading`, then two animation frames of no DOM change — because the grid promised no public "done" signal.* The element carrying `role="grid"` now carries `aria-busy="true"` from the moment any of a scheduled render frame, a rows set/append/update, a sort, a filter, a quick filter, a scroll that schedules a frame, a remote/paged/pushdown request in flight, or an edit commit waiting on a `beforeEdit` handler or the source is outstanding, and `aria-busy="false"` only once the last frame of that work has painted and nothing further is queued. On mount the root reads `"true"` until the first render has painted. The list and data views, Kanban, Gantt and calendar roots all carry the same attribute from the same rule; no new public JS API or option, no new event — a test now reads one attribute instead of reimplementing the heuristic.
+
+### Fixed
+
+- **Three DOM contract gaps a customer's test automation had to work around** (BACKLOG-0005496). *Recognise your own case: a Playwright/Cypress test dragging a range read only the class `lat-cell--range` (not public), took "the newest `[role=dialog]`/`[role=menu]` on the page" because neither named its column, and had no documented word on what Enter does after it commits an edit.* Every cell inside a range selection (pointer drag or Shift+Arrow) now carries `aria-selected="true"` while it is in the range and loses the attribute when the range clears (Escape, new in this fix) or moves; a cell outside a range never carries the attribute at all. The header filter dialog and the column menu now carry `data-col="<column id>"` and an `id`; the header control that opened them carries `aria-controls` pointing at that id while it is open, and loses it when the dialog or menu closes. The Editing section and the keyboard table of `docs/api-detail.html` now say what Enter does after it opens an editor: commits and opens the cell below in the same column (Shift+Enter: above), same as Tab already did across columns.
+
+- **A `createStat` count tile bound to a grid over a pushdown, paged or remote source reported the loaded page's length, not the relation's matching total** (BACKLOG-0005497). *Recognise your own case: a count tile (`createStat({ grid, fn: 'count' })`) beside a grid paged at 100 rows over a 100,000-row relation showed 100, the page size, while the grid's own footer and pagination already knew the real total.* `rowsInScope()` in `packages/dom/src/stat.js` walked `grid.rows`, which on such a source holds only the loaded window. A count tile now reads `grid.rows.matchCount()` — the same matching total the grid's footer and pagination already read — and follows every header filter, quick filter and filter removal to it. A `sum`, `avg`, `min` or `max` tile over the same kind of source now asks the engine for the one number through `source.aggregate()`, scoped by the grid's current filters, instead of silently reducing the loaded window; when the engine cannot answer it (a non-plain column, a filter or quick search that did not fully push, or a statistic the source's own `aggregates` config keeps client-side) the tile shows a documented "Not available on this source" state and warns once, by name, rather than showing a page-scoped figure. In-memory sources and a tile scoped to `selected` rows are unchanged.
+
 ## [1.113.0] - 2026-10-24
 
 ### Fixed

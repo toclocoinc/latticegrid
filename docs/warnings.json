@@ -1,5 +1,5 @@
 {
-  "version": "1.113.0",
+  "version": "1.114.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 782,
+  "count": 783,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5896,6 +5896,17 @@
       "meaning": "A stat tile named a built-in `fn` and a `compute` function. The `fn` produces the value and `compute` never runs. A tile with `compute` and no `fn` uses it.",
       "fix": "Omit `fn` (or set `'custom'`) to use `compute`, or remove `compute` to keep the `fn`.",
       "snippet": "createStat({ grid, container, title: 'Open', compute: (rows) => rows.filter((r) => r.open).length });",
+      "docs": "api/grid.html#stat"
+    },
+    {
+      "id": "stat.aggregate-unavailable:*:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.114.0",
+      "message": "createStat: the \"{title}\" tile's {fn} cannot be reduced over the rows the bound grid has loaded, because {reason}. Showing \"not available on this source\" rather than a window-scoped figure.",
+      "meaning": "A `sum`/`avg`/`min`/`max` tile over a grid that holds only a window of its matching set (a pushdown, paged or remote source) cannot reduce the loaded rows — that would describe the page, not the relation. The engine could not answer it either, for the reason named, so the tile shows the documented unavailable state instead of a page-scoped figure.",
+      "fix": "Declare the statistic in the pushdown source's `aggregates` config (or the adapter's own `capabilities.aggregates`) so the engine can compute it, or scope the tile to `selected` rows if a window-scoped figure is what you actually want.",
+      "snippet": "createStat({ grid, container, title: 'Total', of: 'amount', fn: 'sum' });",
       "docs": "api/grid.html#stat"
     },
     {

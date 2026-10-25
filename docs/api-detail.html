@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.113.0</p>
+    <p class="rail__sub">Developer guide · v1.114.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.113.0</span>
+        <span class="chip">Version 1.114.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.113.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.114.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -6287,7 +6287,9 @@ columns: [
     </div>
     <p class="lead-in">
       The editor is chosen from the type unless you name one. Enter commits and steps down, Tab
-      commits and steps across, Escape cancels. A validator can refuse a value:
+      commits and steps across, Escape cancels; holding Shift reverses the direction of either
+      (Shift+Enter steps up, Shift+Tab steps back) — the row a step lands on opens its own editor
+      in the same column, so the keyboard never has to re-arm it. A validator can refuse a value:
     </p>
     <div class="example">
       <p class="example__label">Validation</p>
@@ -8950,7 +8952,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Tab</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td class="desc">Leave the grid for the next / previous focusable element (arrows move between cells)</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td class="desc">Undo the last edit, paste, fill or clear</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Y</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td class="desc">Redo the step that was undone</td></tr>
-          <tr><td class="name"><kbd>Enter</kbd></td><td class="desc">Start editing the focused cell</td></tr>
+          <tr><td class="name"><kbd>Enter</kbd></td><td class="desc">Start editing the focused cell; while editing, commit and open the cell below (Shift+Enter: above)</td></tr>
           <tr><td class="name"><kbd>Space</kbd></td><td class="desc">Toggle selection of the focused row</td></tr>
           <tr><td class="name"><kbd>Escape</kbd></td><td class="desc">Cancel the current edit or drag</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowRight</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>ArrowLeft</kbd></td><td class="desc">Expand / collapse a group or tree row</td></tr>
@@ -8998,6 +9000,42 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
       a fast feed would leave someone listening to counts that are no longer true. A rejected edit is
       announced with the value that was put back, which is the change users most need to hear about
       and the one a visual marker alone cannot convey.</p>
+
+    <h3 id="dom-contract">DOM contract</h3>
+    <p class="lead-in">
+      What follows is a promise to a test or an assistive-technology client, not an implementation
+      detail: these roles and attributes are checked on every build and will not change shape
+      across a release without a changelog entry (BACKLOG-0005495/0005496).
+    </p>
+    <ul>
+      <li><code>role="grid"</code> (or <code>treegrid</code> with a hierarchy) on the grid's own root; the
+        list and data views, Kanban, Gantt and calendar roots all carry the rule below.</li>
+      <li><code>aria-busy="true"</code> on that root from the moment a scheduled render frame, a rows
+        set/append/update, a sort, a filter, a quick filter, a scroll that schedules a frame, a
+        remote/paged/pushdown request in flight, or an edit commit waiting on a
+        <code>beforeEdit</code> handler or the source is outstanding; <code>aria-busy="false"</code> only
+        once the last frame of that work has painted and nothing further is queued. On mount the root
+        reads <code>"true"</code> until the first render has painted. There is no window in which the
+        DOM under the root is still changing because of that work while the attribute reads
+        <code>"false"</code> (the attribute's own flip excepted).</li>
+      <li><code>aria-rowcount</code>/<code>aria-rowindex</code>/<code>aria-colindex</code> describe the
+        dataset, not the rendered window (§17).</li>
+      <li><code>aria-selected</code> on a row for row selection, and on a cell for every cell currently
+        inside a range selection (pointer drag or Shift+Arrow); a cell outside a range carries no
+        <code>aria-selected</code> attribute at all, never <code>"false"</code>.</li>
+      <li><code>aria-sort</code> on a column heading: <code>ascending</code>/<code>descending</code>/<code>none</code>.</li>
+      <li><code>data-col</code> on a cell and a column heading, naming the column id; the same attribute
+        on the header filter dialog (<code>role="dialog"</code>) and the column menu
+        (<code>role="menu"</code>) while either is open, so a test does not have to assume "the newest
+        one on the page" is the right one — the header control that opened it carries
+        <code>aria-controls</code> pointing at that id for as long as it stays open.</li>
+      <li><code>data-loading</code> on a skeleton or loading-treatment cell.</li>
+    </ul>
+    <p>
+      Class names (<code>lat-*</code>) are <strong>not</strong> part of this contract and may change
+      in any release, including a patch: style a grid through the theme's CSS custom properties
+      (<a href="#theming">theming</a>), and read a test's state from the roles and attributes above.
+    </p>
 
     <h3>Colour and contrast</h3>
     <p>No information is carried by hue alone. The <code>high-contrast</code> theme runs text at 21:1
@@ -9801,6 +9839,21 @@ createStat({
       <a href="#custom-menu">icon contract</a> as a menu item — a sprite name, a single character or
       emoji, or author-supplied markup such as a Font Awesome glyph or an
       <code>&lt;img&gt;</code>.
+    </p>
+    <p class="lead-in">
+      A tile bound to a grid on a pushdown, paged or remote source — one that holds only a window
+      of its matching set, not every row — never reduces the loaded page. A <code>fn: 'count'</code>
+      tile reads <code>grid.rows.matchCount()</code>, the same matching total the grid's own footer
+      and pagination already read, and follows every header filter, quick filter and filter removal
+      to it. A <code>sum</code>, <code>avg</code>, <code>min</code> or <code>max</code> tile asks the
+      source's engine for the one number instead — one aggregate query, scoped by the grid's current
+      filters and quick search, through the same <code>source.aggregate()</code> a KPI tile and a
+      chart already ask. When the engine cannot answer it — the column is not a plain one, the
+      filter or the quick search did not fully push, or the source's own <code>aggregates</code>
+      config (or the adapter itself) keeps that statistic client-side — the tile shows "Not available
+      on this source" and warns once, by name, rather than silently reducing the page it happens to
+      have loaded. Over an in-memory source, or a tile with <code>scope: 'selected'</code> (the
+      selection is loaded rows by definition), nothing here changes.
     </p>
     <p class="lead-in">
       A tile can say more than a number. <code>footer</code> (a string, or a function of the value)
@@ -14948,7 +15001,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.113.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.114.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
