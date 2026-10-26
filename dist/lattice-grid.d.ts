@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.1, type declarations
+ * Lattice Grid 1.114.2, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -13229,6 +13229,7 @@ export function createPushdownSource(
   aggregate(
     request: Omit<RemoteRequest, 'groupBy'> & { groupBy?: Array<ColumnRef | SpatialBucket> },
     requested: AggregateRequest[],
+    opts?: { waitForPage?: boolean; engine?: boolean },
   ): Promise<{
     values: Record<string, unknown>;
     groups?: Array<{

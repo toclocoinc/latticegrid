@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.114.2] - 2026-10-26
+
+### Fixed
+
+- A map with `viewportFilter` over a paged pushdown source (the data lake demo: `createPushdownSource({ adapter, pageSize: 500 })` with no `aggregates`) drew only the first page of its window, 500 of 22,051 places lined up in one corner, and said nothing. The map now asks the engine for its own count whatever `aggregates.default` is, and draws every matching row in its box up to `viewportCap` (provenance `computed: "engine"`). Past the cap it draws density cells when the adapter can bin, otherwise the first `viewportCap` rows with `provenance.over` naming the count and the cap and a warning, never a blank map. When the engine cannot be asked at all, the map draws the loaded rows, reports the grid's matching total as `matched`, and warns how many of them are not loaded (BACKLOG-0005528).
+
 ## [1.114.1] - 2026-10-26
 
 ### Fixed
