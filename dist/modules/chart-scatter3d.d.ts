@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.0, chart-scatter3d module type declarations
+ * Lattice Grid 1.114.1, chart-scatter3d module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

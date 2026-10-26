@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.114.1] - 2026-10-26
+
+### Fixed
+
+- `aria-busy` read `"false"` on the stale order, then flipped `"true"` and `"false"` again, when a re-sort of a grid at or over `workerThreshold` was offloaded to the Worker: about 5 reads in 30 of the first cell at the flip were the old order, and the cell changed some 400 ms later. The root now stays `"true"` from the header click until the frame that paints the landed order has painted, and falls to `"false"` once; a second click mid-flight and a Worker error each end with one `"false"` after the final order has painted. The synchronous path is unchanged (BACKLOG-0005526).
+
 ## [1.114.0] - 2026-10-25
 
 ### Added

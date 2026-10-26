@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.0, angular module
+ * Lattice Grid 1.114.1, angular module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
