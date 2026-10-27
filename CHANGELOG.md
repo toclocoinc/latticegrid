@@ -9,6 +9,13 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.114.3] - 2026-10-27
+
+### Fixed
+
+- **A `listbox` item's custom-rendered multi-line rows overlapped until a tap** (BACKLOG-0005527). A row whose `render(opt)` returned a heading plus a description — two lines, with no `description`/`icon`/`avatar` field on the option itself — drew at the single-line height estimate on first paint, so each row's second line printed over the next row's heading, and stayed that way until a tap scrolled a row into view and the layout pass re-ran. A form builds and lays out a `listbox` before its root reaches the document, so every row measured zero height on that first pass and nothing asked the pass to run again once the root was attached. The listbox now watches its viewport for the moment it gets a real, laid-out box and re-measures from it, so a tall custom row lays out at its rendered height on the very first paint, with no tap and no host workaround needed.
+  - **Added.** `getItem(name).remeasure()` (listbox items only): drops every cached row height and lays the list out again from live measurements, keeping scroll position and selection — for a host that changes the row's render or its CSS after build.
+
 ## [1.114.2] - 2026-10-26
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.2, form module type declarations
+ * Lattice Grid 1.114.3, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1334,6 +1334,8 @@ export interface FormItem {
   updateOption?(value: unknown, patch: Record<string, unknown>): FormItem;
   /** Show only the options of a `listbox` item that `fn` accepts, without touching its canonical order, selection or value; `null` clears the predicate. */
   filter?(fn: ((opt: unknown) => boolean) | null): FormItem;
+  /** A `listbox` item only: drop every cached row height and lay the list out again from live measurements, keeping scroll position and selection. The first paint already measures and corrects itself once the form's root is attached; call this when a host changes the item's `render()` or its CSS after build. */
+  remeasure?(): FormItem;
   /**
    * Apply a subset of the item's own config after build — see {@link FormItemLiveProps} for the props every item shares and which a control additionally documents as live. Re-renders only what changed; the control's own value is never touched, so a `min`/`max`/`options` change that makes the current value invalid is left for the next {@link FormItem#validate} to report. Keeps focus and the caret throughout. An unknown or non-live prop warns once (developer console) and is ignored.
    * @returns the item, for chaining.

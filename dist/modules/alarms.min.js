@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.2, alarms module
+ * Lattice Grid 1.114.3, alarms module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
