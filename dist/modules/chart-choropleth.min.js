@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.1, chart-choropleth module
+ * Lattice Grid 1.115.2, chart-choropleth module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

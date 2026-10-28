@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.115.2] - 2026-10-28
+
+### Fixed
+
+- **A Kanban column's colour now shows as the dot in its header** (BACKLOG-0005656). The `color` option's 8px round accent was invisible since 1.34.0 — the header's accent span is inline, and an inline element gets no box from `width`/`height`, so the dot painted nothing. It renders now, in the column's colour, before the title.
+
 ## [1.115.1] - 2026-10-28
 
 ### Fixed
