@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.114.3</p>
+    <p class="rail__sub">API reference · v1.115.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -550,6 +550,7 @@
         <a class="rail__sub-link" href="#type-Shell">Shell</a>
         <a class="rail__sub-link" href="#type-ShellOverlay">ShellOverlay</a>
         <a href="#ref-module-form">The form module</a>
+        <a class="rail__sub-link" href="#type-Select">Select</a>
         <a class="rail__sub-link" href="#type-Form">Form</a>
         <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
         <a class="rail__sub-link" href="#type-Combo">Combo</a>
@@ -592,7 +593,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.114.3</span>
+      <span class="chip">Version 1.115.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3516,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.114.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.115.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -18509,6 +18510,57 @@ form.destroy();
 
 return [multi, rendered, hasIcon, hasAvatar, shown, city, cleared, kept, aboveValue, chipRowAbove].join('|');</code></pre>
 
+    <h4 id="select-standalone-example">A standalone select, mounted and driven from the handle, executed</h4>
+    <p class="section-note"><code>createSelect</code> is the form's themed select as its own factory (BACKLOG-0005641): the
+    control a <code>type: 'select'</code> item draws, mounted into any element, and the piece another module takes on
+    injection &mdash; a kanban board's <code>form: { createSelect }</code> renders its column controls through it.</p>
+    <pre data-run="js" data-expect="|Select interview kit|tech|S:Technical screen kit|a,b|✓O:Alpha,✓O:Beta|true|true" data-covers="export:createSelect config:SelectConfig.options config:SelectConfig.value config:SelectConfig.placeholder config:SelectConfig.ariaLabel config:SelectConfig.multiple config:SelectConfig.disabled config:SelectConfig.readOnly config:SelectConfig.optionTemplate config:SelectConfig.selectedTemplate config:SelectConfig.t config:SelectConfig.doc"><code>
+const { createSelect } = await import('../packages/modules/form/index.js');
+const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+
+const { document, root } = createTestDom();
+
+// A single select: strings and { value, label } objects mix in one list.
+const kitHost = document.createElement('div');
+root.appendChild(kitHost);
+const kit = createSelect(kitHost, {
+  options: ['Phone screen kit', { value: 'tech', label: 'Technical screen kit' }],
+  placeholder: 'Select interview kit',
+  ariaLabel: 'Interview kit',
+  selectedTemplate: (opt) =&gt; 'S:' + opt.label,   <span class="cmt">// how the chosen option shows on the trigger</span>
+  doc: document,                 <span class="cmt">// the owner document, for a select outside the main one</span>
+  t: (key) =&gt; key,               <span class="cmt">// the control's own strings resolve through this</span>
+});
+const empty = kit.getValue();                          <span class="cmt">// '' &mdash; nothing chosen yet</span>
+const placeholder = kit.trigger.textContent.trim();    <span class="cmt">// 'Select interview kit'</span>
+kit.setValue('tech');                                  <span class="cmt">// silent: no change event</span>
+const chosen = kit.getValue();                         <span class="cmt">// 'tech'</span>
+const shown = kit.root.querySelector('.lat-combo__template').textContent.trim(); <span class="cmt">// 'S:Technical screen kit'</span>
+
+// A multi-select with custom option rendering, then disabled and read-only.
+const tagHost = document.createElement('div');
+root.appendChild(tagHost);
+const tags = createSelect(tagHost, {
+  multiple: true,
+  value: ['a'],
+  options: [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }],
+  optionTemplate: (opt) =&gt; 'O:' + opt.label,
+  disabled: false,
+  readOnly: false,
+});
+tags.setValue(['a', 'b']);
+const multi = tags.getValue().join(',');               <span class="cmt">// 'a,b'</span>
+tags.open();                                           <span class="cmt">// aria-controls names its listbox; a chosen option carries a check mark</span>
+const listbox = document.getElementById(tags.trigger.getAttribute('aria-controls'));
+const listed = [...listbox.querySelectorAll('.lat-combo__option')].map((o) =&gt; o.textContent.trim()).join(',');
+tags.close();
+tags.setDisabled(true);
+const disabled = tags.trigger.disabled;                <span class="cmt">// true</span>
+tags.setReadOnly(true);
+const readOnly = tags.trigger.getAttribute('aria-readonly') === 'true';
+return [empty, placeholder, chosen, shown, multi, listed, disabled, readOnly].join('|');
+</code></pre>
+
     <h4 id="form-dot-color-example">Coloured status dots and icon tints, executed</h4>
     <p class="section-note">A <code>dot: '&lt;colour&gt;'</code> shorthand draws a small filled circle before an option's
     label with no letter, and an option's <code>color</code> tints its icon too. The RAG select below shows green, amber
@@ -31110,10 +31162,122 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">color</td><td class="type">string | null</td><td class="desc">The accent colour drawn as a dot in the header, as configured. Null when the column def set none.</td></tr>
           <tr><td class="name">wipLimit</td><td class="type">number | null</td><td class="desc">The work-in-progress limit for this column, or null when it has none. Advisory unless `enforceWip` is on.</td></tr>
           <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Whether the column is currently collapsed to a strip — either configured so, or collapsed by the user.</td></tr>
-          <tr><td class="name">cards</td><td class="type"><a href="#type-KanbanCard">KanbanCard</a>[]</td><td class="desc">The column's cards that survive the board's filters, in arrival order, re-sorted by `orderProperty` when one is configured.</td></tr>
+          <tr><td class="name">cards</td><td class="type"><a href="#type-KanbanCard">KanbanCard</a>[]</td><td class="desc">The column's cards that survive the board's filters, in arrival order, re-sorted by `orderProperty` and then any `order` comparator when configured.</td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many cards the column holds — the length of `cards`, after filtering.</td></tr>
           <tr><td class="name">points</td><td class="type">number</td><td class="desc">The sum of the column's card points; cards without a finite points value add nothing.</td></tr>
           <tr><td class="name">over</td><td class="type">boolean</td><td class="desc">True when the column has a WIP limit and its count exceeds it. The header shows this whether or not `enforceWip` refuses the move.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnControlEvent">KanbanColumnControlEvent</h4>
+    <p class="section-note">The payload a control's `action` and the `column:control` event share.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The model column's id.</td></tr>
+          <tr><td class="name">control</td><td class="type">string</td><td class="desc">The control's id.</td></tr>
+          <tr><td class="name">type</td><td class="type">'button' | 'select' | 'custom'</td><td class="desc">The control's type.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">A select's current value; undefined for a button.</td></tr>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The control's element (the button, the native select, or the form select's host).</td></tr>
+          <tr><td class="name">originalEvent</td><td class="type">Event</td><td class="desc">The browser event behind it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnButtonControl">KanbanColumnButtonControl</h4>
+    <p class="section-note">A button in a column's controls strip.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'button'</td><td class="desc">Marks the control as a button.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The control's id, carried on `column:control`.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The button's text.</td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Greys the button out and ignores presses. `readonly` never does. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">action</td><td class="type">(ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a>) =&gt; void</td><td class="desc"><code>ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Called first with the event payload, then `column:control` fires. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnSelectControl">KanbanColumnSelectControl</h4>
+    <p class="section-note">A select in a column's controls strip.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'select'</td><td class="desc">Marks the control as a select.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The control's id, carried on `column:control` and used by `controlValue`.</td></tr>
+          <tr><td class="name">options</td><td class="type">Array&lt;string | { value: unknown; label?: string; [key: string]: unknown }&gt;</td><td class="desc">Strings or `{ value, label }` objects; passed verbatim to an injected `form.createSelect`.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The initial value; later picks are remembered across re-renders. <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Text shown while nothing is chosen. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The select's accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Greys the select out. `readonly` never does. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">action</td><td class="type">(ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a>) =&gt; void</td><td class="desc"><code>ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Called first with the event payload (`value` is the pick), then `column:control` fires. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnCustomControl">KanbanColumnCustomControl</h4>
+    <p class="section-note">A host-rendered element in a column's controls strip.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'custom'</td><td class="desc">Marks the control as host-rendered.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The control's id, carried on `column:control`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">render</td><td class="type">(column: <a href="#type-KanbanColumn">KanbanColumn</a>, host: HTMLElement) =&gt; HTMLElement | void</td><td class="desc"><code>column: <a href="#type-KanbanColumn">KanbanColumn</a></code><br><code>host: HTMLElement</code></td><td class="type"><code>=&gt; HTMLElement | void</code></td><td class="desc">Return an element, or append to `host`.</td></tr>
+          <tr><td class="name">action</td><td class="type">(ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a>) =&gt; void</td><td class="desc"><code>ev: <a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Called with the event payload when the host's element reports one. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnMenuItem">KanbanColumnMenuItem</h4>
+    <p class="section-note">One item of a column's header menu (BACKLOG-0005636).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The item's id, handed back on the `column:menu` event. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The item's text in the menu.</td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Greys the item out; activating it does nothing. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">action</td><td class="type">(ev: { column: string; item: <a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a>; board: <a href="#type-Kanban">Kanban</a> }) =&gt; void</td><td class="desc"><code>ev: { column: string; item: <a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a>; board: <a href="#type-Kanban">Kanban</a> }</code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Called first with `{ column, item, board }`, then `column:menu` fires. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanColumnMenuEvent">KanbanColumnMenuEvent</h4>
+    <p class="section-note">`column:menu`: a header menu item was activated.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The model column's id.</td></tr>
+          <tr><td class="name">item</td><td class="type"><a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a></td><td class="desc">The menu item.</td></tr>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The menu item's element.</td></tr>
         </tbody>
       </table>
     </div>
@@ -31322,6 +31486,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-KanbanRow">KanbanRow</a>) =&gt; string | number)</td><td class="desc">Card identity (a field or fn, returning a string or number); default 'id'. Composite (`string[]`) keys are core-grid-only: a board keys its own card identity from one value, so there is nothing for an array to join into here (BACKLOG-0001669). <small>(optional)</small></td></tr>
           <tr><td class="name">columnProperty</td><td class="type">string</td><td class="desc">The row property whose value puts a card in a column. Without it (and without `grid` or `columns`) the board warns and shows nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type"><a href="#type-KanbanColumnDef">KanbanColumnDef</a>[]</td><td class="desc">The columns to show, as ids or `{ id, title, color, wipLimit, collapsed, done }`. Configured columns appear even when empty; a group value outside them still gets a column of its own, appended, so no card is dropped. <small>(optional)</small></td></tr>
+          <tr><td class="name">columnMenu</td><td class="type"><a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a>[] | ((column: <a href="#type-KanbanColumn">KanbanColumn</a>) =&gt; <a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a>[])</td><td class="desc">Header-menu items for every column without its own `menu`: an array, or a function of the column (BACKLOG-0005636). The menu button shows only when this resolves non-empty. <small>(optional)</small></td></tr>
+          <tr><td class="name">form</td><td class="type">{ createSelect?: (el: HTMLElement, opts: any) =&gt; any }</td><td class="desc">Host-injected form pieces. With `form.createSelect` (the form module's), a select control renders through it; without it the board draws a native `&lt;select&gt;`. <small>(optional)</small></td></tr>
           <tr><td class="name">columnOrder</td><td class="type">string[]</td><td class="desc">Pins the leading column order by id; anything not named keeps its natural position after the pinned ones. A user reorder replaces this. <small>(optional)</small></td></tr>
           <tr><td class="name">pointsProperty</td><td class="type">string</td><td class="desc">The row property summed into each column header's points figure. <small>(optional)</small></td></tr>
           <tr><td class="name">showPoints</td><td class="type">boolean</td><td class="desc">Show the points sum in each column and lane header (default false). It needs `pointsProperty` too. <small>(optional)</small></td></tr>
@@ -31367,6 +31533,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">columnControls</td><td class="type">(column: <a href="#type-KanbanColumn">KanbanColumn</a>) =&gt; <a href="#type-KanbanColumnControl">KanbanColumnControl</a>[]</td><td class="desc"><code>column: <a href="#type-KanbanColumn">KanbanColumn</a></code></td><td class="type"><code>=&gt; <a href="#type-KanbanColumnControl">KanbanColumnControl</a>[]</code></td><td class="desc">Controls for every column without its own `controls`, data-driven columns included (BACKLOG-0005636). <small>(optional)</small></td></tr>
+          <tr><td class="name">order</td><td class="type">(a: <a href="#type-KanbanCard">KanbanCard</a>, b: <a href="#type-KanbanCard">KanbanCard</a>, column: <a href="#type-KanbanColumn">KanbanColumn</a>) =&gt; number</td><td class="desc"><code>a: <a href="#type-KanbanCard">KanbanCard</a></code><br><code>b: <a href="#type-KanbanCard">KanbanCard</a></code><br><code>column: <a href="#type-KanbanColumn">KanbanColumn</a></code></td><td class="type"><code>=&gt; number</code></td><td class="desc">A host comparator that orders every column's cards — by score, due date, a computed rank, anything the row data does not carry as one property. Each argument is a card (with its `.row` and its `.order` — the `orderProperty` value when one is configured) and the column being sorted; return a number like `Array.sort`. It runs after the `orderProperty` sort, so the property is the tie-break when the comparator returns 0. Replaceable at runtime with {@link Kanban#setOrder}. <small>(optional)</small></td></tr>
           <tr><td class="name">cardRenderer</td><td class="type">(card: <a href="#type-KanbanCard">KanbanCard</a>, ctx: { column: <a href="#type-KanbanColumn">KanbanColumn</a>; readonly: boolean; el: HTMLElement; doc: Document }) =&gt; string | Node | void</td><td class="desc"><code>card: <a href="#type-KanbanCard">KanbanCard</a></code><br><code>ctx: { column: <a href="#type-KanbanColumn">KanbanColumn</a>; readonly: boolean; el: HTMLElement; doc: Document }</code></td><td class="type"><code>=&gt; string | Node | void</code></td><td class="desc">A custom card template: return an HTML string or a DOM node to own the whole card body. <small>(optional)</small></td></tr>
           <tr><td class="name">onCardEdit</td><td class="type">(event: { card: <a href="#type-KanbanCard">KanbanCard</a>; key: unknown; field: string; fieldPath: string; value: unknown }) =&gt; boolean | void | Promise&lt;boolean | void&gt;</td><td class="desc"><code>event: { card: <a href="#type-KanbanCard">KanbanCard</a>; key: unknown; field: string; fieldPath: string; value: unknown }</code></td><td class="type"><code>=&gt; boolean | void | Promise&lt;boolean | void&gt;</code></td><td class="desc">Persist a standalone inline edit; return false or a rejected promise to revert. <small>(optional)</small></td></tr>
           <tr><td class="name">onAddCard</td><td class="type">(columnId: string) =&gt; <a href="#type-KanbanRow">KanbanRow</a> | Promise&lt;<a href="#type-KanbanRow">KanbanRow</a>&gt; | void</td><td class="desc"><code>columnId: string</code></td><td class="type"><code>=&gt; <a href="#type-KanbanRow">KanbanRow</a> | Promise&lt;<a href="#type-KanbanRow">KanbanRow</a>&gt; | void</code></td><td class="desc">Create a card for a column on add-card; return the row to create (with its key), a Promise of that row, or nothing to auto-generate. A rejected Promise creates no card and leaves the board unchanged (BACKLOG-0001230). <small>(optional)</small></td></tr>
@@ -31827,6 +31995,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">card:confirmed</td><td class="type"><a href="#type-KanbanCardConfirmedEvent">KanbanCardConfirmedEvent</a></td><td class="desc">The card the grid confirmed, and the column it is in.</td></tr>
           <tr><td class="name">selection:changed</td><td class="type"><a href="#type-KanbanSelectionEvent">KanbanSelectionEvent</a></td><td class="desc">Every selected card key.</td></tr>
           <tr><td class="name">column:collapse</td><td class="type"><a href="#type-KanbanColumnCollapseEvent">KanbanColumnCollapseEvent</a></td><td class="desc">The column, and whether it is now collapsed.</td></tr>
+          <tr><td class="name">column:control</td><td class="type"><a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a></td><td class="desc">The column, the control and the select's value.</td></tr>
+          <tr><td class="name">column:menu</td><td class="type"><a href="#type-KanbanColumnMenuEvent">KanbanColumnMenuEvent</a></td><td class="desc">The column and the activated menu item.</td></tr>
           <tr><td class="name">card:add</td><td class="type"><a href="#type-KanbanCardAddEvent">KanbanCardAddEvent</a></td><td class="desc">The column added to, and the new card's key.</td></tr>
           <tr><td class="name">drag:start</td><td class="type"><a href="#type-KanbanDragStartEvent">KanbanDragStartEvent</a></td><td class="desc">The keys the drag carries, the card under the pointer, and the DOM event.</td></tr>
           <tr><td class="name">drag:end</td><td class="type"><a href="#type-KanbanDragEndEvent">KanbanDragEndEvent</a></td><td class="desc">The keys the drag carried, and the DOM event where there was one.</td></tr>
@@ -31944,6 +32114,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">isSelected</td><td class="type">(key: unknown): boolean</td><td class="desc"><code>key: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a card is selected.</td></tr>
           <tr><td class="name">select</td><td class="type">(keys: unknown | unknown[], mode?: 'set' | 'add' | 'toggle' | 'remove'): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>keys: unknown | unknown[]</code><br><code>mode?: 'set' | 'add' | 'toggle' | 'remove'</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Change the selection: `set` (replace), `add`, `toggle` or `remove`.</td></tr>
           <tr><td class="name">clearSelection</td><td class="type">(): <a href="#type-Kanban">Kanban</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Clear the selection.</td></tr>
+          <tr><td class="name">controlValue</td><td class="type">(columnId: string, controlId: string): unknown</td><td class="desc"><code>columnId: string</code><br><code>controlId: string</code></td><td class="type"><code>unknown</code></td><td class="desc">Read (no `value`) or set a column select control's value; setting redraws that control and returns the board, and raises no event.</td></tr>
+          <tr><td class="name">controlValue</td><td class="type">(columnId: string, controlId: string, value: unknown): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>columnId: string</code><br><code>controlId: string</code><br><code>value: unknown</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Set the value; redraws that control and returns the board.</td></tr>
           <tr><td class="name">collapseColumn</td><td class="type">(id: string, collapsed?: boolean): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>id: string</code><br><code>collapsed?: boolean</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Collapse, expand or toggle a column (emits `column:collapse`).</td></tr>
           <tr><td class="name">collapseLane</td><td class="type">(id: string, collapsed?: boolean): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>id: string</code><br><code>collapsed?: boolean</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Collapse, expand or toggle a swimlane (emits `swimlane:collapse`).</td></tr>
           <tr><td class="name">reorderColumns</td><td class="type">(order: string[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>order: string[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Reorder the columns to the given id order (emits `column:reorder`).</td></tr>
@@ -31978,6 +32150,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">setRows</td><td class="type">(rows: <a href="#type-KanbanRow">KanbanRow</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>rows: <a href="#type-KanbanRow">KanbanRow</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the source rows and re-render, and make that array the board's source again so a later `refresh()` re-reads it. Ignored with a warning on a grid-bound board.</td></tr>
           <tr><td class="name">setColumns</td><td class="type">(defs: <a href="#type-KanbanColumnDef">KanbanColumnDef</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>defs: <a href="#type-KanbanColumnDef">KanbanColumnDef</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the board's configured column set (BACKLOG-0001228). Keeps card placement and interaction state (collapsed columns, column order, quick filter, selection) for every column id that survives; a dropped id is not specially handled — a card whose value has nowhere configured to go re-derives an ad hoc column rather than becoming `unplaced` (the same "never silently drop a card" rule an unconfigured value already gets).</td></tr>
           <tr><td class="name">setColumnWidth</td><td class="type">(opts?: { columnWidth?: <a href="#type-KanbanColumnWidth">KanbanColumnWidth</a>; minColumnWidth?: number; maxColumnWidth?: number; }): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>opts?: { columnWidth?: <a href="#type-KanbanColumnWidth">KanbanColumnWidth</a>; minColumnWidth?: number; maxColumnWidth?: number; }</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Change `columnWidth`/`minColumnWidth`/`maxColumnWidth` at runtime (BACKLOG-0005252): a partial options object, each key left at its current value when omitted. Re-flows the fill-mode CSS variables in place — no remount, so scroll, focus, selection and an open pop-out survive. A `minColumnWidth` above `maxColumnWidth` resolves to the minimum for both, with one warning.</td></tr>
+          <tr><td class="name">setOrder</td><td class="type">(fn: ((a: <a href="#type-KanbanCard">KanbanCard</a>, b: <a href="#type-KanbanCard">KanbanCard</a>, column: <a href="#type-KanbanColumn">KanbanColumn</a>) =&gt; number) | null): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>fn: ((a: <a href="#type-KanbanCard">KanbanCard</a>, b: <a href="#type-KanbanCard">KanbanCard</a>, column: <a href="#type-KanbanColumn">KanbanColumn</a>) =&gt; number) | null</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace or clear the card-order comparator (`config.order`) at runtime, then re-sort and re-render — preserving selection, focus, scroll and collapse. `null` returns to the `orderProperty` order (or arrival order).</td></tr>
           <tr><td class="name">refresh</td><td class="type">(): <a href="#type-Kanban">Kanban</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Re-read the source and re-render: a bound grid's rows, or the configured array. Once rows have arrived through `rows.apply` nothing is re-read — the board regroups what it holds, so a routed feed is never thrown away.</td></tr>
           <tr><td class="name">reload</td><td class="type">(): Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</code></td><td class="desc">Reload a source-bound board from its pushdown source (BACKLOG-0002104): drop the loaded pages and re-query the engine's column counts/sums, then fetch the first page of every column. On a client-side board this is `refresh()`. Called automatically at construction and after a search or filter change.</td></tr>
           <tr><td class="name">loadMore</td><td class="type">(columnId: string, laneId?: string): Promise&lt;boolean&gt;</td><td class="desc"><code>columnId: string</code><br><code>laneId?: string</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Fetch the next page of cards for a column (and, in swimlane mode, a lane) on a source-bound board (BACKLOG-0002104). The column scroll hook calls this as the user nears the bottom; a no-op resolving `false` when the board is not source-bound, the column is exhausted, or a page is in flight.</td></tr>
@@ -31999,6 +32172,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">card:confirmed</td><td class="desc">The bound grid confirmed the column write behind an optimistic move.</td><td class="type"><a href="#type-KanbanCardConfirmedEvent">KanbanCardConfirmedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">selection:changed</td><td class="desc">The set of selected cards changed.</td><td class="type"><a href="#type-KanbanSelectionEvent">KanbanSelectionEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:collapse</td><td class="desc">A column was collapsed or expanded.</td><td class="type"><a href="#type-KanbanColumnCollapseEvent">KanbanColumnCollapseEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">column:control</td><td class="desc">A column control's button was clicked or its select changed.</td><td class="type"><a href="#type-KanbanColumnControlEvent">KanbanColumnControlEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">column:menu</td><td class="desc">A column header menu item was activated.</td><td class="type"><a href="#type-KanbanColumnMenuEvent">KanbanColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">card:add</td><td class="desc">A card was appended to a column.</td><td class="type"><a href="#type-KanbanCardAddEvent">KanbanCardAddEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">drag:start</td><td class="desc">A card drag began.</td><td class="type"><a href="#type-KanbanDragStartEvent">KanbanDragStartEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">drag:end</td><td class="desc">A card drag ended, whether or not it dropped on a column.</td><td class="type"><a href="#type-KanbanDragEndEvent">KanbanDragEndEvent</a></td><td class="desc">no</td></tr>
@@ -36488,8 +36663,69 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-SelectConfig">SelectConfig</h4>
+    <p class="section-note">The options `createSelect` takes: the form's `type: 'select'` item as a standalone control (BACKLOG-0005641).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">options</td><td class="type">unknown[]</td><td class="desc">The option list: strings, `{ value, label }` objects, or groups. <small>(optional)</small></td></tr>
+          <tr><td class="name">multiple</td><td class="type">boolean</td><td class="desc">Multi-select mode; the value is then an array. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The initial value (an array when `multiple`). <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">The text the trigger shows while nothing is chosen. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The accessible name of the trigger. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only. <small>(optional)</small></td></tr>
+          <tr><td class="name">doc</td><td class="type">Document</td><td class="desc">The owner document, for a select mounted outside the main document. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">optionTemplate</td><td class="type">(option: object) =&gt; unknown</td><td class="desc"><code>option: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">A custom renderer for one option in the list. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectedTemplate</td><td class="type">(option: object) =&gt; unknown</td><td class="desc"><code>option: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">A custom renderer for the chosen value a single select shows on its trigger. <small>(optional)</small></td></tr>
+          <tr><td class="name">t</td><td class="type">(key: string, params?: object) =&gt; string</td><td class="desc"><code>key: string</code><br><code>params?: object</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">A message resolver for the control's own strings. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Select">Select</h4>
+    <p class="section-note">The select instance {@link createSelect} returns (BACKLOG-0005641). Picking an option dispatches a DOM `change` event on the host element.</p>
+    <h5 id="type-Select-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The host element the select mounted into.</td></tr>
+          <tr><td class="name">root</td><td class="type">HTMLElement</td><td class="desc">The select's root element.</td></tr>
+          <tr><td class="name">trigger</td><td class="type">HTMLElement</td><td class="desc">The trigger button.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Select-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getValue</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">The committed value (an array when `multiple`).</td></tr>
+          <tr><td class="name">setValue</td><td class="type">(value: unknown): <a href="#type-Select">Select</a></td><td class="desc"><code>value: unknown</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Write a committed value silently; no `change` fires.</td></tr>
+          <tr><td class="name">setOptions</td><td class="type">(options: unknown[]): <a href="#type-Select">Select</a></td><td class="desc"><code>options: unknown[]</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Replace the option list, keeping a value still present.</td></tr>
+          <tr><td class="name">setPlaceholder</td><td class="type">(text: string | null | undefined): <a href="#type-Select">Select</a></td><td class="desc"><code>text: string | null | undefined</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Replace the empty-trigger placeholder.</td></tr>
+          <tr><td class="name">reload</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Re-render the list.</td></tr>
+          <tr><td class="name">open</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Open the listbox.</td></tr>
+          <tr><td class="name">close</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Close the listbox.</td></tr>
+          <tr><td class="name">focus</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Focus the trigger.</td></tr>
+          <tr><td class="name">blur</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Blur the trigger.</td></tr>
+          <tr><td class="name">setDisabled</td><td class="type">(disabled: boolean): void</td><td class="desc"><code>disabled: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Enable or disable the control.</td></tr>
+          <tr><td class="name">setReadOnly</td><td class="type">(readOnly: boolean): void</td><td class="desc"><code>readOnly: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Mark the control read-only.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the control and its listeners.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Select-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-ComboConfig">ComboConfig</h4>
-    <p class="section-note">The `type: 'combo'` item options, and the standalone `createCombo` options.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -42704,9 +42940,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The checklist mapping (BACKLOG-0002107): a property path/fn whose value is a `{ done, total }` object, or an object `{ done, total }` naming the two fields separately. Rendered as a `3/5` count.</p>
     <p class="type-def"><code>type KanbanChecklistMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { done: string; total: string }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanColumnControl">KanbanColumnControl</h4>
+    <p class="section-note">One control in a column's strip.</p>
+    <p class="type-def"><code>type KanbanColumnControl = <a href="#type-KanbanColumnButtonControl">KanbanColumnButtonControl</a> | <a href="#type-KanbanColumnSelectControl">KanbanColumnSelectControl</a> | <a href="#type-KanbanColumnCustomControl">KanbanColumnCustomControl</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanColumnDef">KanbanColumnDef</h4>
     <p class="section-note">A column definition: an id string, or an object configuring one column.</p>
-    <p class="type-def"><code>type KanbanColumnDef = string | { id: string; title?: string; color?: string; wipLimit?: number; collapsed?: boolean; sla?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> | { warn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; breach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> }; slaWarn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; slaBreach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; }</code></p>
+    <p class="type-def"><code>type KanbanColumnDef = string | { id: string; title?: string; color?: string; wipLimit?: number; collapsed?: boolean; sla?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> | { warn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; breach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> }; slaWarn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; slaBreach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; controls?: <a href="#type-KanbanColumnControl">KanbanColumnControl</a>[]; menu?: <a href="#type-KanbanColumnMenuItem">KanbanColumnMenuItem</a>[]; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanColumnWidth">KanbanColumnWidth</h4>
     <p class="section-note">The column-width mode (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below {@link KanbanConfig.minColumnWidth}; `'auto'` keeps the natural fixed width the `--lattice-board-column-width` token declares (default 280px). The token, when the host sets it, still overrides the option.</p>
@@ -42722,7 +42962,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanEventName">KanbanEventName</h4>
     <p class="section-note">The events a board raises. The board's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound board follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The `before…` six are cancellable on the same contract the grid core uses (BACKLOG-0000946): call `preventDefault(reason?)` on the payload, or return a Promise to hold the action until it settles; a veto fires the matching `&lt;action&gt;:cancelled` carrying the reason.</p>
-    <p class="type-def"><code>type KanbanEventName = 'card:click' | 'card:dblclick' | 'card:contextmenu' | 'card:move' | 'card:reverted' | 'card:confirmed' | 'selection:changed' | 'column:collapse' | 'card:add' | 'drag:start' | 'drag:end' | 'swimlane:collapse' | 'swimlane:reorder' | 'column:reorder' | 'filter:changed' | 'sprint:changed' | 'epic:changed' | 'card:expand' | 'card:drill' | 'card:edit' | 'card:sla' | 'cards:loaded' | 'beforeMove' | 'beforeAdd' | 'beforeEdit' | 'beforeLaneReorder' | 'beforeColumnReorder' | 'beforeColumnChange' | 'move:cancelled' | 'add:cancelled' | 'edit:cancelled' | 'laneReorder:cancelled' | 'columnReorder:cancelled' | 'columnChange:cancelled' | 'history'</code></p>
+    <p class="type-def"><code>type KanbanEventName = 'card:click' | 'card:dblclick' | 'card:contextmenu' | 'card:move' | 'card:reverted' | 'card:confirmed' | 'selection:changed' | 'column:collapse' | 'column:control' | 'column:menu' | 'card:add' | 'drag:start' | 'drag:end' | 'swimlane:collapse' | 'swimlane:reorder' | 'column:reorder' | 'filter:changed' | 'sprint:changed' | 'epic:changed' | 'card:expand' | 'card:drill' | 'card:edit' | 'card:sla' | 'cards:loaded' | 'beforeMove' | 'beforeAdd' | 'beforeEdit' | 'beforeLaneReorder' | 'beforeColumnReorder' | 'beforeColumnChange' | 'move:cancelled' | 'add:cancelled' | 'edit:cancelled' | 'laneReorder:cancelled' | 'columnReorder:cancelled' | 'columnChange:cancelled' | 'history'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanFieldMap">KanbanFieldMap</h4>
     <p class="section-note">A card field mapping: a property path, a function, or an object opting into inline edit.</p>
@@ -43423,7 +43663,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.114.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.115.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

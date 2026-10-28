@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.3, chart-radialbar module type declarations
+ * Lattice Grid 1.115.0, chart-radialbar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

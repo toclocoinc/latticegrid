@@ -1,5 +1,5 @@
 {
-  "version": "1.114.3",
+  "version": "1.115.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 783,
+  "count": 784,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5657,6 +5657,16 @@
       "message": "\"minColumnWidth\" ({min}) is greater than \"maxColumnWidth\" ({max}); the minimum wins, and both resolve to {min}.",
       "meaning": "The board (or a `setColumnWidth` call) configured a `minColumnWidth` greater than `maxColumnWidth`, a pair `'fill'` cannot honour both ends of — a CSS `min-width` always wins over a smaller `max-width` anyway. Rather than rendering a column at an unexplained fixed width, the minimum wins outright: both resolve to `minColumnWidth`.",
       "fix": "Raise `maxColumnWidth` above `minColumnWidth`, or drop one of the two.",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
+      "id": "kanban:order:throws",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.115.0",
+      "message": "the \"order\" comparator threw ({error}); the column keeps its pre-comparator order.",
+      "meaning": "The board's `order` comparator (config `order`, or `board.setOrder(fn)`) threw while sorting a column's cards. The board sorts a copy, so the column stays in the order it had before the comparator ran (the `orderProperty` order, or arrival order) and nothing goes blank. Reported once per board.",
+      "fix": "Make the comparator total over every card in the column: guard missing or non-comparable values (`a.row.score ?? 0`) and never throw; `setOrder(null)` clears it.",
       "docs": "api/kanban.html#kanban"
     },
     {

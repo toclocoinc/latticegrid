@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.3, form module type declarations
+ * Lattice Grid 1.115.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1013,6 +1013,66 @@ export interface ComboLoadQuery {
 export type ComboLoadResult = { items: ComboOption[]; total?: number; hasMore?: boolean } | ComboOption[];
 
 /** The `type: 'combo'` item options, and the standalone `createCombo` options. */
+/** The options `createSelect` takes: the form's `type: 'select'` item as a standalone control. */
+export interface SelectConfig {
+  /** The option list: strings, `{ value, label }` objects, or groups. */
+  options?: unknown[];
+  /** Multi-select mode; the value is then an array. */
+  multiple?: boolean;
+  /** The initial value (an array when `multiple`). */
+  value?: unknown;
+  /** The text the trigger shows while nothing is chosen. */
+  placeholder?: string;
+  /** The accessible name of the trigger. */
+  ariaLabel?: string;
+  /** A custom renderer for one option in the list. */
+  optionTemplate?: (option: object) => unknown;
+  /** A custom renderer for the chosen value a single select shows on its trigger. */
+  selectedTemplate?: (option: object) => unknown;
+  /** Start disabled. */
+  disabled?: boolean;
+  /** Start read-only. */
+  readOnly?: boolean;
+  /** A message resolver for the control's own strings. */
+  t?: (key: string, params?: object) => string;
+  /** The owner document, for a select mounted outside the main document. */
+  doc?: Document;
+}
+
+/** The select instance {@link createSelect} returns. Picking an option dispatches a DOM `change` event on the host element. */
+export interface Select {
+  /** The host element the select mounted into. */
+  el: HTMLElement;
+  /** The select's root element. */
+  root: HTMLElement;
+  /** The trigger button. */
+  trigger: HTMLElement;
+  /** The committed value (an array when `multiple`). */
+  getValue(): unknown;
+  /** Write a committed value silently; no `change` fires. */
+  setValue(value: unknown): Select;
+  /** Replace the option list, keeping a value still present. */
+  setOptions(options: unknown[]): Select;
+  /** Replace the empty-trigger placeholder. */
+  setPlaceholder(text: string | null | undefined): Select;
+  /** Re-render the list. */
+  reload(): Select;
+  /** Open the listbox. */
+  open(): Select;
+  /** Close the listbox. */
+  close(): Select;
+  /** Focus the trigger. */
+  focus(): Select;
+  /** Blur the trigger. */
+  blur(): Select;
+  /** Enable or disable the control. */
+  setDisabled(disabled: boolean): void;
+  /** Mark the control read-only. */
+  setReadOnly(readOnly: boolean): void;
+  /** Remove the control and its listeners. */
+  destroy(): void;
+}
+
 export interface ComboConfig {
   /** The paging loader. Absent when `options` is used. */
   load?: (query: ComboLoadQuery) => ComboLoadResult | Promise<ComboLoadResult>;
@@ -1618,6 +1678,9 @@ export function createFormGroup(forms?: Form | Form[], options?: FormGroupOption
 
 /** Create a standalone searchable combobox inside an element. */
 export function createCombo(el: HTMLElement, config?: ComboConfig): Combo;
+
+/** Create a standalone themed select inside an element: the form's `type: 'select'` control, also the piece a kanban board takes as `form: { createSelect }`. */
+export function createSelect(el: HTMLElement, opts?: SelectConfig): Select;
 
 /** Create a standalone floating speed dial inside an element. */
 export function createSpeedDial(el: HTMLElement, config?: SpeedDialConfig): SpeedDial;

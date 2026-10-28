@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Form API Reference — Lattice Grid 1.114.3</title>
+<title>Form API Reference — Lattice Grid 1.115.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -433,6 +433,7 @@
         <a class="rail__sub-link" href="#form-slider-example">A single slider snapped to a step, and a range slider, executed</a>
         <a class="rail__sub-link" href="#form-groups">Form groups</a>
         <a href="#ref-form-reference">Type reference</a>
+        <a class="rail__sub-link" href="#type-Select">Select</a>
         <a class="rail__sub-link" href="#type-Form">Form</a>
         <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
         <a class="rail__sub-link" href="#type-Combo">Combo</a>
@@ -1466,6 +1467,57 @@ above.destroy();
 form.destroy();
 
 return [multi, rendered, hasIcon, hasAvatar, shown, city, cleared, kept, aboveValue, chipRowAbove].join('|');</code></pre>
+
+    <h4 id="select-standalone-example">A standalone select, mounted and driven from the handle, executed</h4>
+    <p class="section-note"><code>createSelect</code> is the form's themed select as its own factory (BACKLOG-0005641): the
+    control a <code>type: 'select'</code> item draws, mounted into any element, and the piece another module takes on
+    injection &mdash; a kanban board's <code>form: { createSelect }</code> renders its column controls through it.</p>
+    <pre data-run="js" data-expect="|Select interview kit|tech|S:Technical screen kit|a,b|✓O:Alpha,✓O:Beta|true|true" data-covers="export:createSelect config:SelectConfig.options config:SelectConfig.value config:SelectConfig.placeholder config:SelectConfig.ariaLabel config:SelectConfig.multiple config:SelectConfig.disabled config:SelectConfig.readOnly config:SelectConfig.optionTemplate config:SelectConfig.selectedTemplate config:SelectConfig.t config:SelectConfig.doc"><code>
+const { createSelect } = await import('../packages/modules/form/index.js');
+const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+
+const { document, root } = createTestDom();
+
+// A single select: strings and { value, label } objects mix in one list.
+const kitHost = document.createElement('div');
+root.appendChild(kitHost);
+const kit = createSelect(kitHost, {
+  options: ['Phone screen kit', { value: 'tech', label: 'Technical screen kit' }],
+  placeholder: 'Select interview kit',
+  ariaLabel: 'Interview kit',
+  selectedTemplate: (opt) =&gt; 'S:' + opt.label,   <span class="cmt">// how the chosen option shows on the trigger</span>
+  doc: document,                 <span class="cmt">// the owner document, for a select outside the main one</span>
+  t: (key) =&gt; key,               <span class="cmt">// the control's own strings resolve through this</span>
+});
+const empty = kit.getValue();                          <span class="cmt">// '' &mdash; nothing chosen yet</span>
+const placeholder = kit.trigger.textContent.trim();    <span class="cmt">// 'Select interview kit'</span>
+kit.setValue('tech');                                  <span class="cmt">// silent: no change event</span>
+const chosen = kit.getValue();                         <span class="cmt">// 'tech'</span>
+const shown = kit.root.querySelector('.lat-combo__template').textContent.trim(); <span class="cmt">// 'S:Technical screen kit'</span>
+
+// A multi-select with custom option rendering, then disabled and read-only.
+const tagHost = document.createElement('div');
+root.appendChild(tagHost);
+const tags = createSelect(tagHost, {
+  multiple: true,
+  value: ['a'],
+  options: [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }],
+  optionTemplate: (opt) =&gt; 'O:' + opt.label,
+  disabled: false,
+  readOnly: false,
+});
+tags.setValue(['a', 'b']);
+const multi = tags.getValue().join(',');               <span class="cmt">// 'a,b'</span>
+tags.open();                                           <span class="cmt">// aria-controls names its listbox; a chosen option carries a check mark</span>
+const listbox = document.getElementById(tags.trigger.getAttribute('aria-controls'));
+const listed = [...listbox.querySelectorAll('.lat-combo__option')].map((o) =&gt; o.textContent.trim()).join(',');
+tags.close();
+tags.setDisabled(true);
+const disabled = tags.trigger.disabled;                <span class="cmt">// true</span>
+tags.setReadOnly(true);
+const readOnly = tags.trigger.getAttribute('aria-readonly') === 'true';
+return [empty, placeholder, chosen, shown, multi, listed, disabled, readOnly].join('|');
+</code></pre>
 
     <h4 id="form-dot-color-example">Coloured status dots and icon tints, executed</h4>
     <p class="section-note">A <code>dot: '&lt;colour&gt;'</code> shorthand draws a small filled circle before an option's
@@ -3591,8 +3643,69 @@ shell.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-SelectConfig">SelectConfig</h4>
+    <p class="section-note">The options `createSelect` takes: the form's `type: 'select'` item as a standalone control (BACKLOG-0005641).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">options</td><td class="type">unknown[]</td><td class="desc">The option list: strings, `{ value, label }` objects, or groups. <small>(optional)</small></td></tr>
+          <tr><td class="name">multiple</td><td class="type">boolean</td><td class="desc">Multi-select mode; the value is then an array. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The initial value (an array when `multiple`). <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">The text the trigger shows while nothing is chosen. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The accessible name of the trigger. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only. <small>(optional)</small></td></tr>
+          <tr><td class="name">doc</td><td class="type">Document</td><td class="desc">The owner document, for a select mounted outside the main document. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">optionTemplate</td><td class="type">(option: object) =&gt; unknown</td><td class="desc"><code>option: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">A custom renderer for one option in the list. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectedTemplate</td><td class="type">(option: object) =&gt; unknown</td><td class="desc"><code>option: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">A custom renderer for the chosen value a single select shows on its trigger. <small>(optional)</small></td></tr>
+          <tr><td class="name">t</td><td class="type">(key: string, params?: object) =&gt; string</td><td class="desc"><code>key: string</code><br><code>params?: object</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">A message resolver for the control's own strings. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Select">Select</h4>
+    <p class="section-note">The select instance {@link createSelect} returns (BACKLOG-0005641). Picking an option dispatches a DOM `change` event on the host element.</p>
+    <h5 id="type-Select-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The host element the select mounted into.</td></tr>
+          <tr><td class="name">root</td><td class="type">HTMLElement</td><td class="desc">The select's root element.</td></tr>
+          <tr><td class="name">trigger</td><td class="type">HTMLElement</td><td class="desc">The trigger button.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Select-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getValue</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">The committed value (an array when `multiple`).</td></tr>
+          <tr><td class="name">setValue</td><td class="type">(value: unknown): <a href="#type-Select">Select</a></td><td class="desc"><code>value: unknown</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Write a committed value silently; no `change` fires.</td></tr>
+          <tr><td class="name">setOptions</td><td class="type">(options: unknown[]): <a href="#type-Select">Select</a></td><td class="desc"><code>options: unknown[]</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Replace the option list, keeping a value still present.</td></tr>
+          <tr><td class="name">setPlaceholder</td><td class="type">(text: string | null | undefined): <a href="#type-Select">Select</a></td><td class="desc"><code>text: string | null | undefined</code></td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Replace the empty-trigger placeholder.</td></tr>
+          <tr><td class="name">reload</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Re-render the list.</td></tr>
+          <tr><td class="name">open</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Open the listbox.</td></tr>
+          <tr><td class="name">close</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Close the listbox.</td></tr>
+          <tr><td class="name">focus</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Focus the trigger.</td></tr>
+          <tr><td class="name">blur</td><td class="type">(): <a href="#type-Select">Select</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Select">Select</a></code></td><td class="desc">Blur the trigger.</td></tr>
+          <tr><td class="name">setDisabled</td><td class="type">(disabled: boolean): void</td><td class="desc"><code>disabled: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Enable or disable the control.</td></tr>
+          <tr><td class="name">setReadOnly</td><td class="type">(readOnly: boolean): void</td><td class="desc"><code>readOnly: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Mark the control read-only.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the control and its listeners.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Select-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-ComboConfig">ComboConfig</h4>
-    <p class="section-note">The `type: 'combo'` item options, and the standalone `createCombo` options.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>

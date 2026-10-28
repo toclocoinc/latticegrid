@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.115.0] - 2026-10-27
+
+### Added
+
+- Kanban column controls and a header menu (BACKLOG-0005636): a column def takes `controls` (a button, a select or a custom element) drawn between the header and the cards, and `menu` items behind a menu button in the header (also opened by a right-click on the header); `columnControls(column)` and `columnMenu` on the board serve every column without its own, data-driven ones included. A select renders through an injected `form.createSelect` or a native `<select>`; clicks and changes fire `column:control`, menu items fire `column:menu`, both naming the column, and `controlValue(columnId, controlId, value?)` reads or sets a select (its value survives a re-render).
+
+- **A kanban board can order each column's cards with a host function instead of a single `orderProperty` value** (BACKLOG-0005637). `order(a, b, column)` compares two cards and returns a number, so a column sorts by score, due date or any computed rank the row data does not carry as one property; it runs after the `orderProperty` sort (the property is the tie-break when the comparator returns 0), and `board.setOrder(fn | null)` replaces or clears it at runtime.
+
+- The form module exports `createSelect` (BACKLOG-0005641): the themed select as a standalone factory, typed and documented like `createCombo` and bringing the form stylesheet with it, so a host on the npm or CDN package can inject it into a kanban board's column controls (`form: { createSelect }`) or mount it alone.
+
 ## [1.114.3] - 2026-10-27
 
 ### Fixed

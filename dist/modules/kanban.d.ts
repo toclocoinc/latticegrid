@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.114.3, kanban module type declarations
+ * Lattice Grid 1.115.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -146,7 +146,7 @@ export interface KanbanColumn {
   collapsed: boolean;
   /**
    * The column's cards that survive the board's filters, in arrival order, re-sorted by
-   * `orderProperty` when one is configured.
+   * `orderProperty` and then any `order` comparator when configured.
    */
   cards: KanbanCard[];
   /** How many cards the column holds — the length of `cards`, after filtering. */
@@ -177,7 +177,104 @@ export type KanbanColumnDef = string | {
   slaWarn?: KanbanSlaThreshold;
   /** A per-column breach threshold — the shorthand for `sla: { breach }`. */
   slaBreach?: KanbanSlaThreshold;
+  /**
+   * Controls drawn in a strip between this column's header and its cards. Wins over the board's `columnControls`.
+   */
+  controls?: KanbanColumnControl[];
+  /**
+   * Items of this column's header menu. Wins over the board's
+   * `columnMenu`; a column with none shows no menu button.
+   */
+  menu?: KanbanColumnMenuItem[];
 };
+
+/** The payload a control's `action` and the `column:control` event share. */
+export interface KanbanColumnControlEvent {
+  /** The model column's id. */
+  column: string;
+  /** The control's id. */
+  control: string;
+  /** The control's type. */
+  type: 'button' | 'select' | 'custom';
+  /** A select's current value; undefined for a button. */
+  value: unknown;
+  /** The control's element (the button, the native select, or the form select's host). */
+  el: HTMLElement;
+  /** The browser event behind it. */
+  originalEvent: Event;
+}
+
+/** A button in a column's controls strip. */
+export interface KanbanColumnButtonControl {
+  /** Marks the control as a button. */
+  type: 'button';
+  /** The control's id, carried on `column:control`. */
+  id: string;
+  /** The button's text. */
+  label: string;
+  /** Greys the button out and ignores presses. `readonly` never does. */
+  disabled?: boolean;
+  /** Called first with the event payload, then `column:control` fires. */
+  action?: (ev: KanbanColumnControlEvent) => void;
+}
+
+/** A select in a column's controls strip. */
+export interface KanbanColumnSelectControl {
+  /** Marks the control as a select. */
+  type: 'select';
+  /** The control's id, carried on `column:control` and used by `controlValue`. */
+  id: string;
+  /** Strings or `{ value, label }` objects; passed verbatim to an injected `form.createSelect`. */
+  options: Array<string | { value: unknown; label?: string; [key: string]: unknown }>;
+  /** The initial value; later picks are remembered across re-renders. */
+  value?: unknown;
+  /** Text shown while nothing is chosen. */
+  placeholder?: string;
+  /** The select's accessible name. */
+  ariaLabel?: string;
+  /** Greys the select out. `readonly` never does. */
+  disabled?: boolean;
+  /** Called first with the event payload (`value` is the pick), then `column:control` fires. */
+  action?: (ev: KanbanColumnControlEvent) => void;
+}
+
+/** A host-rendered element in a column's controls strip. */
+export interface KanbanColumnCustomControl {
+  /** Marks the control as host-rendered. */
+  type: 'custom';
+  /** The control's id, carried on `column:control`. */
+  id: string;
+  /** Return an element, or append to `host`. */
+  render: (column: KanbanColumn, host: HTMLElement) => HTMLElement | void;
+  /** Called with the event payload when the host's element reports one. */
+  action?: (ev: KanbanColumnControlEvent) => void;
+}
+
+/** One control in a column's strip. */
+export type KanbanColumnControl =
+  KanbanColumnButtonControl | KanbanColumnSelectControl | KanbanColumnCustomControl;
+
+/** One item of a column's header menu. */
+export interface KanbanColumnMenuItem {
+  /** The item's id, handed back on the `column:menu` event. */
+  id?: string;
+  /** The item's text in the menu. */
+  label: string;
+  /** Greys the item out; activating it does nothing. */
+  disabled?: boolean;
+  /** Called first with `{ column, item, board }`, then `column:menu` fires. */
+  action?: (ev: { column: string; item: KanbanColumnMenuItem; board: Kanban }) => void;
+}
+
+/** `column:menu`: a header menu item was activated. */
+export interface KanbanColumnMenuEvent {
+  /** The model column's id. */
+  column: string;
+  /** The menu item. */
+  item: KanbanColumnMenuItem;
+  /** The menu item's element. */
+  el: HTMLElement;
+}
 
 /** A card field editor handle returned by a host editor factory. */
 export interface KanbanEditor {
@@ -637,6 +734,21 @@ export interface KanbanConfig {
    */
   columns?: KanbanColumnDef[];
   /**
+   * Controls for every column without its own `controls`, data-driven columns
+   * included.
+   */
+  columnControls?: (column: KanbanColumn) => KanbanColumnControl[];
+  /**
+   * Header-menu items for every column without its own `menu`: an array, or a function of
+   * the column. The menu button shows only when this resolves non-empty.
+   */
+  columnMenu?: KanbanColumnMenuItem[] | ((column: KanbanColumn) => KanbanColumnMenuItem[]);
+  /**
+   * Host-injected form pieces. With `form.createSelect` (the form module's), a select control
+   * renders through it; without it the board draws a native `<select>`.
+   */
+  form?: { createSelect?: (el: HTMLElement, opts: any) => any };
+  /**
    * Pins the leading column order by id; anything not named keeps its natural position
    * after the pinned ones. A user reorder replaces this.
    */
@@ -654,6 +766,16 @@ export interface KanbanConfig {
    * arrival order.
    */
   orderProperty?: string;
+  /**
+   * A host comparator that orders every column's cards — by score, due date, a
+   * computed rank, anything the row data does not carry as one property. Each
+   * argument is a card (with its `.row` and its `.order` — the `orderProperty`
+   * value when one is configured) and the column being sorted; return a number
+   * like `Array.sort`. It runs after the `orderProperty` sort, so the property
+   * is the tie-break when the comparator returns 0. Replaceable at runtime with
+   * {@link Kanban#setOrder}.
+   */
+  order?: (a: KanbanCard, b: KanbanCard, column: KanbanColumn) => number;
   /**
    * The row property that puts a card in a swimlane. Naming it does not switch on the
    * lane layout — set `swimlanes` for that — but it does let a cross-lane drop write the
@@ -1236,6 +1358,10 @@ export type KanbanEventName =
   | 'selection:changed'
   /** A column was collapsed or expanded. */
   | 'column:collapse'
+  /** A column control's button was clicked or its select changed. */
+  | 'column:control'
+  /** A column header menu item was activated. */
+  | 'column:menu'
   /** A card was appended to a column. */
   | 'card:add'
   /** A card drag began. */
@@ -1325,6 +1451,10 @@ export interface KanbanEventPayloads {
   'selection:changed': KanbanSelectionEvent;
   /** The column, and whether it is now collapsed. */
   'column:collapse': KanbanColumnCollapseEvent;
+  /** The column, the control and the select's value. */
+  'column:control': KanbanColumnControlEvent;
+  /** The column and the activated menu item. */
+  'column:menu': KanbanColumnMenuEvent;
   /** The column added to, and the new card's key. */
   'card:add': KanbanCardAddEvent;
   /** The keys the drag carries, the card under the pointer, and the DOM event. */
@@ -1531,6 +1661,13 @@ export interface Kanban {
   select(keys: unknown | unknown[], mode?: 'set' | 'add' | 'toggle' | 'remove'): Kanban;
   /** Clear the selection. */
   clearSelection(): Kanban;
+  /**
+   * Read (no `value`) or set a column select control's value; setting redraws that control
+   * and returns the board, and raises no event.
+   */
+  controlValue(columnId: string, controlId: string): unknown;
+  /** Set the value; redraws that control and returns the board. */
+  controlValue(columnId: string, controlId: string, value: unknown): Kanban;
   /** Collapse, expand or toggle a column (emits `column:collapse`). */
   collapseColumn(id: string, collapsed?: boolean): Kanban;
   /** Collapse, expand or toggle a swimlane (emits `swimlane:collapse`). */
@@ -1633,6 +1770,12 @@ export interface Kanban {
     minColumnWidth?: number;
     maxColumnWidth?: number;
   }): Kanban;
+  /**
+   * Replace or clear the card-order comparator (`config.order`) at runtime,
+   * then re-sort and re-render — preserving selection, focus, scroll and
+   * collapse. `null` returns to the `orderProperty` order (or arrival order).
+   */
+  setOrder(fn: ((a: KanbanCard, b: KanbanCard, column: KanbanColumn) => number) | null): Kanban;
   /**
    * Re-read the source and re-render: a bound grid's rows, or the configured array. Once
    * rows have arrived through `rows.apply` nothing is re-read — the board regroups what

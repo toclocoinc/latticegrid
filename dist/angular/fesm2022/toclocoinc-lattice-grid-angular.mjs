@@ -793,6 +793,8 @@ const VIEWER_EVENTS$1 = Object.freeze({
     kanban: Object.freeze([
         'card:click', 'card:dblclick', 'card:contextmenu',
         'card:move', 'card:reverted', 'card:confirmed', 'selection:changed', 'column:collapse', 'card:add',
+
+        'column:control', 'column:menu',
         'drag:start', 'drag:end', 'swimlane:collapse', 'swimlane:reorder', 'column:reorder',
         'filter:changed', 'sprint:changed', 'epic:changed', 'card:expand', 'card:drill', 'card:edit',
 
@@ -2677,6 +2679,10 @@ class LatticeKanbanComponent extends LatticeViewerBase {
 
         this.columnCollapse = new EventEmitter();
 
+        this.columnControl = new EventEmitter();
+
+        this.columnMenu = new EventEmitter();
+
         this.cardAdd = new EventEmitter();
 
         this.dragStart = new EventEmitter();
@@ -2756,7 +2762,7 @@ class LatticeKanbanComponent extends LatticeViewerBase {
         return createKanban(element, config);
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKanbanComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKanbanComponent, isStandalone: true, selector: "lattice-kanban", inputs: { config: "config", rows: "rows", quickFilter: "quickFilter", sprint: "sprint", epic: "epic", blockedFilter: "blockedFilter", loading: "loading", error: "error" }, outputs: { cardClick: "card-click", cardDblclick: "card-dblclick", cardContextmenu: "card-contextmenu", cardMove: "card-move", cardReverted: "card-reverted", cardConfirmed: "card-confirmed", selectionChanged: "selection-changed", columnCollapse: "column-collapse", cardAdd: "card-add", dragStart: "drag-start", dragEnd: "drag-end", swimlaneCollapse: "swimlane-collapse", swimlaneReorder: "swimlane-reorder", columnReorder: "column-reorder", filterChanged: "filter-changed", sprintChanged: "sprint-changed", epicChanged: "epic-changed", cardExpand: "card-expand", cardDrill: "card-drill", cardEdit: "card-edit", cardSla: "card-sla", cardsLoaded: "cards-loaded", beforeMove: "beforeMove", beforeAdd: "beforeAdd", beforeEdit: "beforeEdit", beforeLaneReorder: "beforeLaneReorder", beforeColumnReorder: "beforeColumnReorder", beforeColumnChange: "beforeColumnChange", moveCancelled: "move-cancelled", addCancelled: "add-cancelled", editCancelled: "edit-cancelled", laneReorderCancelled: "laneReorder-cancelled", columnReorderCancelled: "columnReorder-cancelled", columnChangeCancelled: "columnChange-cancelled", history: "history" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKanbanComponent, isStandalone: true, selector: "lattice-kanban", inputs: { config: "config", rows: "rows", quickFilter: "quickFilter", sprint: "sprint", epic: "epic", blockedFilter: "blockedFilter", loading: "loading", error: "error" }, outputs: { cardClick: "card-click", cardDblclick: "card-dblclick", cardContextmenu: "card-contextmenu", cardMove: "card-move", cardReverted: "card-reverted", cardConfirmed: "card-confirmed", selectionChanged: "selection-changed", columnCollapse: "column-collapse", columnControl: "column-control", columnMenu: "column-menu", cardAdd: "card-add", dragStart: "drag-start", dragEnd: "drag-end", swimlaneCollapse: "swimlane-collapse", swimlaneReorder: "swimlane-reorder", columnReorder: "column-reorder", filterChanged: "filter-changed", sprintChanged: "sprint-changed", epicChanged: "epic-changed", cardExpand: "card-expand", cardDrill: "card-drill", cardEdit: "card-edit", cardSla: "card-sla", cardsLoaded: "cards-loaded", beforeMove: "beforeMove", beforeAdd: "beforeAdd", beforeEdit: "beforeEdit", beforeLaneReorder: "beforeLaneReorder", beforeColumnReorder: "beforeColumnReorder", beforeColumnChange: "beforeColumnChange", moveCancelled: "move-cancelled", addCancelled: "add-cancelled", editCancelled: "edit-cancelled", laneReorderCancelled: "laneReorder-cancelled", columnReorderCancelled: "columnReorder-cancelled", columnChangeCancelled: "columnChange-cancelled", history: "history" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKanbanComponent, decorators: [{
             type: Component,
@@ -2801,6 +2807,12 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], columnCollapse: [{
                 type: Output,
                 args: ['column-collapse']
+            }], columnControl: [{
+                type: Output,
+                args: ['column-control']
+            }], columnMenu: [{
+                type: Output,
+                args: ['column-menu']
             }], cardAdd: [{
                 type: Output,
                 args: ['card-add']
