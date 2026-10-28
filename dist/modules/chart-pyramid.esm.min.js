@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.0, chart-pyramid module
+ * Lattice Grid 1.115.1, chart-pyramid module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

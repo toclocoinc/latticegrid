@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.115.1] - 2026-10-28
+
+### Fixed
+
+- On a kanban board bound to a grid, an `order` comparator that read a column which is not a card field (`(a, b) => b.row.score - a.row.score`) saw `undefined` and sorted nothing, and the same went for `onBeforeMove`, a card menu action, a `setFilter` predicate and the column handlers. A card's `row` now carries the grid row's value for every grid column, read the way the grid reads it (a computed column included), so code written against a board over plain rows works unchanged on a grid-bound one (BACKLOG-0005642).
+
 ## [1.115.0] - 2026-10-27
 
 ### Added
