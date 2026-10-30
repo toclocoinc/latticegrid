@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.3, type declarations
+ * Lattice Grid 1.116.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -15157,8 +15157,10 @@ export interface ChartCursorOptions {
   /** Label the hairlines at the axes, in the axis's own format. Default true. */
   labels?: boolean;
   /**
-   * `'shared'` (the default) lists every series at the x; `'single'` lists only the series
-   * nearest the pointer; `false` draws no tooltip.
+   * `'shared'` lists every series at the x; `'single'` lists only the series under the pointer
+   * (the segment it is in on a stack, the nearest series on a line); `false` draws no tooltip.
+   * Unset, it follows the chart's own `tooltip` mode, which is `'shared'` unless the chart asks
+   * for `'single'`.
    */
   tooltip?: 'shared' | 'single' | false;
   /**
@@ -16133,8 +16135,14 @@ export interface ChartSpec {
   subtitle?: string;
   /** A note under the plot, a source, a caveat, a unit. */
   footnote?: string;
-  /** `false` turns the hover tooltip off. */
-  tooltip?: boolean;
+  /**
+   * The hover tooltip. `true`, unset and `'shared'` list every series at the category;
+   * `'single'` shows the category and only the series under the pointer: the segment it is in
+   * on a stacked or percent-stacked bar or column, the bar under it on a grouped one, the bar
+   * whose span holds it on a floating one, the nearest series on a line or area. `false`
+   * turns the tooltip off. A `cursor` follows this mode unless it sets its own `tooltip`.
+   */
+  tooltip?: boolean | 'shared' | 'single';
   /**
    * Where the hover tooltip node lives. Defaults to `document.body`, so a host that blurs,
    * transforms or clips the chart cannot hide it; a chart mounted inside a shadow root

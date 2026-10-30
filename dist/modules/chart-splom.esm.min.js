@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.3, chart-splom module
+ * Lattice Grid 1.116.0, chart-splom module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

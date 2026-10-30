@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.116.0] - 2026-10-30
+
+### Added
+
+- A chart's `tooltip` can now show every series at the category, as before (`'shared'`, the default), or only the segment under the pointer (`'single'`). On a stacked bar or column the tooltip picks the segment the pointer is in, so the series that are zero in that bar stay out of it. The crosshair cursor follows the chart's setting unless it sets its own.
+
 ## [1.115.3] - 2026-10-30
 
 ### Fixed

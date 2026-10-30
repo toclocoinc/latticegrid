@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.3, el-GR locale type declarations
+ * Lattice Grid 1.116.0, el-GR locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
