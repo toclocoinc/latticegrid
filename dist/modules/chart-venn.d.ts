@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.115.2, chart-venn module type declarations
+ * Lattice Grid 1.115.3, chart-venn module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

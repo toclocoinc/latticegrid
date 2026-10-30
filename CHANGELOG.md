@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.115.3] - 2026-10-30
+
+### Fixed
+
+- **A form's left label now lines up with its input when help text or a message sits under the input** (BACKLOG-0005762). A left label used to be centred against the whole item — control plus help plus validation message — so an item whose help text ran to two or three lines left its label sitting a line below the input's own midline. The label now aligns to the control's box, and a multi-line label starts at the control's top edge without pushing the control down.
+
 ## [1.115.2] - 2026-10-28
 
 ### Fixed

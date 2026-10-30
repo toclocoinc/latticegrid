@@ -9,7 +9,7 @@ forms, lists, trees and an app shell.
 Zero runtime dependencies, with adapters for React, Vue, Svelte, Angular, Web
 Components and htmx. Free on localhost, licensed per domain to ship.
 
-Version 1.115.2 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.115.3 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ## Start
 
