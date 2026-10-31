@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.116.0, form module type declarations
+ * Lattice Grid 1.116.1, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -318,6 +318,14 @@ export interface FormItemConfig extends ComboConfig {
   padding?: number | string;
   /** Placeholder text for a text-like control. */
   placeholder?: string;
+  /**
+   * The native `autocomplete` token passed straight to an `input`, `number`,
+   * `combo`, `select`, `textarea` or `datepicker` item's element, winning over the
+   * defaults: a control that draws its own list defaults to
+   * `'off'` and a password `input` to `'new-password'`; `'on'` restores the
+   * browser's own behaviour, `'url'` or `'one-time-code'` name the kind of entry.
+   */
+  autocomplete?: string;
   /** Help text shown under the control. */
   helpMessage?: string;
   /** Start hidden. */

@@ -9,6 +9,13 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.116.1] - 2026-10-30
+
+### Fixed
+
+- **A form combo's own option list was covered by the browser's saved form history, and a settings form could receive a saved login** (BACKLOG-0005793). *Recognise your case: you focus or type in a combo, such as the List combo of an Add to list dialog, and a native popup of past entries opens over the combo's own list; or a settings form with an `Endpoint URL` input and a `Webhook secret` password input has the user's email and saved password filled in.* Every input that draws its own suggestion or option list now carries `autocomplete="off"` and a generated, opaque `name`: the form `combo`, `datepicker`, `daterange`, `time`, `color` and `listbox` filter inputs, the grid's header and filter-row inputs, the column-menu value and search inputs, the set-filter search, the advanced filter, the view picker, and the tool panel searches. A form `password` input is `autocomplete="new-password"` by default, and an unnamed text input is given a generated `name` that does not read as a login field.
+  - **Added.** Every form `input`, `number`, `combo`, `select`, `textarea` and `datepicker` item takes an `autocomplete` string, passed straight to the element and winning over those defaults (`'on'` restores the browser's own behaviour; `'url'` and `'one-time-code'` name the kind of entry).
+
 ## [1.116.0] - 2026-10-30
 
 ### Added

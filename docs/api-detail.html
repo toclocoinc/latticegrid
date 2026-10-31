@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.116.0</p>
+    <p class="rail__sub">Developer guide · v1.116.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.116.0</span>
+        <span class="chip">Version 1.116.1</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.116.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.116.1'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12254,6 +12254,34 @@ shell.getCell(<span class="str">'main'</span>).getTab(<span class="str">'overvie
       length, or <code>'content'</code> to size to the control&rsquo;s own content; <code>height</code>
       applies to every item type. Each is live through <code>getItem(name).set({&hellip;})</code>.
     </p>
+    <p><strong>The browser&rsquo;s saved entries stay off the form&rsquo;s own lists.</strong> An
+      <code>input</code>, <code>number</code>, <code>combo</code>, <code>select</code>, <code>textarea</code>
+      or <code>datepicker</code> item takes an <code>autocomplete</code> string that goes straight to the native
+      element and wins over the defaults. Without it a control that draws its own suggestion or option list
+      (<code>combo</code>, <code>datepicker</code>, <code>daterange</code>, <code>time</code>, <code>color</code>,
+      a <code>listbox</code> filter) sets <code>autocomplete="off"</code> with a generated, opaque
+      <code>name</code>, so the browser&rsquo;s form history never opens over the control&rsquo;s own list;
+      a <code>password</code> <code>input</code> defaults to <code>"new-password"</code>, so a saved login is
+      not filled into a settings field. <code>'on'</code> restores the browser default;
+      <code>'url'</code> or <code>'one-time-code'</code> name the kind of entry. An unnamed text
+      <code>input</code> keeps the browser&rsquo;s own behaviour but gets a generated <code>name</code> that
+      never reads as a login field.
+    </p>
+    <pre data-run="js" data-expect="new-password|one-time-code|off" data-covers="config:FormItemConfig.autocomplete"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'input', name: 'secret', subtype: 'password', label: 'Webhook secret' },
+  { type: 'input', name: 'code', label: 'Code', autocomplete: 'one-time-code' },
+  { type: 'combo', name: 'list', label: 'List', options: ['hot', 'warm'] },
+] });
+
+const attr = (name) => form.getItem(name).el.querySelector('input').getAttribute('autocomplete');
+const out = [attr('secret'), attr('code'), attr('list')].join('|');   // 'new-password|one-time-code|off'
+
+form.destroy();
+return out;</code></pre>
     <p><strong>A left label that gives up its column when the field gets too narrow.</strong> A
       <code>left</code> label normally keeps its column however narrow the item gets, so the field
       itself can be squeezed to nothing. <code>controlMinWidth</code> &mdash; a pixel number or CSS
@@ -15080,7 +15108,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.116.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.116.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
