@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.116.1</p>
+    <p class="rail__sub">Developer guide · v1.117.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.116.1</span>
+        <span class="chip">Version 1.117.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.116.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.117.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2294,7 +2294,7 @@ return `a ${on('a')} | b ${on('b')}`;</code></pre>
         <tbody>
           <tr><td class="name">Core</td><td class="desc"><code>text</code>, <code>number</code>, <code>boolean</code>, <code>date</code>, <code>dateString</code>, <code>object</code>, <code>lookup</code></td></tr>
           <tr><td class="name">Temporal</td><td class="desc"><code>datetime</code>, <code>timestamp</code>, <code>time</code>, <code>duration</code></td></tr>
-          <tr><td class="name">Network</td><td class="desc"><code>ipv4</code>, <code>ipv6</code>, <code>cidr</code>, <code>mac</code></td></tr>
+          <tr><td class="name">Network</td><td class="desc"><code>ipv4</code>, <code>ipv6</code>, <code>cidr</code>, <code>mac</code>, <code>vlan</code></td></tr>
           <tr><td class="name">Numeric bases</td><td class="desc"><code>hex</code>, <code>hex8</code>, <code>hex16</code>, <code>hex32</code>, <code>binary</code>, <code>binary8</code>, <code>octal</code></td></tr>
           <tr><td class="name">Units: computing</td><td class="desc"><code>bytes</code>, <code>megabytes</code>, <code>gigabytes</code>, <code>bitrate</code>, <code>gigabits</code></td></tr>
           <tr><td class="name">Units: physical</td><td class="desc"><code>metres</code>, <code>millimetres</code>, <code>kilometres</code>, <code>grams</code>, <code>kilograms</code>, <code>tonnes</code>, <code>seconds</code>, <code>milliseconds</code>, <code>hours</code></td></tr>
@@ -2307,6 +2307,151 @@ return `a ${on('a')} | b ${on('b')}`;</code></pre>
           <tr><td class="name">Lists</td><td class="desc"><code>list</code>, with <code>modules/list</code> &mdash; see <a href="#list-type">the list module</a></td></tr>
         </tbody>
       </table>
+    </div>
+
+    <h3 id="cidr">CIDR networks</h3>
+    <p class="lead-in">
+      A <code>cidr</code> column stores a block as a packed address-and-prefix number
+      and, by default, keeps the address exactly as typed: <code>10.1.2.3/24</code>
+      stores and shows <code>10.1.2.3/24</code>, host bits and all &mdash; the right
+      reading for an interface address, which is what the address <em>is</em> on most
+      inventories. A column that instead holds subnets wants the network address, not
+      whichever host happened to be typed into it, so
+      <code>typeOptions: { cidrNetwork: true }</code> clears the host bits on every
+      write &mdash; a typed edit, a paste, a fill, <code>setCells</code> &mdash; so
+      <code>10.1.2.3/24</code> stores <code>10.1.2.0/24</code>. A bare address still
+      takes the column's default prefix first (the <code>ipaddress</code> editor's
+      <code>prefix</code> prop, 32 unless set), and the mask is applied to the result,
+      so <code>10.1.2.3</code> with <code>prefix: 24</code> and
+      <code>cidrNetwork: true</code> stores <code>10.1.2.0/24</code>.
+    </p>
+    <div class="example">
+      <p class="example__label">A subnet column drops host bits; the default keeps them</p>
+      <pre data-run="js" data-expect="10.1.2.3/24 | 10.1.2.0/24" data-covers="config:ColumnTypeOptions.cidrNetwork"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'iface', type: 'cidr', edit: true },
+    { field: 'subnet', type: 'cidr', typeOptions: { cidrNetwork: true }, edit: true },
+  ],
+  rows: [{ id: 1, iface: null, subnet: null }],
+});
+grid.edit.setCells([
+  { key: '1', colId: 'iface', value: '10.1.2.3/24' },
+  { key: '1', colId: 'subnet', value: '10.1.2.3/24' },
+]);
+const col = (id) => grid.columns.get(id);
+const host = grid.rendererHost();
+const row = grid.rows.get(0);
+return `${host.cellText(row, col('iface'))} | ${host.cellText(row, col('subnet'))}`;
+</code></pre>
+    </div>
+
+    <p class="lead-in">
+      That packed number is the <em>logical</em> value: what <code>rows.value()</code>
+      answers and what the <code>ColumnStore</code> sorts, groups and range-filters by,
+      for both <code>ipv4</code> and <code>cidr</code>. The <em>row object</em> &mdash;
+      the plain object the host handed the grid, read back as
+      <code>rows.get(i).data</code> &mdash; is a different question, and by default
+      a committed edit writes the canonical text into it: a typed edit, a paste, a
+      fill and <code>setCells</code> all leave <code>row.data.field</code> as
+      <code>'10.0.0.2'</code> or <code>'10.1.2.0/24'</code>, the shape the record was
+      loaded in, rather than the packed number (BACKLOG-0005934). A column that would
+      rather keep the row object holding the packed number &mdash; the behaviour every
+      write path had before this option existed &mdash; declares
+      <code>typeOptions: { storeNumber: true }</code>. A form bound to the column
+      follows the same option, since its save funnels through the grid's own edit
+      path. Neither mode touches <code>rows.value()</code>, sorting or filtering,
+      which read the stored packed number either way.
+    </p>
+    <div class="example">
+      <p class="example__label">The row object holds text by default; storeNumber keeps the packed number</p>
+      <pre data-run="js" data-expect="10.0.0.2 | 167772162" data-covers="config:ColumnTypeOptions.storeNumber"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'text', type: 'ipv4', edit: true },
+    { field: 'num', type: 'ipv4', typeOptions: { storeNumber: true }, edit: true },
+  ],
+  rows: [{ id: 1, text: null, num: null }],
+});
+grid.edit.setCells([
+  { key: '1', colId: 'text', value: '10.0.0.2' },
+  { key: '1', colId: 'num', value: '10.0.0.2' },
+]);
+const row = grid.rows.get(0);
+return `${row.data.text} | ${row.data.num}`;
+</code></pre>
+    </div>
+
+    <h3 id="vlan">VLAN columns</h3>
+    <p class="lead-in">
+      A switch port carries a VLAN as either a single access VLAN or a trunk's
+      allowed list, and one <code>vlan</code> column serves both. It stores the
+      canonical, sorted text — <code>30-20, 10,25,21</code> becomes
+      <code>10,20-30</code>, a single ID stays <code>25</code> — after validating
+      every ID as a whole number from 1 to 4094 and turning a reversed range
+      round. Sorting is by the first ID and then by the count of IDs, so it is
+      numeric rather than lexical. Filtering is by two operators:
+      <code>contains</code> takes one VLAN ID and matches any cell whose set
+      includes it, so <code>25</code> matches <code>20-30</code>, and
+      <code>overlaps</code> takes a list of IDs and matches any ID in common. A
+      column that must hold one ID only declares
+      <code>typeOptions: { vlanSingle: true }</code>, which refuses a list or a
+      range with a message rather than silently taking one ID.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A trunk list is normalised; an access VLAN holds one ID</p>
+      <pre data-run="js" data-expect="10,20-30 | 25" data-covers="config:ColumnTypeOptions.vlanSingle"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'trunk', type: 'vlan' },
+    { field: 'access', type: 'vlan', typeOptions: { vlanSingle: true } },
+  ],
+  rows: [{ id: 'p1', trunk: '30-20, 10,25', access: '25' }],
+});
+return `${grid.rows.value('p1', 'trunk')} | ${grid.rows.value('p1', 'access')}`;
+</code></pre>
+    </div>
+
+    <h3 id="mac">MAC addresses</h3>
+    <p class="lead-in">
+      A <code>mac</code> column stores the canonical lowercase-colon spelling
+      (<code>00:1a:2b:3c:4d:5e</code>) whatever form a value arrived in — colon,
+      hyphen, Cisco dotted or bare hex — and sorts by the 48-bit value rather than
+      the text. The display spelling is <code>typeOptions.macFormat</code>:
+      <code>'colon'</code> (the default), <code>'colon-upper'</code>,
+      <code>'cisco'</code> or <code>'hyphen'</code>. The option changes only what is
+      shown and copied, never the stored value.
+    </p>
+    <p class="lead-in">
+      Filtering is through the built-in text filter, whose operators the type
+      reinterprets for MAC semantics: <code>contains</code> and
+      <code>notContains</code> strip separators and ignore case, so
+      <code>1A2B</code>, <code>1a:2b</code>, <code>1a-2b</code> and
+      <code>1a2b</code> all match <code>00:1a:2b:3c:4d:5e</code>;
+      <code>equals</code> and <code>notEqual</code> compare the 48-bit value, so
+      any spelling of the same address is equal; <code>startsWith</code> and
+      <code>endsWith</code> match the canonical text; and
+      <code>blank</code>/<code>notBlank</code> test presence. The three API
+      operators — <code>macEquals</code>, <code>macInRange</code> and
+      <code>macContains</code> — stay for callers that name the operator
+      explicitly in a filter tree, saved view or the AI schema.
+    </p>
+    <div class="example">
+      <p class="example__label">The stored value and the display spelling stay separate</p>
+      <pre data-run="js" data-expect="00:1a:2b:3c:4d:5e | 001a.2b3c.4d5e" data-covers="config:ColumnTypeOptions.macFormat"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'mac', type: 'mac', typeOptions: { macFormat: 'cisco' } }],
+  rows: [{ id: 1, mac: '00:1a:2b:3c:4d:5e' }],
+});
+const col = grid.columns.get('mac');
+const host = grid.rendererHost();
+return `${grid.rows.value('1', 'mac')} | ${host.cellText(grid.rows.get(0), col)}`;
+</code></pre>
     </div>
 
     <h3 id="units">Units</h3>
@@ -6297,6 +6442,54 @@ columns: [
   validate: (p) =&gt; p.value &gt; 0 || 'Capacity must be positive',
 }}</code></pre>
     </div>
+
+    <h3 id="editing-input-mask">An input mask on a text column</h3>
+    <p class="lead-in">
+      A text column&rsquo;s cell editor can be held to a fixed pattern as it is typed: set
+      <code>mask</code> in the column&rsquo;s <code>edit.props</code> (the editor options live there, beside
+      <code>maxLength</code> and <code>placeholder</code>). It is the same engine and the same rules as the form
+      <code>input</code> item&rsquo;s <code>mask</code>: <code>9</code> a digit, <code>A</code> a letter,
+      <code>*</code> a letter or digit, anything else a literal inserted as you type, and the cell stores the masked
+      text as shown, literals included. An incomplete value is refused on commit through the editor&rsquo;s normal
+      invalid-edit path. Paste and fill write through <code>edit.validate</code> and not through the cell editor, so
+      to have a pasted range refused cell by cell set <code>validate: editors.text.maskValidator(pattern)</code> too.
+      This is not the display <code>mask</code> of a column format, which only paints a stored value.
+    </p>
+    <pre data-run="js" data-expect="ok|ab-1234|Value must match __-____" data-covers="config:TextEditorOptions.mask"><code>const { editors } = await import('../packages/dom/src/editors/index.js');
+const { attachInputMask } = await import('../packages/dom/src/input-mask.js');
+const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+
+const mask = 'AA-9999';
+const { document } = createTestDom();
+const input = document.createElement('input');
+attachInputMask(input, mask);
+input.value = 'ab1234';
+input.dispatchEvent(new TestEvent('input'));
+
+const check = editors.text.maskValidator(mask);
+const out = [
+  check({ value: 'ab-1234' }) === true ? 'ok' : 'bad',
+  input.value,
+  check({ value: 'ab-12' }),
+].join('|');
+return out;</code></pre>
+    <p>The same <code>edit.props</code> also take <code>maxLength</code>, the longest text the editor accepts,
+      and <code>placeholder</code>; with a <code>mask</code> and no placeholder of your own, the pattern is shown.</p>
+    <pre data-run="js" data-expect="5|Asset tag|__-____" data-covers="config:TextEditorOptions.maxLength config:TextEditorOptions.placeholder"><code>const { TextEditor } = await import('../packages/dom/src/editors/index.js');
+const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+
+const { document } = createTestDom();
+const open = (props) =&gt; {
+  const editor = new TextEditor();
+  editor.init({ document, cell: document.createElement('div'), overlay: document.body,
+    column: { id: 'tag', title: 'Tag', edit: { enabled: true, props } }, value: '' });
+  return editor.input;
+};
+return [
+  open({ maxLength: 5 }).getAttribute('maxlength'),
+  open({ placeholder: 'Asset tag' }).getAttribute('placeholder'),
+  open({ mask: 'AA-9999' }).getAttribute('placeholder'),
+].join('|');</code></pre>
 
     <h3 id="declarative-validation">Declarative validation</h3>
     <p class="lead-in">
@@ -12282,6 +12475,35 @@ const out = [attr('secret'), attr('code'), attr('list')].join('|');   // 'new-pa
 
 form.destroy();
 return out;</code></pre>
+    <p><strong>A fixed pattern an <code>input</code> is held to as it is typed.</strong> A <code>mask</code>
+      string on an <code>input</code> item (for example <code>'AA-9999'</code>) accepts only what fits:
+      <code>9</code> is a digit, <code>A</code> a letter, <code>*</code> a letter or a digit, and every other
+      character is a literal that is inserted as the caret reaches it. Letters keep the case typed. A character
+      that does not fit is refused with no change and no caret jump; typing a literal where it belongs just moves
+      past it; Backspace just after a literal deletes the slot character before it; deleting from the middle shifts
+      the characters after it left through the slots that still fit them; pasted text is run through the pattern
+      from the caret and what does not fit is dropped (<code>AB1234</code> pasted into <code>AA-9999</code> gives
+      <code>AB-1234</code>). The value is the text as shown, literals included. A partly filled value fails
+      validation with the form&rsquo;s own message, and a required masked item is complete only when every slot
+      is filled. With no <code>placeholder</code> the field shows the pattern with <code>_</code> for slots
+      (<code>__-____</code>), a screen reader gets the pattern in the field&rsquo;s description, and a pattern whose
+      slots are all digits sets <code>inputmode="numeric"</code>. This is not the display <code>mask</code> a grid
+      column&rsquo;s format takes; the same engine holds a grid text column&rsquo;s cell editor to a pattern, see
+      <a href="#editing-input-mask">Editing</a>.
+    </p>
+    <pre data-run="js" data-expect="__-____|numeric" data-covers="config:FormItemConfig.mask"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'input', name: 'tag', label: 'Serial', mask: '99-9999', required: true },
+] });
+
+const input = form.getItem('tag').el.querySelector('input');
+const out = [input.getAttribute('placeholder'), input.getAttribute('inputmode')].join('|');   // '__-____|numeric'
+
+form.destroy();
+return out;</code></pre>
     <p><strong>A left label that gives up its column when the field gets too narrow.</strong> A
       <code>left</code> label normally keeps its column however narrow the item gets, so the field
       itself can be squeezed to nothing. <code>controlMinWidth</code> &mdash; a pixel number or CSS
@@ -12661,6 +12883,51 @@ return out;</code></pre>
       update with all the members&rsquo; dirty fields, calling <code>onSave</code> once.
       <code>options.transform = { get, set }</code> joins the merged values on read
       and splits them back on write.</p>
+      <p><strong>Network address and VLAN items parse, validate and normalise through the grid's own
+        data types.</strong> <code>type: 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan'</code> accepts, while
+        typing or pasting, every spelling the matching grid column parses &mdash; a MAC in colon, hyphen,
+        Cisco-dotted or bare hex, a VLAN list such as <code>30-20, 10,25</code>, a bare CIDR address that
+        takes the item's <code>prefix</code> (default 32). On commit (blur, Enter, or <code>submit</code>)
+        the field shows the canonical text, which becomes the item's value: MAC
+        <code>00:1a:2b:3c:4d:5e</code>, VLAN <code>10,20-30</code>. <code>macFormat</code>
+        (<code>'colon'</code> default, <code>'colon-upper'</code>, <code>'cisco'</code>,
+        <code>'hyphen'</code>) changes only the displayed MAC text, never the committed value, and
+        <code>vlanSingle: true</code> refuses a list or a range so an access-VLAN field takes one ID only,
+        and <code>cidrNetwork: true</code> on a <code>cidr</code> item clears the committed value's host
+        bits, so <code>10.1.2.3/24</code> commits as <code>10.1.2.0/24</code> (BACKLOG-0005931) &mdash;
+        <code>false</code> by default, which keeps the address as typed.
+        Invalid text is refused with a message naming the accepted forms and the value is unchanged. A
+        form bound to a grid row (<code>bind.js</code>) maps a column of one of these types onto the
+        matching item automatically, carrying the column's own <code>macFormat</code>/<code>vlanSingle</code>/
+        <code>prefix</code>/<code>cidrNetwork</code> &mdash; for both a generated item and an explicit one
+        naming the column &mdash; so a commit leaves the row holding exactly what typing the same text into
+        the grid cell would (BACKLOG-0005890).</p>
+      <pre data-run="js" data-expect="001a.2b3c.4d5e | null | 10.0.0.0/24 | 10.1.2.0/24" data-covers="config:FormItemConfig.macFormat config:FormItemConfig.vlanSingle config:FormItemConfig.prefix config:FormItemConfig.cidrNetwork"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'mac', name: 'mac', label: 'MAC', macFormat: 'cisco' },
+  { type: 'vlan', name: 'access', label: 'Access VLAN', vlanSingle: true },
+  { type: 'cidr', name: 'net', label: 'Network', prefix: 24 },
+  { type: 'cidr', name: 'subnet', label: 'Subnet', cidrNetwork: true },
+] });
+
+const commit = (name, text) => {
+  const input = form.getItem(name).el.querySelector('input');
+  input.value = text;
+  input.dispatchEvent(new TestEvent('change', { bubbles: true }));
+  input.dispatchEvent(new TestEvent('blur', { bubbles: false }));
+};
+commit('mac', '00:1a:2b:3c:4d:5e');
+commit('access', '10,20-30');   // refused: a single-ID column takes one ID, not a list
+commit('net', '10.0.0.0');      // bare address takes the item's prefix, 24
+commit('subnet', '10.1.2.3/24'); // cidrNetwork: true drops the host bits
+
+const macText = form.getItem('mac').el.querySelector('input').value;
+const v = form.getValue();
+form.destroy();
+return `${macText} | ${v.access} | ${v.net} | ${v.subnet}`;   // '001a.2b3c.4d5e | null | 10.0.0.0/24 | 10.1.2.0/24'</code></pre>
     </div>
 
     <h3 id="combo-live">The combo control</h3>
@@ -15108,7 +15375,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.116.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.117.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

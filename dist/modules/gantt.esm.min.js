@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.116.1, gantt module
+ * Lattice Grid 1.117.0, gantt module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

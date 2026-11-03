@@ -9,6 +9,42 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.117.0] - 2026-11-03
+
+### Added
+
+- **A `mac` data type** (BACKLOG-0005888). Columns declared `type: 'mac'` accept colon, hyphen, Cisco dotted and bare hex spellings, store the canonical lowercase-colon form (`00:1a:2b:3c:4d:5e`), sort by the 48-bit value, and parse/format through the shared IP address editor.
+  - `typeOptions.macFormat` chooses the display spelling — `'colon'`, `'colon-upper'`, `'cisco'` or `'hyphen'` — without changing the stored value.
+  - Its filter operators — `macEquals` (equality on the 48-bit value), `macInRange` (an inclusive `between` on the value) and `macContains` (separator-stripping hex contains) — wire into `filters.set`, saved views and the AI schema; a `mac` column accepts these and `blank`/`notBlank`.
+  - `parseMac`, `formatMac`, `isMac`, `compareMac`, `macValue`, `macHex` and `macContains` are exported for callers that need the same parse/format/filter behaviour outside a column.
+
+- **A `vlan` column type** (BACKLOG-0005889). A column declares `type: 'vlan'` and stores the canonical text of one VLAN ID or a list of IDs and ranges — `30-20, 10,25,21` becomes `10,20-30` — validated to the whole numbers 1–4094, sorted, and sorted numerically rather than lexically when the column sorts.
+  - `typeOptions.vlanSingle: true` narrows the column to a single ID and refuses a list or range with a message.
+  - Filtering by contained ID is the `contains` operator (one VLAN ID, matching any cell whose set includes it — `25` matches `20-30`) and the `overlaps` operator (a list of IDs, matching any ID in common); the helpers `parseVlans`, `formatVlans`, `vlanContains`, `vlanOverlaps` and `vlanCount` are exported beside the other column-type helpers.
+
+- **Form items of type `ipv4`, `ipv6`, `cidr`, `mac` and `vlan`** (BACKLOG-0005890). Each parses, validates and normalises through the matching grid data type's own functions: it accepts every spelling the type parses while typing or pasting, and on commit (blur, Enter or `submit`) the box shows the canonical text, which becomes the item's value — MAC `00:1a:2b:3c:4d:5e`, VLAN `10,20-30`. Invalid text is refused with a message naming the accepted forms, the box keeps the typed text on screen rather than reverting it, the field is marked invalid, `validate()` keeps failing until it parses, and `getValue()` keeps reporting the last value that did (BACKLOG-0005929).
+  - `macFormat` (`'colon'` default, `'colon-upper'`, `'cisco'`, `'hyphen'`) changes a `mac` item's displayed text only; `vlanSingle: true` refuses a list or a range on a `vlan` item; a `cidr` item's `prefix` is the mask a bare address takes.
+  - A form bound to a grid row (`bind.js`) maps a column of one of these types onto the matching item automatically — for both a generated item and an explicit one naming the column — carrying the column's own `macFormat`/`vlanSingle`/`prefix`, so a commit leaves the row holding exactly what typing the same text into the grid cell would.
+  - Autocomplete off with an opaque name, like the form's other list/pattern inputs.
+  - The VLAN messages state the ID range, 1 to 4094; the MAC message names the accepted forms (colons, hyphens, Cisco dots, bare hex) with no dash punctuation of its own (BACKLOG-0005929).
+  - An invalid entry shows its message once, however often a commit and `form.validate()` run (BACKLOG-0005933): a commit and `validate()` now share one message line instead of each drawing its own, for all six network and VLAN item types.
+
+- **An input `mask` for fixed-pattern fields, on a form `input` item and on a grid text column** (BACKLOG-0005891). *Recognise your case: an asset tag or serial number that must be two letters, a dash and four digits, and you want the field to hold that shape as it is typed.* Set `mask: 'AA-9999'` on a form `input` item, or `edit: { props: { mask: 'AA-9999' } }` on a text column. `9` is a digit, `A` a letter, `*` a letter or a digit, and every other character is a literal inserted as you type; letters keep the case typed. A character that does not fit is refused, Backspace after a literal deletes the character before it, deleting from the middle shifts the rest left, and pasted text is run through the pattern (`AB1234` becomes `AB-1234`). The value is the text as shown, literals included, and a partly filled value fails validation (a required masked item is complete only when every slot is filled). The placeholder shows the pattern with `_` for slots, a screen reader gets the pattern in the field description, and an all-digit pattern asks a phone for the numeric keypad. For a grid column, `validate: editors.text.maskValidator('AA-9999')` additionally refuses a pasted range cell by cell. This is separate from the display format `mask` a column takes.
+
+- **A `mac` column gets a working filter box** (BACKLOG-0005915). Its default filter is the built-in text filter, whose operators the type reinterprets for MAC semantics: `contains`/`notContains` strip separators and ignore case, so `1A2B`, `1a:2b`, `1a-2b` and `1a2b` all match `00:1a:2b:3c:4d:5e`; `equals`/`notEqual` compare the 48-bit value, so any spelling of the same address is equal; and `startsWith`/`endsWith` match the canonical text. The API operators `macEquals`, `macInRange` and `macContains` keep working.
+
+- **`typeOptions.cidrNetwork` on a `cidr` column, and `cidrNetwork` on a `cidr` form item** (BACKLOG-0005931). `true` stores a block's network address rather than the address as typed: `10.1.2.3/24` is stored and shown as `10.1.2.0/24`. `false` by default, which keeps `10.1.2.3/24` as typed — the right reading for an interface address, where `cidrNetwork: true` is right for a subnet field. Applies on every write — a typed edit, a paste, a fill, `setCells` — and on a bare address once the column's default prefix fills it in. A form bound to a grid row (`bind.js`) inherits the option from the column automatically, for both a generated item and an explicit one naming the column.
+
+### Changed
+
+- **An edit to an IPv4 or CIDR cell now saves the address as text in the row, the way it was loaded** (BACKLOG-0005934). Set `typeOptions: { storeNumber: true }` on the column to keep saving the number instead.
+
+### Fixed
+
+- **Unreadable text written to a `mac`, `vlan` (including `vlanSingle`), `ipv4`, `ipv6` or `cidr` column is refused, never stored as null** (BACKLOG-0005930). The network types' `parse` returns null for blank text and for text it cannot read, so `grid.edit.setCells`, paste and fill overwrote the cell with null and counted the write. A data type may now declare `parseError`, which names why non-blank text cannot be read; the write path refuses that text like any failed validation: the cell keeps its value, the write is not counted, and for `'user'` and `'ai'` origins the cell shows the type's message. Blank text still clears the cell, and valid text is stored normalised as before. The `ipv4`, `cidr` and `ipv6` columns had the same defect in earlier releases. Also fixed for every column: a refused write inside `setCells` (a plain `edit.validate` rule included) left its edit session open, so the next write in the batch re-pointed the open session's column and landed on the refused row instead of its own. A write that lands on a session this same `setCells` call already refused now closes it first and starts cleanly; a session left open from before the call, or still open for a user to correct, is left alone and the write is refused alongside it.
+
+- **A refused write inside `grid.edit.setCells` (and the paste and fill that funnel through it) silently dropped every write after it** (BACKLOG-0005932). `setCells` left a refused cell's edit session open — right for a typed edit, which stays open so the value can be corrected where it was typed, but wrong for a batch write with no editor to correct anything in. `start` then refused every later write in that same batch and in every later `setCells` call, until the host called `grid.edit.stop(true)`. A refused write through `setCells`, paste or fill now cancels its own session immediately: the batch carries on, and the return value counts only the writes that actually landed. Each write still lands only on the row and column it names — a refused write never lets a later one borrow its session. A typed cell edit's refusal still leaves its session open for correction, unchanged.
+
 ## [1.116.1] - 2026-10-30
 
 ### Fixed

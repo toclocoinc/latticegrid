@@ -1,11 +1,12 @@
 /*!
- * Lattice Grid 1.116.1, form module type declarations
+ * Lattice Grid 1.117.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   Grid,
   IconName,
+  InputMaskPattern,
   NumberFormat,
   createGrid,
 } from '../lattice-grid.js';
@@ -20,7 +21,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider' | 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -364,8 +365,15 @@ export interface FormItemConfig extends ComboConfig {
   length?: number;
   /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — the `color` item's opening popover view — the `speeddial` item's menu shape: `linear` (default) or `radial` — or a `slider` item's track direction: `horizontal` (default) or `vertical`. */
   mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode | 'linear' | 'radial' | 'horizontal' | 'vertical';
-  /** Hide each `otp` box's glyph with the password disc. */
-  mask?: boolean;
+  /**
+   * On an `otp` item, `true` hides each box's glyph with the password disc. On an
+   * `input` item, a fixed input pattern the field is held to as it is typed: `9` is a digit, `A` a letter, `*` a letter or a digit,
+   * every other character a literal inserted as the caret reaches it, such as
+   * `'AA-9999'`. The value is the text as shown, literals included, and a
+   * partly filled value fails validation. The placeholder shows the pattern with
+   * `_` for slots. Not the display `mask` of a grid column format.
+   */
+  mask?: boolean | InputMaskPattern;
   /** The number step, for a `number` item. */
   step?: number;
   /** The number format a `number` item displays when blurred, the same shape a grid number column takes — a `NumberFormat` spec (which may name `pattern`) or a bare pattern string like `'#,##0.00'`. The value stays a number; only the display is formatted. */
@@ -402,6 +410,22 @@ export interface FormItemConfig extends ComboConfig {
   scale?: string;
   /** Show a compact unit selector inside the field that changes only the display unit, never the committed value. */
   unitPicker?: boolean;
+  /**
+   * The display spelling of a `mac` item: `'colon'` (default), `'colon-upper'`, `'cisco'` or
+   * `'hyphen'` — the committed value is always the lowercase colon form. A
+   * `mac`/`ipv4`/`ipv6`/`cidr`/`vlan` item parses, validates and normalises through the grid
+   * data type's own functions: it accepts every spelling the type parses while typing or
+   * pasting, and on commit (blur, Enter or submit) reformats to the canonical text, which
+   * becomes the item's value. A column-bound item (`bind.js`) takes these options from the
+   * column automatically.
+   */
+  macFormat?: 'colon' | 'colon-upper' | 'cisco' | 'hyphen';
+  /** A `vlan` item that holds one ID only; `true` refuses a list or a range (`10,20-30`) with a message. */
+  vlanSingle?: boolean;
+  /** The prefix a `cidr` item gives a bare address with no `/n` of its own, default 32 — the same default the grid's `ipaddress` editor applies. */
+  prefix?: number;
+  /** A `cidr` item that stores the network address rather than the address as typed: `10.1.2.3/24` commits as `10.1.2.0/24`, its host bits cleared. `false` by default. A column-bound item (`bind.js`) takes this from `column.typeOptions.cidrNetwork` automatically. */
+  cidrNetwork?: boolean;
   /** The minimum — a number for `number`, a multi `chips`/`listbox` selection count, an ISO string for `datepicker` and `daterange`. */
   min?: number | string;
   /** The maximum — a number for `number`, a multi `chips`/`listbox` selection count, an ISO string for `datepicker` and `daterange`. */

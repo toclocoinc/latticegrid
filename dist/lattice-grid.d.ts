@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.116.1, type declarations
+ * Lattice Grid 1.117.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -29,7 +29,8 @@ export type TypeName =
   | 'image'
   // Extended catalogue. Never inferred, a column asks for these by name.
   | 'time' | 'datetime' | 'duration' | 'timestamp'
-  | 'ipv4' | 'ipv6' | 'cidr'
+  | 'ipv4' | 'ipv6' | 'cidr' | 'mac'
+  | 'vlan'
   | 'json' | 'secret'
   | 'hex' | 'hex8' | 'hex16' | 'hex32' | 'binary' | 'binary8' | 'octal'
   | 'decibel' | 'decibelAmplitude' | 'ratio' | 'percentRate'
@@ -652,6 +653,14 @@ export interface DataType {
    */
   parse?: (p: ParseParams) => unknown;
   /**
+   * Why a piece of non-blank text cannot be read, or null when it can. `parse`
+   * returns the same null for blank and for unreadable text; this tells them
+   * apart. When it returns a message, a write of that text is refused with the
+   * message (typed edit, paste, fill and `setCells`) and the cell keeps its
+   * value; blank text still clears the cell.
+   */
+  parseError?: (p: ParseParams) => string | null;
+  /**
    * Order two values of this type. Used for sorting unless the column supplies
    * `value.compare` or is lookup-backed.
    */
@@ -703,6 +712,16 @@ export interface DataType {
    */
   excel?: string;
   /**
+   * The inverse of `toStorage`: what a committed edit writes into the row
+   * object, as opposed to the logical value the `ColumnStore` holds. Absent
+   * for every type but `ipv4`/`cidr`, where it formats the
+   * parsed value back to canonical text by default so a `10.0.0.1` row stays
+   * text after an edit, unless the column's `typeOptions.storeNumber` asks to
+   * keep the packed number instead. Read by `value.apply`'s default path
+   * (`model/edit.js`); a custom `value.apply` bypasses it entirely.
+   */
+  toRow?: (value: unknown, column?: ResolvedColumn) => unknown;
+  /**
    * Turn a value of this type into the text a copy puts on the clipboard.
    * First in that chain, ahead of the grid-wide hook and the plain display
    * text.
@@ -727,7 +746,8 @@ export interface DataType {
    * on any other column. `compile` turns a condition's operand into a
    * predicate over one cell; `check` names what is wrong with an operand, so
    * `filters.set()` refuses it rather than installing a filter that matches
-   * nothing. The `geometry` type declares its four spatial operators here.
+   * nothing. The `geometry` type declares its four spatial operators here, and
+   * the `mac` type its three.
    */
   operators?: Record<string, DataTypeOperator>;
   /**
@@ -1814,6 +1834,31 @@ export interface ColumnCellSpec {
   spanRows?: (p: SpanParams) => number;
 }
 
+/**
+ * The text cell editor's input options, given as the column's `edit.props`.
+ */
+export interface TextEditorOptions {
+  /**
+   * A fixed input pattern the cell editor holds the typed text to, shared with
+   * the form `input` item: `9` is a digit, `A` a letter, `*` a letter or a digit,
+   * and every other character is a literal inserted as the caret reaches it
+   * (`'AA-9999'`). Letters keep the case typed, the cell stores the masked text
+   * with its literals, and an incomplete value is refused on commit. The
+   * placeholder shows the pattern with `_` for slots. This is not the display
+   * `mask` a column's format takes. Pair it with
+   * `edit.validate: editors.text.maskValidator(pattern)` so a pasted range is refused per
+   * cell as well.
+   */
+  mask?: InputMaskPattern;
+  /** The longest text the editor accepts. */
+  maxLength?: number;
+  /** The placeholder; with a `mask` and none set, the pattern is shown. */
+  placeholder?: string;
+}
+
+/** An input mask pattern: `9` digit, `A` letter, `*` letter or digit, anything else a literal. */
+export type InputMaskPattern = string;
+
 export interface ColumnEditSpec {
   /**
    * Whether this column's cells can be edited. `false` by default; a function
@@ -1830,9 +1875,10 @@ export interface ColumnEditSpec {
   editor?: string | EditorCtor;
   /**
    * Values handed to the editor as `params.props` — the option list for a
-   * select, the step for a number.
+   * select, the step for a number. A text column's `mask` (see
+   * {@link TextEditorOptions}) holds the cell editor to a fixed input pattern.
    */
-  props?: Record<string, unknown>;
+  props?: Record<string, unknown> | TextEditorOptions;
   /**
    * Open the editor in a popup over the cell rather than inside it. Defaults
    * to whatever the editor class declares.
@@ -2217,6 +2263,40 @@ export interface ColumnTypeOptions {
    * since it always displays as a whole number.
    */
   decimals?: number;
+  /**
+   * A `vlan` column that holds one ID only. `true` makes the column refuse a
+   * list or a range (`10,20-30`) with a message, so an access-VLAN column
+   * cannot silently take one ID of a trunk's allowed list.
+   */
+  vlanSingle?: boolean;
+  /**
+   * The display spelling of a `mac` column: `'colon'` (the default, lowercase
+   * `00:1a:2b:3c:4d:5e`), `'colon-upper'` (`00:1A:2B:3C:4D:5E`), `'cisco'`
+   * (`001a.2b3c.4d5e`) or `'hyphen'` (`00-1a-2b-3c-4d-5e`). Affects only the
+   * display and the clipboard/Excel text — never the stored value.
+   */
+  macFormat?: 'colon' | 'colon-upper' | 'cisco' | 'hyphen';
+  /**
+   * A `cidr` column that stores the network address rather than the address as
+   * typed: `10.1.2.3/24` is stored and shown as `10.1.2.0/24`, its host bits
+   * cleared. `false` by default, which keeps `10.1.2.3/24` as typed — the
+   * right reading for an interface address, where a `true` column is right for
+   * a subnet field. Applies on every write (typed edit, paste, fill,
+   * `setCells`) and on a bare address once the type's default prefix fills it
+   * in.
+   */
+  cidrNetwork?: boolean;
+  /**
+   * An `ipv4` or `cidr` column that keeps the packed number in the row object
+   * a committed edit writes to, rather than the canonical text the record was
+   * loaded in. `false` by default: a typed edit, a paste, a
+   * fill and `setCells` all write `10.0.0.2`/`10.1.2.0/24` into the row the way
+   * the column was loaded, and a bound form (`modules/form`) follows the same
+   * option. `rows.value()` keeps answering the packed number either way — this
+   * option changes only what lands in the row object, never the ColumnStore's
+   * own logical value.
+   */
+  storeNumber?: boolean;
   /**
    * Any other option a data type reads from its column: a weighted average's
    * `weight` column, a unit's `significantFigures`.
@@ -2866,7 +2946,8 @@ export type Operator =
   | 'blank' | 'notBlank'
   | 'containsAny' | 'containsAll' | 'containsNone'
   | SpatialOperator
-  | ListOperator;
+  | ListOperator
+  | MacOperator;
 
 /**
  * The four operators of a `list` column (declared by the type the opt-in
@@ -2911,6 +2992,20 @@ export interface ListCount {
  * edge is refused; split it into two conditions joined by `or`.
  */
 export type SpatialOperator = 'withinBbox' | 'withinPolygon' | 'intersects' | 'withinDistance';
+
+/**
+ * The three operators of a `mac` column (declared by the built-in `mac` data
+ * type), evaluated in memory. A `mac` column accepts these and
+ * `blank`/`notBlank` only, and these are refused on any other column.
+ *
+ * - `macEquals` — the address equals the operand, compared on the 48-bit value,
+ *   so the operand may be in any accepted spelling.
+ * - `macInRange` — the address's 48-bit value falls inside the inclusive
+ *   `[low, high]` operand pair, each end in any accepted spelling.
+ * - `macContains` — the operand's hex appears in the address's hex, with
+ *   separators stripped from both sides and case ignored.
+ */
+export type MacOperator = 'macEquals' | 'macInRange' | 'macContains';
 
 /** A box in degrees, `[minLon, minLat, maxLon, maxLat]`: the operand of `withinBbox`. */
 export type SpatialBbox = [number, number, number, number];
