@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.117.2] - 2026-11-03
+
+### Fixed
+
+- The filter row's operator picker showed a word cut off mid-way ("Conta" for Contains) on narrow columns. It now shows a short symbol (for example ∋ for Contains), and the full name stays in the open list, in the tooltip and in the accessible name ("Operator: Contains"), in the grid's locale. The picker takes only the width of its symbol, so the value box gets the rest. An operator a host added that has no symbol shows its label cut with an ellipsis. (BACKLOG-0005962)
+
 ## [1.117.1] - 2026-11-03
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.117.1, presets module
+ * Lattice Grid 1.117.2, presets module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
