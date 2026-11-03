@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.117.3] - 2026-11-03
+
+### Fixed
+
+- A second click on the form list box row that was just selected was sometimes lost: any redraw of the rows between the press and the release (a selection render, a scroll or a resize pass) replaced the row element, so the browser never fired `click` on it and `itemClick` did not fire. The list now counts a press and release on the same row as a click by the row's id, however often the rows are redrawn (BACKLOG-0005971)
+
 ## [1.117.2] - 2026-11-03
 
 ### Fixed
