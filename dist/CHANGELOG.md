@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.117.1] - 2026-11-03
+
+### Fixed
+
+- **The Data types section of the developer guide understated the extended column-type catalogue** (BACKLOG-0005963). It said seventy-four types; 1.117.0 ships ninety-six, and the page now gives the right count.
+
+- **Typing part of an address into an IPv4 or CIDR column's filter now finds the rows that show it** (BACKLOG-0005967). `192` in an IPv4 column, or `/24` in a CIDR column, used to find no rows at all; the text filters now match the address as the cell displays it, and Equals compares the address itself.
+
 ## [1.117.0] - 2026-11-03
 
 ### Added

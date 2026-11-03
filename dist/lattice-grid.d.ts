@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.117.0, type declarations
+ * Lattice Grid 1.117.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -788,8 +788,12 @@ export interface DataType {
 
 /** A filter operator a data type declares (see `DataType.operators`). */
 export interface DataTypeOperator {
-  /** Turn a condition's operand into a predicate over one cell's value. */
-  compile(value: unknown): (cell: unknown) => boolean;
+  /**
+   * Turn a condition's operand into a predicate over one cell's value. Left out
+   * for an operator the column accepts and the built-in §9.3 operator
+   * evaluates (an `ipv4` column's `lt`).
+   */
+  compile?(value: unknown): (cell: unknown) => boolean;
   /** Why an operand cannot be used, or `null` when it can. */
   check?(value: unknown): string | null;
 }
