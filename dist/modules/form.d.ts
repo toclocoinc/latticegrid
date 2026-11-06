@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.117.3, form module type declarations
+ * Lattice Grid 1.118.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

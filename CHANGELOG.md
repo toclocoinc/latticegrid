@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.118.0] - 2026-11-06
+
+### Added
+
+- Form date picker: the calendar's header title is a button that opens a scrollable year list, then the year's twelve months, then the day grid, so a distant date takes four clicks instead of hundreds; Escape goes back a level, and PageUp/PageDown (Shift for a year) move the day cursor by month or year (BACKLOG-0006145)
+
+### Fixed
+
+- Form date picker: the open calendar is its content width, never wider than `--lattice-form-datepicker-max-width` (default `20rem`), and starts at the input's start edge, so it does not spread across a very wide input with day columns far apart; narrow inputs and date-time's time row keep their room (BACKLOG-0006144)
+
 ## [1.117.3] - 2026-11-03
 
 ### Fixed
