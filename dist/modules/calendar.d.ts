@@ -1,8 +1,12 @@
 /*!
- * Lattice Grid 1.118.0, calendar module type declarations
+ * Lattice Grid 1.119.0, calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
+import type {
+  PdfViewExportApi,
+} from '../lattice-grid.js';
+
 /** A row backing a calendar card: any object. Its date comes from `startProperty` and its identity from `rowKey`. */
 type CalendarRow = Record<string, unknown>;
 
@@ -206,6 +210,14 @@ export interface CalendarRows {
  * other viewer.
  */
 export interface Calendar {
+  /**
+   * The calendar's export API: `pdf(options)` exports the current month, week or day view as a
+   * PDF (with `download: true` it saves it), the same call as the PDF module's
+   * `exportPdf(calendar, options)`. `pdf` is present only while the opt-in PDF
+   * module (`modules/pdf`) is loaded; every framework adapter hands you the
+   * instance, so it is reached the same way there.
+   */
+  readonly export: PdfViewExportApi;
   /** The element the calendar renders into, or null for a headless calendar. */
   readonly el: unknown | null;
   /** The resolved row identity; see `CalendarConfig.rowKey`. */

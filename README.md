@@ -9,7 +9,7 @@ forms, lists, trees and an app shell.
 Zero runtime dependencies, with adapters for React, Vue, Svelte, Angular, Web
 Components and htmx. Free on localhost, licensed per domain to ship.
 
-Version 1.118.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.119.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ## Start
 
@@ -59,6 +59,7 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/gantt.esm.min.js` | Editable, dependency-aware project plan with a computed critical path. |
 | `modules/calendar.esm.min.js` | Month and week views of rows as cards, keyed by a date field. |
 | `modules/scheduler.esm.min.js` | Resource scheduler: resources as rows and events as editable bars on a shared time axis. |
+| `modules/pdf.esm.min.js` | PDF export of a grid, calendar, Kanban board or Gantt chart as real, selectable text, through the page's pdf-lib. |
 | `modules/form.esm.min.js` | An opt-in form: named fields in nested rows and columns, validation and rules, bound to a grid row or the data router. |
 | `modules/recordeditor.esm.min.js` | An opt-in record editor: one form bound to a row plus child views in tabs, with one dirty state, one validation pass and one batched save. |
 | `modules/shell.esm.min.js` | Cells nested as rows and columns to any depth, sized synchronously by CSS. |
@@ -462,6 +463,7 @@ the UMD build or `.cjs` for CommonJS.
 | gantt | `@toclocoinc/lattice-grid/modules/gantt` | `modules/gantt.min.js` | `LatticeGridGantt` | Editable, dependency-aware project plan with a computed critical path (`createGantt`). |
 | calendar | `@toclocoinc/lattice-grid/modules/calendar` | `modules/calendar.min.js` | `LatticeGridCalendar` | A month grid and a week day-grid of rows as cards, keyed by a date field (`createCalendar`). |
 | scheduler | `@toclocoinc/lattice-grid/modules/scheduler` | `modules/scheduler.min.js` | `LatticeGridScheduler` | Resource scheduler: resources as grid rows and events as bars on a shared time axis; events drag, resize and reassign (`createScheduler`). |
+| pdf | `@toclocoinc/lattice-grid/modules/pdf` | `modules/pdf.min.js` | `LatticeGridPdf` | PDF export of a grid, calendar, Kanban board or Gantt chart as a paginated document of real text; pdf-lib comes from the page or `options.pdfLib` (`exportPdf`, `downloadPdf`). |
 | mapview | `@toclocoinc/lattice-grid/modules/mapview` | `modules/mapview.min.js` | `LatticeGridMapView` | A 3D map of the grid's rows over MapLibre with deck.gl layers, linked to the grid's filters and selection both ways (`createMapView`). |
 | leaflet | `@toclocoinc/lattice-grid/modules/leaflet` | `modules/leaflet.min.js` | `LatticeGridLeaflet` | Your Leaflet `L.Map` and layer function become one more viewer of a grid, linked both ways (`bindLeaflet`). |
 | deckgl | `@toclocoinc/lattice-grid/modules/deckgl` | `modules/deckgl.min.js` | `LatticeGridDeck` | Your deck.gl `Deck` and layer function become one more viewer of a grid, linked both ways (`bindDeck`). |

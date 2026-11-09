@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.118.0, type declarations
+ * Lattice Grid 1.119.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -10369,6 +10369,13 @@ export interface ExportApi {
    */
   excel(opts?: ExcelExportOptions): Promise<Blob>;
   /**
+   * Export the current view as a PDF, or with `download: true` save it as
+   * `fileName`. Present only while the opt-in PDF module (`modules/pdf`) is
+   * loaded, on a grid built by `createGrid`; the same call as that module's
+   * `exportPdf(grid, opts)`.
+   */
+  pdf?(opts?: PdfExportOptions & { download?: boolean }): Promise<Blob>;
+  /**
    * Copy to the clipboard as tab-separated text, which is what Excel, Numbers
    * and Sheets paste as cells. With `rows: 'range'` it copies the selected
    * rectangle.
@@ -12411,6 +12418,8 @@ export interface ColumnMenuParams {
 export type RailActionName =
   | 'undo' | 'redo' | 'pause' | 'restore' | 'maximise'
   | 'export' | 'excel' | 'clipboard' | 'print'
+  // The PDF export, beside Excel, while the opt-in PDF module is loaded.
+  | 'pdf'
   // The native annotation tools, on the rail when `toolPanel.annotate` is set
   // or while a presentation runs. Each is toggleable (see `RailAction.active`).
   | 'pen' | 'arrow' | 'rect' | 'highlight';
@@ -19652,6 +19661,84 @@ export interface RecordEditorConfig {
   preset?: string;
   /** Dark mode: add the editor's dark class. */
   dark?: boolean;
+}
+
+/**
+ * The `export` API of a calendar, a Kanban board and a Gantt: `pdf` while the opt-in PDF module is loaded.
+ */
+export interface PdfViewExportApi {
+  /** Export the view as a PDF, or with `download: true` save it as `fileName`. */
+  pdf?(opts?: PdfExportOptions & { download?: boolean }): Promise<Blob>;
+}
+
+/**
+ * What the opt-in PDF export takes (`modules/pdf`):
+ * `exportPdf(grid, options)`, `downloadPdf(grid, options)` and, while the
+ * module is loaded, `grid.export.pdf(options)`. The PDF is the grid's current
+ * view: its visible columns in screen order and widths, group rows with their
+ * totals, pinned rows and columns in place, each cell's text as formatted on
+ * screen and a redacted column's cells as a fixed mask. The column headers
+ * repeat on every page and a row is never split across pages. Text is real,
+ * selectable text in an embedded font.
+ */
+export interface PdfExportOptions {
+  /** The page size: `'A4'` (the default), `'Letter'`, `'A3'` or `'Legal'`. Any other value is refused by name. */
+  pageSize?: 'A4' | 'Letter' | 'A3' | 'Legal';
+  /** `'portrait'` (the default) or `'landscape'`. */
+  orientation?: 'portrait' | 'landscape';
+  /**
+   * How a view wider than the page fits: `'width'` scales it so it fills the
+   * page width; `'split'` keeps its on-screen widths and tiles it across as
+   * many pages as it needs. A grid's columns (the start-pinned ones leading
+   * every tile) and a board's columns default to `'width'`; a Gantt's
+   * timeline defaults to `'split'`, cut into date tiles at the screen's day
+   * width, and `'width'` scales the whole plan onto the page width.
+   */
+  fit?: 'width' | 'split';
+  /**
+   * Which rows of a grid: `'visible'` (the default) prints the view, pinned
+   * rows and group rows included; `'selected'` only the selected data rows, in
+   * display order. `'all'` is the view too: a PDF is a picture of the grid.
+   * Grid-only: a calendar, a board or a Gantt prints its whole view and
+   * refuses `'selected'` by name.
+   */
+  rows?: 'visible' | 'all' | 'selected';
+  /**
+   * A title printed at the top of the first page (of each column tile, on a
+   * grid), and the document's title. A calendar defaults to its header's
+   * title (`November 2026`), a Gantt to `createGantt({ title })`.
+   */
+  title?: string;
+  /** A running header on every page: text, or `({ page, pages }) => text`. */
+  header?: string | ((at: { page: number; pages: number }) => string);
+  /** A running footer on every page, bottom left: text, or `({ page, pages }) => text`. */
+  footer?: string | ((at: { page: number; pages: number }) => string);
+  /**
+   * Page numbers, bottom right: `true` (the default) prints `3 / 12`, `false`
+   * none, a function `({ page, pages }) => text` its own wording.
+   */
+  pageNumbers?: boolean | ((at: { page: number; pages: number }) => string);
+  /** The file `downloadPdf` saves, `.pdf` added when missing. `'export.pdf'` by default. */
+  fileName?: string;
+  /**
+   * Colour the header row and the zebra stripes from the live theme tokens
+   * (`--lattice-surface`, `--lattice-header-foreground`, `--lattice-row-stripe`,
+   * `--lattice-surface-alt` for group rows, `--lattice-foreground`,
+   * `--lattice-border-color`), read off the grid's element. Off by default: a
+   * plain black-on-white table.
+   */
+  theme?: boolean;
+  /**
+   * TTF/OTF fonts to embed (subset to the glyphs used), in preference order:
+   * a string is set in the first font that has every one of its characters,
+   * and in Helvetica, the default, otherwise. `data` (the font's bytes) may
+   * stand in for `url`. Needs `fontkit`.
+   */
+  fonts?: Array<{ family: string; url?: string; data?: ArrayBuffer | Uint8Array }>;
+  /** The page's pdf-lib namespace. The `PDFLib` global its browser build leaves behind by default; the module bundles none. */
+  pdfLib?: unknown;
+  /** pdf-lib's fontkit, needed only for `fonts`. The `fontkit` global by default. */
+  fontkit?: unknown;
 }
 
 /** The record editor instance `createRecordEditor` returns. */

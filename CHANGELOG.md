@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.119.0] - 2026-11-08
+
+### Added
+
+- PDF export, part 1: the grid (BACKLOG-0006170). The new opt-in `modules/pdf` exports `exportPdf(grid, options)`, which resolves with the grid's current view as a paginated PDF `Blob`, and `downloadPdf(grid, options)`. The PDF prints what the screen shows: the visible columns in screen order with their widths (scaled to the page width, or `fit: 'split'` to tile a wide table across pages), group rows with their totals, pinned rows and columns in place, every cell's text as formatted on screen, and a redacted column's cells as a fixed mask; `rows: 'selected'` prints only the selected rows. The column headers repeat on every page and a row is never split across pages. Options: `pageSize` (`A4`, `Letter`, `A3`, `Legal`), `orientation`, `title`, `header`, `footer`, `pageNumbers`, `fileName`, `theme` (header and zebra colours from the live theme tokens) and `fonts: [{ family, url }]` to embed TTF/OTF fonts, Helvetica by default. Text is real, selectable text. pdf-lib is a peer the page loads (the `PDFLib` global or `pdfLib`; `fontkit` for embedded fonts) and is never bundled. While the module is loaded, a `createGrid` grid carries `grid.export.pdf()` beside `grid.export.excel()`, the tool-panel rail a PDF button beside Excel (`'pdf'`), and the context menu "Export visible rows to PDF" and "Export selected rows to PDF". 10,000 rows by 20 columns export well under the 10 s budget in headless Chrome (about 8.5 s on the builder's machine).
+
+- Server rendering, level 1: a Next.js, Nuxt, SvelteKit or Angular SSR app can import every Lattice entry point on the server without "window is not defined", and the React, Vue, Svelte, Angular and web component adapters render just their empty host box (with your class and height) there. The grid, form, charts and the other viewers are created in the browser after hydration; there are still no server-rendered rows. The API guide's "no SSR" notes are replaced by a short "Server rendering" paragraph per adapter, and a new test imports every published entry point and renders each adapter on the server in plain Node (BACKLOG-0006173)
+
+- The cell layer and the frame scheduler look for `document` and `requestAnimationFrame` when first used, not when they are imported (BACKLOG-0006173)
+
+- PDF export, part 2: `exportPdf(view, options)` and `downloadPdf(view, options)` (`modules/pdf`) now take a calendar, a Kanban board or a Gantt as well as a grid, told apart from the instance. A calendar prints its current month, week or day as on screen, events with their colours and times, an event never split and a long day continued under its repeated header; a board prints its columns with titles and counts and its cards with title, subtitle, due date and badges, every column header on every page, a card never split, `fit: 'split'` tiling columns wider than the page; a Gantt prints its task table and timeline paginated along both axes, the time scale on every page, bars, progress, milestones, dependency links, the today line and weekend shading as vectors, a bar row never split (500 tasks over a year in under a second). Each view offers `export.pdf(options)` while the module is loaded, reached the same way through every framework adapter, plus a PDF button in the calendar's header and the Gantt split view's header and *Export board to PDF* in every board column's header menu (`calendar.exportPdf`, `kanban.exportPdf`, `gantt.exportPdf`).
+
+### Fixed
+
+- **The built bundle failed to parse in a page without a UTF-8 declaration** (BACKLOG-0006177). The formula and number-parsing regular expressions wrote their non-ASCII ranges and space characters as literal characters, so a page served or opened without a charset declaration (a `file://` page with no `<meta charset>`, or a server sending `text/javascript` with no charset) decoded the minified bundle as windows-1252 and the load died with `Invalid regular expression: Range out of order in character class` before the `LatticeGrid` global existed. Those characters are written as `\uXXXX` escapes, so the published bundles are pure ASCII and parse under any charset.
+
 ## [1.118.0] - 2026-11-06
 
 ### Added

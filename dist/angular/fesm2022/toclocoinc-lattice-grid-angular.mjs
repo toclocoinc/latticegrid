@@ -662,10 +662,12 @@ function now() {
         : Date.now();
 }
 
-const hasRaf = typeof requestAnimationFrame === 'function';
+function hasRaf() {
+    return typeof requestAnimationFrame === 'function';
+}
 
 function nextFrame(fn) {
-    if (hasRaf)
+    if (hasRaf())
         return requestAnimationFrame(fn);
     return setTimeout(() => fn(now()), 16);
 }
@@ -673,7 +675,7 @@ function nextFrame(fn) {
 function cancelFrame(handle) {
     if (handle == null)
         return;
-    if (hasRaf)
+    if (hasRaf())
         cancelAnimationFrame(handle);
     else
         clearTimeout(handle);

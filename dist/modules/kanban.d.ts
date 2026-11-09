@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.118.0, kanban module type declarations
+ * Lattice Grid 1.119.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,6 +8,7 @@ import type {
   EventOrigin,
   FilterGroup,
   Grid,
+  PdfViewExportApi,
   SourceConfig,
 } from '../lattice-grid.js';
 
@@ -1564,6 +1565,14 @@ export interface KanbanFilters {
  * viewer.
  */
 export interface Kanban {
+  /**
+   * The board's export API: `pdf(options)` exports the whole board as a
+   * PDF (with `download: true` it saves it), the same call as the PDF module's
+   * `exportPdf(board, options)`. `pdf` is present only while the opt-in PDF
+   * module (`modules/pdf`) is loaded; every framework adapter hands you the
+   * instance, so it is reached the same way there.
+   */
+  readonly export: PdfViewExportApi;
   /** The element the board renders into, or null for a headless board. */
   readonly el: unknown | null;
   /** The resolved card identity; see `KanbanConfig.rowKey`. */

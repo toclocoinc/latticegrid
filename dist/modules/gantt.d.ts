@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.118.0, gantt module type declarations
+ * Lattice Grid 1.119.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12,6 +12,7 @@ import type {
   GridState,
   MenuItem,
   Option,
+  PdfViewExportApi,
   createGrid,
   defaults,
 } from '../lattice-grid.js';
@@ -3732,6 +3733,14 @@ export interface GanttSplitView {
 
 /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
 export interface Gantt {
+  /**
+   * The Gantt's export API: `pdf(options)` exports the task table and the timeline as a
+   * PDF (with `download: true` it saves it), the same call as the PDF module's
+   * `exportPdf(gantt, options)`. `pdf` is present only while the opt-in PDF
+   * module (`modules/pdf`) is loaded; every framework adapter hands you the
+   * instance, so it is reached the same way there.
+   */
+  readonly export: PdfViewExportApi;
   /**
    * The current tasks, as fresh shallow copies — mutating them changes nothing; call
    * `applyEdit` or `setTasks`.

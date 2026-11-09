@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.118.0</p>
+    <p class="rail__sub">Developer guide · v1.119.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.118.0</span>
+        <span class="chip">Version 1.119.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -906,9 +906,14 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       the ref. <code>VIEWER_EVENTS</code> and <code>viewerHandlerName</code> are the matching event
       surface (<code>card:move</code> becomes <code>onCardMove</code>), and
       <code>DEFAULT_GRID_NAME</code> is the name a grid publishes under when you choose none.</p>
-      <p><strong>React 18 and 19, client only.</strong> Nothing uses an API added in 19 or removed in
-      19. Every component owns a real DOM element, so there is no SSR and no React Server Component
-      support.</p>
+      <p><strong>React 18 and 19.</strong> Nothing uses an API added in 19 or removed in 19.</p>
+      <p><strong>Server rendering (level 1).</strong> Importing the adapter reads nothing from the
+      browser. Rendered on the server (Next.js App Router, <code>react-dom/server</code>), every
+      component returns only its host element with your <code>className</code> and
+      <code>style</code>, and builds its instance in <code>useEffect</code> after hydration. Mark
+      the file that calls <code>createLatticeReact</code> with <code>'use client'</code>. There are
+      no server-rendered rows; the <code>ssr: false</code> dynamic import workaround is no longer
+      needed.</p>
     </div>
 
     <div class="example">
@@ -1114,9 +1119,12 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       reason — one watcher per prop, compared with <code>Object.is</code>. And the grid paints on its
       own schedule rather than Vue's, so <code>nextTick()</code> means "Vue has patched", not "the
       grid has painted": measure in <code>@render-done</code> or <code>@rows-changed</code>.</p>
-      <p><strong>Client only.</strong> Every component owns a real DOM element and builds nothing
-      before <code>onMounted</code>, so a server render emits the empty host: there is no SSR or
-      Nuxt server-side support. Every component destroys its instance, stops its watchers and
+      <p><strong>Server rendering (level 1).</strong> Importing the adapter reads nothing from the
+      browser, and every component builds nothing before <code>onMounted</code>: a Nuxt or
+      <code>vue/server-renderer</code> render emits only the host element, with your
+      <code>class</code> and <code>style</code>, and the instance is created after hydration. There
+      are no server-rendered rows; the <code>&lt;ClientOnly&gt;</code> workaround is no longer
+      needed. Every component destroys its instance, stops its watchers and
       unsubscribes its listeners in <code>onBeforeUnmount</code>, so a <code>v-if</code> toggled
       twice leaves exactly one instance alive.</p>
     </div>
@@ -1896,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.118.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.119.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11436,6 +11444,10 @@ grid.export.excel({ download: true, sheetName: 'Circuits' });
 grid.export.clipboard({ headers: true, rows: 'range' });
 grid.export.print();</code></pre>
     </div>
+    <p>
+      With the opt-in PDF module loaded, <code>grid.export.pdf()</code> sits beside these four: see
+      <a href="#pdf-guide">PDF export</a>.
+    </p>
     <p class="lead-in">
       Exports follow what the user is looking at, the current filter, sort and column order,
       formatted values, and only the columns they may read.
@@ -14829,6 +14841,43 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
       </table>
     </div>
 
+    <h2 id="pdf-guide">PDF export</h2>
+    <p class="lead-in">
+      <code>exportPdf(view, options)</code> (<code>modules/pdf</code>, opt-in) turns a grid, a calendar, a Kanban board
+      or a Gantt into a paginated PDF with real, selectable text; which view it is comes from the instance. For a grid: the visible columns and widths, group rows with their totals,
+      pinned rows and columns in place, each cell as formatted on screen, a redacted column as a mask. The column
+      headers repeat on every page and a row is never split. pdf-lib stays on your page &mdash; its browser build's
+      <code>PDFLib</code> global, or <code>pdfLib</code> &mdash; and is never bundled. While the module is loaded the
+      rail and the context menu offer PDF beside Excel. See <a href="API.html#pdf">the PDF export</a> for the
+      executed example.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">exportPdf</td><td class="desc">Export the grid's current view; resolves with the PDF as a <code>Blob</code> (<code>application/pdf</code>).</td></tr>
+          <tr><td class="name">downloadPdf</td><td class="desc"><code>exportPdf</code>, then save the file as <code>fileName</code>. In Node, with no document, it returns the PDF and saves nothing.</td></tr>
+          <tr><td class="name">export.pdf</td><td class="desc"><code>grid.export.pdf(options)</code>, beside <code>grid.export.excel</code> on a <code>createGrid</code> grid while the module is loaded; <code>download: true</code> downloads.</td></tr>
+          <tr><td class="name">calendar.export</td><td class="desc"><code>calendar.export.pdf(options)</code>: the current month, week or day as on screen, events with their colours and times, never split; a long day continues on the next page under its repeated header. The header's PDF button does the same.</td></tr>
+          <tr><td class="name">kanban.export</td><td class="desc"><code>board.export.pdf(options)</code>: the columns with titles and counts, cards with title, subtitle, due and badges, never split; every column header on every page. Every column's header menu offers <em>Export board to PDF</em>.</td></tr>
+          <tr><td class="name">gantt.export</td><td class="desc"><code>gantt.export.pdf(options)</code>: the task table plus the timeline, tiled along both axes, the time scale on every page; bars, progress, milestones, links, today line and weekend shading as vectors; a bar row never split. The split view's header carries a PDF button.</td></tr>
+          <tr><td class="name">pageSize</td><td class="desc"><code>'A4'</code> (default), <code>'Letter'</code>, <code>'A3'</code> or <code>'Legal'</code>; anything else is refused by name.</td></tr>
+          <tr><td class="name">orientation</td><td class="desc"><code>'portrait'</code> (default) or <code>'landscape'</code>.</td></tr>
+          <tr><td class="name">fit</td><td class="desc"><code>'width'</code> (default for a grid and a board) scales the columns to fill the page width; <code>'split'</code> (default for a Gantt's timeline) keeps their on-screen widths and tiles across pages, a grid's start-pinned columns leading every tile.</td></tr>
+          <tr><td class="name">rows</td><td class="desc">Grid-only. <code>'visible'</code> (default) prints the view, pinned and group rows included; <code>'selected'</code> only the selected rows, refused by name for the other views.</td></tr>
+          <tr><td class="name">title</td><td class="desc">Printed at the top of the first page; also the document's title.</td></tr>
+          <tr><td class="name">header</td><td class="desc">A running header on every page: text, or <code>({ page, pages }) =&gt; text</code>.</td></tr>
+          <tr><td class="name">footer</td><td class="desc">A running footer on every page, bottom left: text, or <code>({ page, pages }) =&gt; text</code>.</td></tr>
+          <tr><td class="name">pageNumbers</td><td class="desc"><code>true</code> (default) prints <code>3 / 12</code> bottom right; <code>false</code> none; a function its own wording.</td></tr>
+          <tr><td class="name">fileName</td><td class="desc">The file <code>downloadPdf</code> saves, <code>.pdf</code> added when missing. <code>export.pdf</code> by default.</td></tr>
+          <tr><td class="name">theme</td><td class="desc"><code>true</code> fills the header and the zebra stripes from the live theme tokens on the grid's element. Off by default.</td></tr>
+          <tr><td class="name">fonts</td><td class="desc"><code>[{ family, url }]</code> (or <code>data</code>): TTF/OTF fonts to embed, subset; a string is set in the first one covering all its characters, else in Helvetica, the default.</td></tr>
+          <tr><td class="name">pdfLib</td><td class="desc">Your pdf-lib namespace; the <code>PDFLib</code> global by default.</td></tr>
+          <tr><td class="name">fontkit</td><td class="desc">pdf-lib's fontkit, needed only for <code>fonts</code>; the <code>fontkit</code> global by default.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2 id="mapview-guide">Map view</h2>
     <p class="lead-in">
       <code>createMapView(grid, options)</code> (<code>modules/mapview</code>) puts a 3D map of the grid's rows
@@ -15391,7 +15440,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.118.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.119.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.118.0</p>
+    <p class="rail__sub">API reference · v1.119.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -526,6 +526,7 @@
         <a class="rail__sub-link" href="#type-LeafletBinding">LeafletBinding</a>
         <a href="#ref-module-mapview">The map view</a>
         <a class="rail__sub-link" href="#type-MapView">MapView</a>
+        <a href="#ref-module-pdf">The PDF export</a>
         <a href="#ref-module-listview">The list view module</a>
         <a class="rail__sub-link" href="#type-ListView">ListView</a>
         <a href="#ref-module-dataview">The data view module</a>
@@ -593,7 +594,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.118.0</span>
+      <span class="chip">Version 1.119.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -891,10 +892,19 @@ binding.destroy();
       are still shared, as they always were &mdash; mutate one and both grids see it.
     </p>
     <p class="section-note">
-      <strong>React 18 and 19, no SSR.</strong> Nothing in the adapter uses an API added in 19 or
-      removed in 19 (<code>forwardRef</code> is still supported there). Every component owns a real
-      DOM element, so there is no server rendering and no React Server Component support: render
-      them on the client.
+      <strong>React 18 and 19.</strong> Nothing in the adapter uses an API added in 19 or
+      removed in 19 (<code>forwardRef</code> is still supported there).
+    </p>
+    <p class="section-note">
+      <strong>Server rendering (level 1).</strong> Importing the adapter, and every other entry
+      point, reads nothing from the browser, so a Next.js App Router or any other server-rendered
+      React app can import it without <code>window is not defined</code>. Rendered on the server,
+      every component returns only its host element, with your <code>className</code> and
+      <code>style</code> (so the box has its height), and builds its instance in
+      <code>useEffect</code> after hydration. Mark the file where you call
+      <code>createLatticeReact</code> with <code>'use client'</code>. There are no server-rendered
+      rows, and you no longer need <code>next/dynamic</code> with <code>ssr: false</code> or a
+      mounted flag to keep the grid off the server.
     </p>
     <p class="section-note">
       <strong>One build warning is gone.</strong> The version resolver carried a Node-only fallback
@@ -1306,13 +1316,20 @@ controller.destroy();
       <code>rowKey</code>), as the web component does.
     </p>
     <p class="section-note">
-      <strong>Cleanup, and no SSR.</strong> Every component destroys its instance, stops its
+      <strong>Cleanup.</strong> Every component destroys its instance, stops its
       watchers and unsubscribes its listeners in <code>onBeforeUnmount</code>, so a
       <code>v-if</code> toggled twice leaves exactly one instance alive and an unmounted page
       leaves nothing on a timer or an event bus. The router is destroyed with the component whose
-      <code>setup</code> provided it. Every component owns a real DOM element and builds nothing
-      until <code>onMounted</code>, so a server render emits the empty host and nothing else: there
-      is no SSR or Nuxt server-side support, and Vue 2 is not supported.
+      <code>setup</code> provided it. Vue 2 is not supported.
+    </p>
+    <p class="section-note">
+      <strong>Server rendering (level 1).</strong> Importing the adapter reads nothing from the
+      browser, so a Nuxt or other <code>vue/server-renderer</code> app can import it on the server.
+      Every component builds nothing until <code>onMounted</code>: rendered on the server it emits
+      only its host element, with your <code>class</code> and <code>style</code> (so the box has
+      its height), and the instance is created in the browser after hydration. There are no
+      server-rendered rows, and you no longer need <code>&lt;ClientOnly&gt;</code> or a
+      client-only plugin around it.
     </p>
 
     <h3 id="svelte-v2">Svelte 5: components you compile, not a bundle you load</h3>
@@ -1469,11 +1486,17 @@ S.viewerMount('chart', (opts) =&gt; opts)({}, { type: 'bar' });
       reconfigures the viewer every time; hoist it.
     </p>
     <p class="section-note">
-      <strong>Cleanup, and no SSR.</strong> Every component builds its instance in
+      <strong>Cleanup.</strong> Every component builds its instance in
       <code>onMount</code> and destroys it in <code>onDestroy</code>, unsubscribing its listeners,
       withdrawing its grid from the registry and detaching from the router before the grid goes.
-      Nothing is built during server rendering &mdash; SvelteKit SSR emits the empty host element
-      and nothing else &mdash; so these components are browser-only by construction.
+    </p>
+    <p class="section-note">
+      <strong>Server rendering (level 1).</strong> SvelteKit SSR renders every component as its
+      empty host element, with your <code>class</code> and <code>style</code> (so the box has its
+      height), and nothing else; <code>onMount</code> creates the instance in the browser after
+      hydration. Importing the components reads nothing from the browser. There are no
+      server-rendered rows, and you no longer need <code>export const ssr = false</code> or an
+      <code>{#if browser}</code> block around the grid.
     </p>
 
     <h3 id="angular-v2">Angular: a compiled entry point, <code>@toclocoinc/lattice-grid/angular</code></h3>
@@ -1581,12 +1604,18 @@ bootstrapApplication(Dashboard, {
       <code>test/angular-package-browser.test.js</code>.
     </p>
     <p class="section-note">
-      <strong>Angular 17 and up, browser only.</strong> The library is compiled partially, so your
+      <strong>Angular 17 and up.</strong> The library is compiled partially, so your
       own Angular version compiles it: its declarations need a linker no newer than 14, and its peer
-      range is <code>&gt;=17</code>. Nothing is created on the server &mdash;
-      <code>isPlatformBrowser</code> guards every build and <code>afterNextRender</code> does not
-      run there &mdash; so a server-rendered page emits the empty host element and the grid is built
-      on hydration. Angular Universal is not otherwise supported.
+      range is <code>&gt;=17</code>.
+    </p>
+    <p class="section-note">
+      <strong>Server rendering (level 1).</strong> Importing the package reads nothing from the
+      browser. Nothing is created on the server &mdash; <code>isPlatformBrowser</code> guards every
+      build and <code>afterNextRender</code> does not run there &mdash; so an Angular SSR page
+      (<code>@angular/platform-server</code>) emits each component's host element, with your
+      <code>class</code> and <code>style</code>, and the instance is built after hydration. There
+      are no server-rendered rows, and you no longer need an <code>isPlatformBrowser</code>
+      <code>@if</code> around the component.
     </p>
     <p class="section-note">
       <strong><code>modules/angular</code> is deprecated.</strong> The old bundle still works where
@@ -1832,9 +1861,11 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
     <code>document.createElement</code>, assign, then append — so the viewer is built once with
     everything it needs rather than built empty and reconfigured; in markup, use the JSON attribute
     forms. <strong>Cleanup</strong> is on disconnect, deferred by a microtask so moving an element in
-    the DOM keeps its instance rather than rebuilding it. <strong>SSR</strong>: every element owns a
-    real DOM node, so nothing is built until it is connected in a browser; a server render emits the
-    empty tag and no more.</p>
+    the DOM keeps its instance rather than rebuilding it. <strong>Server rendering (level 1)</strong>:
+    importing the module, and calling <code>defineLatticeElements()</code>, do nothing without a
+    browser; the server emits the empty tag, and the instance is created when the element is
+    connected in the browser. There are no server-rendered rows, and no client-only wrapper is
+    needed.</p>
 
     <p class="section-note"><strong>Events.</strong> Instance events are <code>CustomEvent</code>s
     named <code>lattice-</code> plus the event name with colons hyphenated
@@ -3516,7 +3547,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.118.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.119.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -15476,6 +15507,117 @@ seen.push(grid.rows.matchCount());
 return seen.join(' | ');                           // 40 | 20 | 5 | r7 | r3 | 20</code></pre>
     </div>
 
+    <h2 id="pdf">The PDF export</h2>
+    <p class="lead-in"><code>exportPdf(view, options)</code> and <code>downloadPdf(view, options)</code> (<code>modules/pdf</code>, opt-in) turn a grid's current view, a calendar, a Kanban board or a Gantt (<a href="#pdf-views">below</a>) into a paginated PDF whose text is real, selectable text. pdf-lib stays on your page: load its browser build (it leaves <code>PDFLib</code> on the window) or pass its namespace as <code>pdfLib</code>; the module bundles none of it, and because pdf-lib needs no DOM the same call runs in Node.</p>
+<pre><code>&lt;script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"&gt;&lt;/script&gt;
+import { exportPdf, downloadPdf } from '@toclocoinc/lattice-grid/modules/pdf';
+
+const blob = await exportPdf(grid, { pageSize: 'A4', orientation: 'landscape', title: 'Sales by region' });
+await downloadPdf(grid, { rows: 'selected', fileName: 'selected-sales' });   <span class="cmt">// saved as selected-sales.pdf</span>
+grid.export.pdf({ download: true });                                         <span class="cmt">// beside grid.export.excel</span></code></pre>
+    <p><strong>What prints.</strong> What the screen shows: the visible columns in screen order with their widths, scaled to fill the page width (<code>fit: 'width'</code>, the default) or kept and tiled across as many pages as the table needs (<code>fit: 'split'</code>, the start-pinned columns leading every tile); group rows with their totals; pinned-top rows first and pinned-bottom rows, the grand total among them, last; start-pinned columns first and end-pinned columns last; every cell's text exactly as its formatter put it on screen. A column the grid is redacting prints its header and, in each non-empty cell, a fixed six-bullet mask, so neither the value nor its length reaches the file. Control columns (the selection checkbox, the expander) are left out, and so is a column with <code>export: { pdf: false }</code>. <code>rows: 'selected'</code> prints only the selected data rows, in display order. The column headers repeat on every page, and every row is one line high, so a page break never splits a row; text too wide for its column ends in an ellipsis.</p>
+    <p><strong>Page furniture.</strong> <code>pageSize</code> is <code>'A4'</code>, <code>'Letter'</code>, <code>'A3'</code> or <code>'Legal'</code> (anything else is refused by name) and <code>orientation</code> <code>'portrait'</code> or <code>'landscape'</code>. <code>title</code> prints at the top of the first page and is the document's title; <code>header</code> and <code>footer</code> print on every page, each a string or <code>({ page, pages }) =&gt; text</code>; <code>pageNumbers</code> prints <code>3 / 12</code> bottom right unless <code>false</code>, or your own wording from a function. <code>theme: true</code> fills the header and the zebra stripes with the live theme tokens read off the grid's element (<code>--lattice-surface</code>, <code>--lattice-header-foreground</code>, <code>--lattice-row-stripe</code>, <code>--lattice-surface-alt</code>, <code>--lattice-foreground</code>, <code>--lattice-border-color</code>); without it the table is plain black on white. <code>fileName</code> names the file <code>downloadPdf</code> saves (<code>.pdf</code> added when missing, <code>export.pdf</code> by default); in Node, where there is no document, <code>downloadPdf</code> returns the PDF and saves nothing.</p>
+    <p><strong>Fonts.</strong> Text is set in Helvetica by default, which covers Western European text. <code>fonts: [{ family, url }]</code> embeds TTF/OTF fonts (subset to the glyphs used; <code>data</code>, the font's bytes, may stand in for <code>url</code>) and needs pdf-lib's fontkit build, the <code>fontkit</code> global or <code>fontkit</code>: a string is set in the first listed font that has every one of its characters, and in Helvetica otherwise, so a Noto Sans Arabic and a Noto Sans JP passed together set Arabic and Japanese cells while the Latin text stays in Helvetica. Joining forms and right-to-left order are fontkit's shaping.</p>
+    <p><strong>Where it shows up.</strong> While the module is loaded, a grid built by <code>createGrid</code> carries <code>grid.export.pdf(options)</code> (with <code>download: true</code> it downloads), the tool-panel rail carries a PDF button (<code>'pdf'</code>) beside Excel, and the context menu's export block offers <em>Export visible rows to PDF</em> and <em>Export selected rows to PDF</em>. Every framework adapter hands you the grid, so each exposes the PDF export exactly as it exposes the Excel one. The labels' keys are <code>toolbar.exportPdf</code>, <code>menu.exportPdfVisible</code> and <code>menu.exportPdfSelected</code>; the module carries their English.</p>
+    <div class="example">
+      <p class="example__label">A grouped grid to a Letter landscape PDF in Node, the same through grid.export.pdf, and downloadPdf</p>
+      <pre data-run="js" data-expect="application/pdf | 4 | 792x612 | Sales | true | true" data-covers="export:exportPdf export:downloadPdf method:export.pdf config:PdfExportOptions.pdfLib config:PdfExportOptions.pageSize config:PdfExportOptions.orientation config:PdfExportOptions.fit config:PdfExportOptions.rows config:PdfExportOptions.title config:PdfExportOptions.header config:PdfExportOptions.footer config:PdfExportOptions.pageNumbers config:PdfExportOptions.theme config:PdfExportOptions.fonts config:PdfExportOptions.fontkit config:PdfExportOptions.fileName"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { exportPdf, downloadPdf } = await import('../packages/modules/pdf/index.js');
+// On a page pdf-lib's browser build leaves PDFLib on the window. In Node it is
+// handed in: here, the repository's test copy of pdf-lib's own ESM build.
+const PDFLib = await import('../test/fixtures/pdf-lib/pdf-lib.esm.min.js');
+
+const grid = createGrid(createTestDom().root, {
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'amount', type: 'number', total: 'sum' }],
+  rows: Array.from({ length: 120 }, (_, i) =&gt; ({ id: 'r' + i, region: i % 2 ? 'North' : 'South', amount: i })),
+});
+grid.columns.group(['region']);
+
+const blob = await exportPdf(grid, {
+  pdfLib: PDFLib, pageSize: 'Letter', orientation: 'landscape', fit: 'width', rows: 'visible',
+  title: 'Sales', header: 'Q3 report', footer: ({ page }) =&gt; 'Confidential, page ' + page,
+  pageNumbers: true, theme: false, fonts: [], fontkit: null,
+});
+const doc = await PDFLib.PDFDocument.load(new Uint8Array(await blob.arrayBuffer()));
+const { width, height } = doc.getPage(0).getSize();
+
+const viaGrid = await grid.export.pdf({ pdfLib: PDFLib, fit: 'split' });    // beside grid.export.excel
+const saved = await downloadPdf(grid, { pdfLib: PDFLib, fileName: 'sales' }); // Node: returned, not saved
+return [blob.type, doc.getPageCount(), `${width}x${height}`, doc.getTitle(),
+  viaGrid.type === 'application/pdf', saved.size &gt; 0].join(' | ');     // application/pdf | 4 | 792x612 | Sales | true | true</code></pre>
+    </div>
+
+    <h3 id="pdf-views">The calendar, the Kanban board and the Gantt</h3>
+    <p class="lead-in">The same two calls take a calendar (<code>createCalendar</code>), a Kanban board (<code>createKanban</code>) or a Gantt (<code>createGantt</code>); which view it is comes from the instance, never from an option. Every option above applies except <code>rows: 'selected'</code>, which is the grid's and is refused by name for the others. Each view carries <code>export.pdf(options)</code> while the module is loaded (with <code>download: true</code> it saves), and every framework adapter hands you the instance, so it is reached there the same way.</p>
+<pre><code>import { downloadPdf } from '@toclocoinc/lattice-grid/modules/pdf';
+
+await downloadPdf(calendar, { fileName: 'november' });                <span class="cmt">// the month, week or day on screen</span>
+await downloadPdf(board, { fit: 'split' });                           <span class="cmt">// columns at their screen width, tiled</span>
+await gantt.export.pdf({ orientation: 'landscape', download: true }); <span class="cmt">// table + timeline, tiled both ways</span></code></pre>
+    <p><strong>Calendar.</strong> The current view as laid out on screen: the month or week as rows of day cells under the weekday header, every event one line with its time, its title and the colour its edge takes (a multi-day span as one bar across its days); the week with times and the day as an hour axis beside one column per day, the all-day row first, each event a box at its time in its colour. The title defaults to the header's own (<code>November 2026</code>). Every event of a day prints, the <code>+N more</code> overflow included. An event is never split: a week row that does not fit moves whole to the next page, a row taller than a page continues on the next with the weekday header and its day numbers repeated, and in the time grid a long day continues on the next page with the day headers repeated, the page break always placed between events. The header shows a PDF button beside the view buttons; its label is <code>calendar.exportPdf</code>.</p>
+    <p><strong>Kanban.</strong> The columns side by side in screen order, each headed by its title and its card count (<code>5/9</code> against a WIP limit), and each column's cards as the current filters leave them: title, subtitle, due date, badges, labels, points, the checklist count and progress. Covers, attachments and avatars are pictures and are not printed. <code>fit: 'width'</code> (the default) shares the page width between the columns; <code>fit: 'split'</code> keeps each column's on-screen width and tiles the columns across pages. A long column continues on the next page under its own header, every column header repeats on every page, and a card is never split. Every column's header menu carries <em>Export board to PDF</em> (<code>kanban.exportPdf</code>) after the host's own items.</p>
+    <p><strong>Gantt.</strong> The task table beside the timeline, as the mounted split view last painted them: its rows in screen order with their outline depth, its columns, widths and cell text, its day width. The timeline keeps that day width and is cut into date tiles (<code>fit: 'split'</code>, the Gantt's default), so the PDF is paginated along both axes; <code>fit: 'width'</code> scales the whole plan onto the page width instead. The table, its headers and the time scale (months over days, weeks or months, by how wide a day is) repeat on every page. Bars, progress, milestones, summary bars, dependency links, the today line and the weekend shading are vector paths and fills, never a bitmap, and every row is one line high, so a bar row is never split. With no split view mounted the schedule prints in its own order with a name, start and end column. The split view's header carries a PDF button beside the zoom control (<code>gantt.exportPdf</code>). On the builder's machine a Gantt of 500 tasks over one year exported in 832 ms and 1012 ms in two runs (342 landscape pages).</p>
+    <div class="example">
+      <p class="example__label">A calendar's month, then its day, in Node</p>
+      <pre data-run="js" data-expect="application/pdf | 1 | November 2026 | true" data-covers="export:exportPdf config:PdfExportOptions.orientation"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const { exportPdf } = await import('../packages/modules/pdf/index.js');
+const PDFLib = await import('../test/fixtures/pdf-lib/pdf-lib.esm.min.js');
+
+const calendar = createCalendar(null, {
+  startProperty: 'start', view: 'month', date: '2026-11-08', locale: 'en-GB', colorProperty: 'colour',
+  rows: [
+    { id: 1, title: 'Planning', start: '2026-11-03T09:30', colour: '#2563eb' },
+    { id: 2, title: 'Release', start: '2026-11-19T16:00', colour: '#e11d48' },
+  ],
+});
+const blob = await calendar.export.pdf({ pdfLib: PDFLib });          // the month on screen
+const doc = await PDFLib.PDFDocument.load(new Uint8Array(await blob.arrayBuffer()));
+calendar.setView('day');
+calendar.goTo('2026-11-03');
+const day = await exportPdf(calendar, { pdfLib: PDFLib, orientation: 'landscape' });
+return [blob.type, doc.getPageCount(), doc.getTitle(), day.size &gt; 0].join(' | ');   // application/pdf | 1 | November 2026 | true</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A board fitted to the page width, then tiled at its columns' screen width</p>
+      <pre data-run="js" data-expect="1 | 3" data-covers="export:exportPdf config:PdfExportOptions.fit"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const { exportPdf } = await import('../packages/modules/pdf/index.js');
+const PDFLib = await import('../test/fixtures/pdf-lib/pdf-lib.esm.min.js');
+
+const statuses = ['todo', 'doing', 'review', 'done', 'archived'];
+const board = createKanban(null, {
+  columnProperty: 'status',
+  columns: statuses.map((id) =&gt; ({ id, title: id, wipLimit: id === 'doing' ? 3 : undefined })),
+  card: { title: 'title', subtitle: 'owner', due: 'due', badges: 'size' },
+  rows: Array.from({ length: 40 }, (_, i) =&gt; ({
+    id: i, status: statuses[i % 5], title: 'Card ' + i, owner: 'Ann', due: '2026-12-01', size: 'M',
+  })),
+});
+const fitted = await board.export.pdf({ pdfLib: PDFLib });               // columns share the page width
+const tiled = await exportPdf(board, { pdfLib: PDFLib, fit: 'split' });  // columns at their screen width
+const pages = async (b) =&gt; (await PDFLib.PDFDocument.load(new Uint8Array(await b.arrayBuffer()))).getPageCount();
+return [await pages(fitted), await pages(tiled)].join(' | ');             // 1 | 3</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A Gantt tiled along both axes, then scaled to one page width</p>
+      <pre data-run="js" data-expect="Roll-out | 3 | 2" data-covers="export:exportPdf config:PdfExportOptions.fit config:PdfExportOptions.title"><code>const { createGantt } = await import('../packages/modules/gantt/index.js');
+const { exportPdf } = await import('../packages/modules/pdf/index.js');
+const PDFLib = await import('../test/fixtures/pdf-lib/pdf-lib.esm.min.js');
+
+const gantt = createGantt({
+  title: 'Roll-out',
+  tasks: Array.from({ length: 60 }, (_, i) =&gt; ({ id: 't' + i, name: 'Task ' + i, start: '2026-01-05', duration: 3 + i })),
+  dependencies: [{ from: 't0', to: 't1', type: 'FS' }],
+});
+const tiled = await gantt.export.pdf({ pdfLib: PDFLib, orientation: 'landscape' });  // both axes
+const fitted = await exportPdf(gantt, { pdfLib: PDFLib, fit: 'width' });             // one page width
+const read = async (b) =&gt; PDFLib.PDFDocument.load(new Uint8Array(await b.arrayBuffer()));
+const a = await read(tiled);
+const b = await read(fitted);
+return [a.getTitle(), a.getPageCount(), b.getPageCount()].join(' | ');    // Roll-out | 3 | 2</code></pre>
+    </div>
+
     <h2 id="mapview">The map view</h2>
     <p><code>modules/mapview</code> puts a 3D map beside the grid that shows the same rows geographically, and keeps the two in step: the map is always a picture of the grid's current state, not a separate report. Any row with a place &mdash; a latitude and a longitude, a GeoJSON geometry, or a path of coordinates &mdash; is drawn; a filter, a quick search or a grouping on the grid redraws the map on the grid's next frame; selecting a row flies the map to it; clicking a feature selects its row and scrolls the grid to it; and hovering shows the row's cells in the grid's own formatted text. For a telecoms team, the build schedule, premises list or fault log they already manage in the grid becomes a 3D map of their network with no extra integration.</p>
     <pre><code>import { createMapView } from '@toclocoinc/lattice-grid/modules/mapview';
@@ -23426,6 +23568,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rangeText</td><td class="type">(opts?: object): string</td><td class="desc"><code>opts?: object</code></td><td class="type"><code>string</code></td><td class="desc">The selected range as tab-separated text, the shape a spreadsheet pastes.</td></tr>
           <tr><td class="name">csv</td><td class="type">(opts?: <a href="#type-CsvExportOptions">CsvExportOptions</a>): string | Promise&lt;Blob&gt;</td><td class="desc"><code>opts?: <a href="#type-CsvExportOptions">CsvExportOptions</a></code></td><td class="type"><code>string | Promise&lt;Blob&gt;</code></td><td class="desc">Export to CSV. Returns the text, or downloads a blob when the options ask for a file.</td></tr>
           <tr><td class="name">excel</td><td class="type">(opts?: <a href="#type-ExcelExportOptions">ExcelExportOptions</a>): Promise&lt;Blob&gt;</td><td class="desc"><code>opts?: <a href="#type-ExcelExportOptions">ExcelExportOptions</a></code></td><td class="type"><code>Promise&lt;Blob&gt;</code></td><td class="desc">Export to a real `.xlsx` workbook, with the column formats, widths and any styling the options ask for. Large exports stream.</td></tr>
+          <tr><td class="name">pdf</td><td class="type">(opts?: <a href="#type-PdfExportOptions">PdfExportOptions</a> &amp; { download?: boolean }): Promise&lt;Blob&gt;</td><td class="desc"><code>opts?: <a href="#type-PdfExportOptions">PdfExportOptions</a> &amp; { download?: boolean }</code></td><td class="type"><code>Promise&lt;Blob&gt;</code></td><td class="desc">Export the current view as a PDF, or with `download: true` save it as `fileName`. Present only while the opt-in PDF module (`modules/pdf`) is loaded, on a grid built by `createGrid`; the same call as that module's `exportPdf(grid, opts)`. <small>(optional)</small></td></tr>
           <tr><td class="name">clipboard</td><td class="type">(opts?: <a href="#type-ClipboardOptions">ClipboardOptions</a>): Promise&lt;void&gt;</td><td class="desc"><code>opts?: <a href="#type-ClipboardOptions">ClipboardOptions</a></code></td><td class="type"><code>Promise&lt;void&gt;</code></td><td class="desc">Copy to the clipboard as tab-separated text, which is what Excel, Numbers and Sheets paste as cells. With `rows: 'range'` it copies the selected rectangle.</td></tr>
           <tr><td class="name">print</td><td class="type">(opts?: { maxRows?: number; unpin?: boolean; print?: boolean; }): Promise&lt;{ printed: boolean; rows: number; reason?: string }&gt;</td><td class="desc"><code>opts?: { maxRows?: number; unpin?: boolean; print?: boolean; }</code></td><td class="type"><code>Promise&lt;{ printed: boolean; rows: number; reason?: string }&gt;</code></td><td class="desc">Switch the grid into print layout — every row in the document, no virtualisation, no paging, pinned columns released — let the layout settle, call the browser's print dialog, and put the grid back as it was. Refused above `maxRows` (5,000 by default, roughly a hundred printed pages), with a message pointing at the CSV and Excel exports. `unpin` keeps the pinned columns in place; `print: false` lays the grid out and restores it without calling the dialog, which is how a host paginates or photographs it. Resolves with what happened, so a caller can show the reason instead of guessing.</td></tr>
         </tbody>
@@ -30438,6 +30581,29 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="ref-module-pdf">The PDF export</h3>
+    <h4 id="type-PdfExportOptions">PdfExportOptions</h4>
+    <p class="section-note">What the opt-in PDF export takes (`modules/pdf`, BACKLOG-0006170): `exportPdf(grid, options)`, `downloadPdf(grid, options)` and, while the module is loaded, `grid.export.pdf(options)`. The PDF is the grid's current view: its visible columns in screen order and widths, group rows with their totals, pinned rows and columns in place, each cell's text as formatted on screen and a redacted column's cells as a fixed mask. The column headers repeat on every page and a row is never split across pages. Text is real, selectable text in an embedded font.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pageSize</td><td class="type">'A4' | 'Letter' | 'A3' | 'Legal'</td><td class="desc">The page size: `'A4'` (the default), `'Letter'`, `'A3'` or `'Legal'`. Any other value is refused by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">orientation</td><td class="type">'portrait' | 'landscape'</td><td class="desc">`'portrait'` (the default) or `'landscape'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">fit</td><td class="type">'width' | 'split'</td><td class="desc">How a view wider than the page fits: `'width'` scales it so it fills the page width; `'split'` keeps its on-screen widths and tiles it across as many pages as it needs. A grid's columns (the start-pinned ones leading every tile) and a board's columns default to `'width'`; a Gantt's timeline defaults to `'split'`, cut into date tiles at the screen's day width, and `'width'` scales the whole plan onto the page width. <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">'visible' | 'all' | 'selected'</td><td class="desc">Which rows of a grid: `'visible'` (the default) prints the view, pinned rows and group rows included; `'selected'` only the selected data rows, in display order. `'all'` is the view too: a PDF is a picture of the grid. Grid-only: a calendar, a board or a Gantt prints its whole view and refuses `'selected'` by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">A title printed at the top of the first page (of each column tile, on a grid), and the document's title. A calendar defaults to its header's title (`November 2026`), a Gantt to `createGantt({ title })`. <small>(optional)</small></td></tr>
+          <tr><td class="name">header</td><td class="type">string | ((at: { page: number; pages: number }) =&gt; string)</td><td class="desc">A running header on every page: text, or `({ page, pages }) =&gt; text`. <small>(optional)</small></td></tr>
+          <tr><td class="name">footer</td><td class="type">string | ((at: { page: number; pages: number }) =&gt; string)</td><td class="desc">A running footer on every page, bottom left: text, or `({ page, pages }) =&gt; text`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pageNumbers</td><td class="type">boolean | ((at: { page: number; pages: number }) =&gt; string)</td><td class="desc">Page numbers, bottom right: `true` (the default) prints `3 / 12`, `false` none, a function `({ page, pages }) =&gt; text` its own wording. <small>(optional)</small></td></tr>
+          <tr><td class="name">fileName</td><td class="type">string</td><td class="desc">The file `downloadPdf` saves, `.pdf` added when missing. `'export.pdf'` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">theme</td><td class="type">boolean</td><td class="desc">Colour the header row and the zebra stripes from the live theme tokens (`--lattice-surface`, `--lattice-header-foreground`, `--lattice-row-stripe`, `--lattice-surface-alt` for group rows, `--lattice-foreground`, `--lattice-border-color`), read off the grid's element. Off by default: a plain black-on-white table. <small>(optional)</small></td></tr>
+          <tr><td class="name">fonts</td><td class="type">Array&lt;{ family: string; url?: string; data?: ArrayBuffer | Uint8Array }&gt;</td><td class="desc">TTF/OTF fonts to embed (subset to the glyphs used), in preference order: a string is set in the first font that has every one of its characters, and in Helvetica, the default, otherwise. `data` (the font's bytes) may stand in for `url`. Needs `fontkit`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pdfLib</td><td class="type">unknown</td><td class="desc">The page's pdf-lib namespace. The `PDFLib` global its browser build leaves behind by default; the module bundles none. <small>(optional)</small></td></tr>
+          <tr><td class="name">fontkit</td><td class="type">unknown</td><td class="desc">pdf-lib's fontkit, needed only for `fonts`. The `fontkit` global by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="ref-module-listview">The list view module</h3>
     <h4 id="type-ListViewConfig">ListViewConfig</h4>
     <p class="section-note">The configuration for {@link createList}. `createGrid` is the page's own grid factory, injected so the list shares the page's one licensed core — `createList` wraps it as a one-column, headerless, borderless grid, one row per item, the cell drawn by `template`.</p>
@@ -32094,6 +32260,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">export</td><td class="type"><a href="#type-PdfViewExportApi">PdfViewExportApi</a></td><td class="desc">The board's export API (BACKLOG-0006175): `pdf(options)` exports the whole board as a PDF (with `download: true` it saves it), the same call as the PDF module's `exportPdf(board, options)`. `pdf` is present only while the opt-in PDF module (`modules/pdf`) is loaded; every framework adapter hands you the instance, so it is reached the same way there. <small>(read-only)</small></td></tr>
           <tr><td class="name">el</td><td class="type">unknown | null</td><td class="desc">The element the board renders into, or null for a headless board. <small>(read-only)</small></td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-KanbanRow">KanbanRow</a>) =&gt; string | number)</td><td class="desc">The resolved card identity; see `KanbanConfig.rowKey`. <small>(read-only)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-KanbanRows">KanbanRows</a></td><td class="desc">The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a board a Data Router target.</td></tr>
@@ -34271,6 +34438,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">export</td><td class="type"><a href="#type-PdfViewExportApi">PdfViewExportApi</a></td><td class="desc">The Gantt's export API (BACKLOG-0006175): `pdf(options)` exports the task table and the timeline as a PDF (with `download: true` it saves it), the same call as the PDF module's `exportPdf(gantt, options)`. `pdf` is present only while the opt-in PDF module (`modules/pdf`) is loaded; every framework adapter hands you the instance, so it is reached the same way there. <small>(read-only)</small></td></tr>
           <tr><td class="name">tasks</td><td class="type"><a href="#type-GanttTask">GanttTask</a>[]</td><td class="desc">The current tasks, as fresh shallow copies — mutating them changes nothing; call `applyEdit` or `setTasks`. <small>(read-only)</small></td></tr>
           <tr><td class="name">dependencies</td><td class="type"><a href="#type-GanttDependency">GanttDependency</a>[]</td><td class="desc">The current links, as fresh copies, always in the normalised `{ from, to, type, lag }` form. <small>(read-only)</small></td></tr>
           <tr><td class="name">schedule</td><td class="type"><a href="#type-GanttSchedule">GanttSchedule</a> | null</td><td class="desc">The latest schedule result. It keeps the last successful one when a recompute fails, so a cycle does not blank the view. <small>(read-only)</small></td></tr>
@@ -34644,6 +34812,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">export</td><td class="type"><a href="#type-PdfViewExportApi">PdfViewExportApi</a></td><td class="desc">The calendar's export API (BACKLOG-0006175): `pdf(options)` exports the current month, week or day view as a PDF (with `download: true` it saves it), the same call as the PDF module's `exportPdf(calendar, options)`. `pdf` is present only while the opt-in PDF module (`modules/pdf`) is loaded; every framework adapter hands you the instance, so it is reached the same way there. <small>(read-only)</small></td></tr>
           <tr><td class="name">el</td><td class="type">unknown | null</td><td class="desc">The element the calendar renders into, or null for a headless calendar. <small>(read-only)</small></td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; string | number)</td><td class="desc">The resolved row identity; see `CalendarConfig.rowKey`. <small>(read-only)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-CalendarRows">CalendarRows</a></td><td class="desc">The keyed-diff consumer surface — what makes the calendar a Data Router target.</td></tr>
@@ -41445,6 +41614,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-PdfViewExportApi">PdfViewExportApi</h4>
+    <p class="section-note">The `export` API of a calendar, a Kanban board and a Gantt (BACKLOG-0006175): `pdf` while the opt-in PDF module is loaded.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pdf</td><td class="type">(opts?: <a href="#type-PdfExportOptions">PdfExportOptions</a> &amp; { download?: boolean }): Promise&lt;Blob&gt;</td><td class="desc"><code>opts?: <a href="#type-PdfExportOptions">PdfExportOptions</a> &amp; { download?: boolean }</code></td><td class="type"><code>Promise&lt;Blob&gt;</code></td><td class="desc">Export the view as a PDF, or with `download: true` save it as `fileName`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ProcessCapability">ProcessCapability</h4>
     <div class="table-wrap">
       <table>
@@ -43292,6 +43471,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The handler prop name one event maps to, as a type: `'cell:changed'` becomes `'onCellChanged'` (BACKLOG-0001307). Recursive over the `:` segments, so a three-part name like `'cell:edit:start'` becomes `'onCellEditStart'` — the same rule `handlerName` applies at runtime, stated once so the props type and the implementation cannot disagree.</p>
     <p class="type-def"><code>type PascalJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Capitalize&lt;Head&gt;}${<a href="#type-PascalJoin">PascalJoin</a>&lt;Tail&gt;}` : Capitalize&lt;E&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/react</code>.</small></p>
+    <h4 id="type-PdfExportable">PdfExportable</h4>
+    <p class="section-note">What `exportPdf` takes (BACKLOG-0006175): a grid (`createGrid`), a calendar (`createCalendar`), a Kanban board (`createKanban`) or a Gantt (`createGantt`). Which one it is is read from the instance, never from an option.</p>
+    <p class="type-def"><code>type PdfExportable = <a href="#type-Grid">Grid</a> | import('lattice-grid/modules/calendar').<a href="#type-Calendar">Calendar</a> | import('lattice-grid/modules/kanban').<a href="#type-Kanban">Kanban</a> | import('lattice-grid/modules/gantt').<a href="#type-Gantt">Gantt</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/pdf</code>.</small></p>
     <h4 id="type-PermissionLevel">PermissionLevel</h4>
     <p class="section-note">The four corners of read × write. `writeOnly` is a secret: the column is present and editable, its value never shown, exported, copied or searched.</p>
     <p class="type-def"><code>type PermissionLevel = 'hidden' | 'read' | 'writeOnly' | 'write'</code></p>
@@ -43692,7 +43875,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.118.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.119.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
