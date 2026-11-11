@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.119.0, data-router module type declarations
+ * Lattice Grid 1.120.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -171,11 +171,25 @@ export type SelectionRelation =
   | ((selected: RouterRecord[]) => ((row: RouterRecord) => boolean));
 
 /**
+ * A `link()`/`relate()` endpoint: a live grid instance, or a
+ * **route ref** — the partition value or label `subscribe`/`alert`/`fieldsOf`
+ * already accept, resolved by the router. A ref whose route has a local grid
+ * behaves exactly as passing that grid; a ref whose grid is in another window is
+ * a remote source (its selection arrives over the `broadcast` channel) or a
+ * remote target (ignored locally — the window that holds it applies the link).
+ */
+export type RouterEndpoint = unknown;
+
+/**
  * One edge of a relationship graph (v3): the source grid whose selection
  * filters the target. `on` (or `relation`) is the relation; `mutual` makes
- * the edge work in both directions.
+ * the edge work in both directions. `follow: 'filter'` also narrows the target
+ * to the rows whose joined source row the source grid currently SHOWS under its
+ * column filters, quick filter and `where` predicates,
+ * re-evaluated on every filter change and followed across windows over
+ * `broadcast`; absent, the edge follows the selection only, as before.
  */
-export interface RouterEdge { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean }
+export interface RouterEdge { from: RouterEndpoint; to: RouterEndpoint; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean; follow?: 'filter' }
 
 /**
  * A declarative routing graph (v5): the same routes, links,
@@ -193,7 +207,7 @@ export interface RouterConfig {
    * Selection links to make, each naming the `from` and `to` grids and the relation as
    * `on` (or `relation`) — the arguments of `link()`.
    */
-  links?: { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation }[];
+  links?: { from: RouterEndpoint; to: RouterEndpoint; on?: SelectionRelation; relation?: SelectionRelation; follow?: 'filter' }[];
   /**
    * Relationship-graph edges to register, as `relate()` takes them; an edge may be
    * `mutual` to work in both directions.
@@ -204,6 +218,48 @@ export interface RouterConfig {
    * deltas. An empty object applies a default cap of 10,000 deltas and warns.
    */
   buffer?: { window?: number; max?: number };
+}
+
+/**
+ * `link()`'s fourth argument. `follow: 'filter'` makes the
+ * target follow the source grid's filter as well as its selection: the target
+ * receives the rows joined to what the source shows, the selection narrowing
+ * inside that set, every row restored when the filter clears.
+ */
+export interface RouterLinkOptions {
+  /** Follow the source grid's filter as well as its selection. */
+  follow?: 'filter';
+}
+
+/**
+ * A message a broadcasting router posts on its BroadcastChannel (v6). `filter` carries a follow source's
+ * shown-row keys (null when its filter is cleared, or when more rows are shown
+ * than one message carries — 10,000 — in which case the remote target is not
+ * narrowed); the snapshot carries the current selections and filters so a late
+ * joiner is filtered at once.
+ */
+export type DataRouterMessage =
+  | { t: 'hello' }
+  | { t: 'delta'; deltas: { op: string; row: unknown; seq?: number }[] }
+  | { t: 'snapshot'; rows: unknown[]; seq?: number; checkpoint: Record<string, number>;
+      selections: { ref: unknown; keys?: string[]; predicate?: object }[];
+      filters: { ref: unknown; keys: string[] }[] }
+  | { t: 'selection'; ref: unknown; keys?: string[]; predicate?: object }
+  | { t: 'state'; ref: unknown; state: object }
+  | { t: 'filter'; ref: unknown; keys: string[] | null };
+
+/**
+ * `broadcast()` options (v6). `channel` is the BroadcastChannel name every peer
+ * window shares. `mirror.state` opts in to ALSO mirroring each local grid's
+ * filter/sort/search arrangement to its twin on the same ref;
+ * selection and link filtering follow the feed whenever broadcasting, with or
+ * without it. Default (`mirror` absent): selection crosses, arrangement does not.
+ */
+export interface BroadcastOptions {
+  /** The BroadcastChannel name every mirrored window shares. */
+  channel: string;
+  /** Opt in to mirroring grid arrangement (filter/sort/search) across windows. */
+  mirror?: { state?: boolean };
 }
 
 /**
@@ -915,10 +971,12 @@ export interface DataRouter {
   /**
    * Link a source grid's selection to what a target grid receives (v2): the target shows the subset of its partition the
    * `relation` admits, re-pushed through the keyed-diff path. No selection
-   * shows the full partition; changes are debounced.
+   * shows the full partition; changes are debounced. Either endpoint may be a
+   * live grid or a {@link RouterEndpoint} route ref, so a link
+   * can span windows over a `broadcast` channel.
    */
-  link(source: unknown, target: unknown, relation: SelectionRelation): DataRouter;
-  /** Declare a relationship graph (v3): multi-hop, several-into-one and mutual edges — the scalable form of `link`. */
+  link(source: RouterEndpoint, target: RouterEndpoint, relation: SelectionRelation, opts?: RouterLinkOptions): DataRouter;
+  /** Declare a relationship graph (v3): multi-hop, several-into-one and mutual edges — the scalable form of `link`. Each edge end may be a grid or a {@link RouterEndpoint} route ref. */
   relate(edges: RouterEdge[]): DataRouter;
   /** Apply any debounced selection refilter synchronously (for tests/determinism). */
   flush(): DataRouter;
@@ -1026,8 +1084,8 @@ export interface DataRouter {
   readonly traveling: boolean;
   /** How many deltas the bounded buffer currently holds (v4). */
   readonly buffered: number;
-  /** Mirror the ordered, de-duplicated deltas to other tabs over a BroadcastChannel (v6), with no echo loop. */
-  broadcast(opts: { channel: string }): DataRouter;
+  /** Mirror the ordered, de-duplicated deltas to other tabs over a BroadcastChannel (v6), with no echo loop. Selection and link filtering follow the feed across windows; `mirror.state` also mirrors grid arrangement. */
+  broadcast(opts: BroadcastOptions): DataRouter;
   /** Whether the router is mirroring to a BroadcastChannel (v6). */
   readonly broadcasting: boolean;
   /** Source the router from a pushdown adapter (v7): each `where` route is planned against the adapter's capabilities. */

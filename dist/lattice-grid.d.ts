@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.119.0, type declarations
+ * Lattice Grid 1.120.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4975,6 +4975,14 @@ export interface GridConfig {
    * small picker for the other single-operand operators; a tri-state box for a
    * boolean; and a chip that opens the column's own filter popup for a set or
    * multi column, whose value list belongs in the popup.
+   *
+   * With Equals or Not equal chosen on a text column the box also lists the
+   * column's values: focusing it, typing in it or pressing Down
+   * opens a list under the cell, from the same source as the header menu's value
+   * picker (the dictionary, or the engine's `columnValues` on a pushdown source;
+   * a source that cannot list values leaves the plain box). Picking applies the
+   * condition as typing it would, and picking several makes an `in` / `notIn`.
+   * Contains and every other operator keep the plain box.
    *
    * It writes the one filter model, `grid.filters`, through the same path the
    * column menu writes: the menu shows what was typed in the row and the row

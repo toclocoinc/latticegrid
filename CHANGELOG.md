@@ -9,6 +9,31 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.120.0] - 2026-11-11
+
+### Added
+
+- **Data Router: selection, links and grid arrangement follow the feed across windows** (BACKLOG-0006245). `link()`/`relate()` accept a route ref (a partition value or label, exactly what `subscribe`/`alert`/`fieldsOf` take) for either end as well as a live grid, so a link or relationship graph can span pop-out windows over a `broadcast()` channel: a ref whose route has a local grid behaves as passing that grid, a ref whose grid is in another window is a remote source whose selection arrives over the channel, and a remote target is applied by the window that holds it.
+  - A grid that is a link or graph source posts its selection over the channel, so a selection in one window filters a linked target in another; the selection also rides on the snapshot a late joiner receives, so its targets are filtered before any fresh selection arrives.
+  - `broadcast({ channel, mirror: { state: true } })` additionally mirrors each local grid's filter, sort and search arrangement to its twin on the same ref. Default (`mirror` absent) mirrors selection but not arrangement.
+  - An inbound selection or arrangement is applied without being re-posted, so there is no echo loop and the channel traffic stays bounded.
+
+- **Grid filter row: Equals, Not equal and Is one of list the column's values** (BACKLOG-0006262). With one of those operators chosen on a text column, focusing the row's box, typing in it or pressing Down opens a list of the column's values under the cell, the same list the header filter menu already offers: the dictionary on an in-memory grid, the engine's `columnValues` on a pushdown source (capped, most frequent first, narrowed by what is typed). Up/Down/Enter/Escape and a click work it, picking several makes an `in` condition, and picking applies the condition exactly as typing the value would. A source that cannot list the values leaves the plain box, as do Contains and every other operator. The box is a `combobox` with `aria-expanded`, `aria-controls` and `aria-activedescendant`; the list is drawn in the grid's overlay layer, at least 200px wide, so a narrow column or a clipping container does not cut it off.
+
+- **Data Router: a link or relate edge can follow the source grid's filter** (BACKLOG-0006267). `link(source, target, relation, { follow: 'filter' })`, a `relate()` edge with `follow: 'filter'` and a `configure({ links })` entry with `follow: 'filter'` narrow the target to the rows whose joined source row the source grid currently shows under its column filters and quick filter, re-evaluated on every filter change; the selection narrowing applies inside that set and clearing the filter restores every row. Without `follow`, nothing changes.
+  - Across windows: while broadcasting, a follow source posts the keys of the rows it shows as a `filter` message (debounced as selections are, nothing when unchanged, at most 10,000 keys), the snapshot carries them so a late joiner is filtered at once, and a remote source resolves through a shadow filter. An inbound filter is never re-posted.
+
+### Fixed
+
+- **Gantt split view: a link can be dropped on (and started from) a milestone's whole diamond** (BACKLOG-0006260). A task could not be linked to a milestone with the pointer: the milestone's start and finish connector handles sat on the same point in the diamond's centre (the finish dot on top, so any release there made an FF link, never the FS a task-finish drag onto a milestone means), and a release on the diamond's own drawn shape — rather than precisely on one of those two stacked dots — did nothing.
+  - The start handle now sits 2px left of the diamond's left point, the finish handle 2px right of its right point — outside the diamond the same way a bar's two handles sit outside its edges — so the two ends are distinguishable and each is its own drop target.
+  - A release anywhere on the milestone's whole diamond, not only on a connector dot, now completes the link: a drag from a task's finish connector makes FS, from its start connector makes SS.
+  - A `.lat-gantt-split__marker`/`.lat-gantt-split__marker-range` line drawn over the rows at a milestone's own date lets the pointer pass through to the diamond underneath (`pointer-events: none`), reachable across its full width instead of only a couple of pixels either side of the line.
+
+- **The filter row's value box kept saying "Contains" after a different operator was picked** (BACKLOG-0006261). The box's placeholder now names the operator in force, so choosing Equals reads "Equals" rather than the default.
+
+- **The filter row's closed operator picker showed a symbol that named nothing** (BACKLOG-0006261). The picker now shows the same plain menu glyph as the header's menu button, with the operator's name kept in the value box's placeholder, the tooltip and the accessible name.
+
 ## [1.119.0] - 2026-11-08
 
 ### Added
