@@ -9,6 +9,76 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.121.0] - 2026-11-11
+
+### Added
+
+- **A Kanban board takes its own `theme` and follows a bound grid's** (BACKLOG-0006333). `createKanban(el, { theme: 'dark' })` writes the name to the board root's `data-theme` the way the grid does, `board.setTheme(theme)` switches it live, and a board created with a `grid` and no `theme` of its own copies the grid's theme at mount and follows `grid.set('theme', …)` changes.
+
+- **Data Router: `popOut()` opens a panel in its own window** (BACKLOG-0006334). `router.popOut({ url, name })` resolves `url` against the current page, opens it through `window.open` and returns a handle `{ window, name, blocked, focus(), close() }`. The child's router joins the `broadcast` channel on load and resyncs from the snapshot; when it closes, `onClose` fires within a second — via a `bye` the child's router posts over the channel on pagehide, with a 500 ms poll of `window.closed` as the fallback while a child is open. A popup the browser blocks returns `{ blocked: true, window: null }` without throwing (one warning names the catalogue key), and calling again with the same still-open name focuses that window instead of opening another.
+  - `closeWithOwner` (default true) closes the children on the owner page's own `pagehide`, so closing or reloading the dashboard closes the windows it opened; pass `closeWithOwner: false` to opt out. `router.popped()` lists the open handles, and `popOut()` works without `broadcast()` too — the window opens with no data mirrored.
+
+- A chart takes a `seriesOrder` option (`{ by: 'value' | 'label', dir }`, or a list of series
+  names) that sets the order of its series in the legend, the stack (first series = bottom) and
+  grouped bars (BACKLOG-0006339). Series not named in a list follow in first-seen order, the order
+  is reapplied after a filter removes and restores series, and it never changes which colour a
+  series gets (colours stay keyed by name).
+
+- The map view has a `fit` option (`'once'`, the default, keeps today's fit-at-first-draw;
+  `false` never fits; `'data'` re-fits the map to its rows, animated and debounced, whenever a
+  filter or search changes the set of rows it draws — unless the reader has panned or zoomed since
+  the last automatic fit), and `mapview.fitToRows()` to fit now and re-arm that automatic fitting
+  (BACKLOG-0006340).
+
+- **A filter made in a linked view now reaches the source grid and every other view, in the same window or another** (BACKLOG-0006347). On a `relate()` edge with `follow: 'filter'` and `mutual: true`, a filter condition added, changed or removed on the target grid — by a chart brush, a map's viewport filter, a filter row or the API — now travels the other way as well.
+  - A condition on a column the source grid also has is written into the source grid's filter model as a condition owned by that edge, replacing only what the edge wrote before. The source grid genuinely filters, its filter row shows the condition, and through its own outward follow every other target — a map, a KPI tile, a board — follows. A condition on a column the source lacks stays local, and the conditions the user typed are untouched; clearing the brush clears exactly the edge's condition.
+  - Across windows the condition crosses the broadcast channel as a message carrying the condition (not keys), is applied in the window holding the source grid, is never echoed back, and a late joiner takes the edge-owned conditions from the snapshot.
+  - Requires a `{ from, to }` key map; a function relation cannot be inverted, warns (`data-router:mutual-fn`), and sends nothing back. With `mutual` off, nothing travels back.
+
+- **A value is coloured once, by its option's variant, in every view** (BACKLOG-0006348). When a column's options carry a `variant` (`critical` → `danger`, say), a chart coloured by that column (its `series`, or a single-series bar's `x` category), a map view coloured by `{ field }` and a Kanban board whose `badges`/`labels` map that column all draw the value in the theme's `--lattice-variant-<name>-solid` (the badge's chip in its tone) — the same colour the cell's pill or dot takes, in light and dark and after a filter drops and restores values.
+  - An explicit chart `scheme` name map or map `color` map still wins over the variant, and a value with no variant falls back to each view's existing rule.
+
+### Fixed
+
+- **A filtered series chart keeps each series' colour rather than reassigning it by position** (BACKLOG-0006323). A bar chart bound to a `series` column numbered its series by their place in the filtered list, so filtering a severity chart down to `high` repainted the high bars in the palette's first colour; each series value now keeps the palette slot it first drew with for the chart's life, a value that comes back keeps its slot, and a new value takes the next free one. A `{ name: colour }` scheme still wins for the names it lists, and fit lines and confidence bands take their series' colour.
+
+- **The trial watermark roamed over the header, the filter row and pinned top rows** (BACKLOG-0006324). On an unlicensed grid its top corners used to sit against the whole overlay, which put the "Free for non-commercial use" notice over the column headings, an open filter box or a pinned totals row every few seconds — unreadable and, over the header, unclickable underneath. It now roams the corners of the rows area only: below the header, the filter row and any pinned top rows, above any pinned bottom rows and the status bar, re-measured on every move and on resize.
+  - When the rows area is too short to hold two notices stacked (roughly, shorter than twice the notice's own height), it roams the bottom corners only rather than crowding the top ones in.
+
+- **A category axis with twelve or fewer categories shows every label — turned 45° or abbreviated — before it drops any** (BACKLOG-0006325). A five-service bar chart in a narrow pane used to draw only every other category (Payments, Auth and Search) because the label planner thinned before it tried turning the labels; it now turns the five labels 45° and shows all of them. Past twelve categories the long-standing thinning order is unchanged.
+
+- **A box plot's outliers, whiskers and caps could paint over the chart's title** (BACKLOG-0006326). An outlier sitting exactly on an automatic axis maximum, or any reading past a *declared* `axis.y.max`, used to draw past the plot and into the title above it.
+  - An automatic axis end now reserves the few pixels an outlier's radius or a cap's stroke needs, so a reading at that end never sits exactly on `plot.top`/`plot.bottom`.
+  - A box plot's (and a violin's) marks are now clipped to the plot rectangle, as the cartesian chart types already are, so a reading past a declared `axis.y.min`/`max` clips at the plot's edge instead.
+
+- **A marker map never draws a label over a marker dot** (BACKLOG-0006327). Every marker is in the label collision set before any label is placed, so on a dense map — Europe, a US coast — a label that would cover a neighbouring dot is moved to another of its four positions or hidden instead, and a hidden label's text stays on the marker's tooltip and accessible name. The map's "could not be placed" note still counts only rows with no usable place, never a hidden label.
+
+- **Two marker-map labels could still overlap on a system whose font draws wider or taller than the estimate assumed** (BACKLOG-0006327). The collision box around each label is now measured against the font it is actually drawn in — an offscreen canvas asked for the real width and the real line height, cached per font and text — rather than the character-ratio width estimate and the nominal font size; the estimate remains the fallback where there is no canvas to ask (Node, SSR).
+
+- **The tool-panel dock reserves its full drawn width beside the grid** (BACKLOG-0006328). The gutter the dock reserves is measured from the dock itself — its drawn width, `border-inline-start` included — rather than rebuilt from the tab strip alone, so the dock's 1px border never sits over the amount column; the reserve re-measures when the dock resizes and after fonts load, and follows a host that restyles the tab labels.
+  - **Unchanged.** The open panel still reserves its own 260px (360px for Explain), and a closed dock still reserves only the tab strip's width.
+
+- **A `createSelect` or `createCombo` created with `disabled: true` (or `readOnly: true`) looked and behaved enabled until a setter ran** (BACKLOG-0006329). Both factories now apply their creation options through the same code path as `setDisabled`/`setReadOnly` at the end of construction, so the control mounts already disabled/read-only — the trigger/input carries the native `disabled` (or `readonly`/`aria-readonly`) state, a disabled control leaves the tab order, and the list refuses to open — exactly as after `setDisabled(true)`/`setReadOnly(true)`.
+
+- **The filter row's operator picker fell back to Contains after an operator was chosen with no value typed** (BACKLOG-0006330). Choosing Equals (or any other operator) in a cell whose value box was still empty, then moving focus away, had the next repaint — a scroll, a data update — put the picker back on Contains, because an inactive condition leaves the column's branch null in the filter model and the repaint read the blank condition's default operator. The row now remembers the operator a cell picked while its box is empty, so the picker, its placeholder and the value list stay on that operator until a value is typed (the model then rules as before) or the filter is cleared from outside.
+
+- The docs, README sources and type comments now state the true chart count:
+  every figure says seventy-nine chart types (forty-three built in and
+  thirty-six as opt-in `chart-*` modules), and a new test asserts each stated
+  count against the registry so the two cannot drift apart (BACKLOG-0006331).
+
+- **A long axis title that does not fit the plot shrinks and wraps before it is cut** (BACKLOG-0006332). A y-axis title such as "Depth in kilometres below the surface" on a short chart was clamped straight to the plot height and cut to "Depth in kilometr…"; it now steps one size down (never below the tick label size), then wraps to two lines at that size, and only then is truncated with an ellipsis. A wrapped title grows its gutter by one line so it stays clear of the tick labels, and a cut title keeps its full text in the accessible name.
+
+- **Data Router: a `follow: 'filter'` target across windows now follows the source grid as the feed adds, changes or removes rows, not only when the filter changes** (BACKLOG-0006338). A popped-out chart narrowed to the dashboard's filtered rows used to stay at the rows it had when it joined while the dashboard's shown set grew or shrank as the feed applied deltas. The source now re-posts its shown keys through the existing debounce after each delta, so the target follows row add/change/remove within one debounce; an unchanged shown set is still not re-posted.
+
+- **An unlicensed grid's trial notice drew its link in the same colour as the box, hiding it** (BACKLOG-0006342). The link's colour lived inside the retintable theme layer, so an ordinary, unrelated host rule for a bare `a` tag could override it; the notice now sets its own text colour outside that layer, matching the second line, in every view, theme and preset.
+
+- The free-tier and trial notice on a Kanban board, calendar, Gantt chart, scheduler, data view, designer and record editor now roams only the view's content area, never its column headers, toolbar, day headings or time scale, as the grid's does since BACKLOG-0006324.
+
+- **An axis title's reserved margin is now planned with the same glyph widths it is drawn with** (BACKLOG-0006344). The plot layout used to decide a wrapping title's line count from the char-ratio estimate while the draw itself measured the browser's real font; where the real font was wider than the estimate, the plot reserved one line and the draw wrapped to two, so the title's second line landed on the tick labels. The layout now plans with the chart's own measurer, falling back to the estimate only where none exists (a Node test, an SSR render).
+
+- **Map view draw editing: Alt-clicking a vertex away keeps the shape selected** (BACKLOG-0006351). The click that ends an Alt vertex delete could clear the selection, so a second Alt-click had nothing to delete. Each gesture's own trailing click is now consumed, and the next press starts clean.
+
 ## [1.120.0] - 2026-11-11
 
 ### Added

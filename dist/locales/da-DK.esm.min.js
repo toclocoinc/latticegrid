@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.120.0, da-DK locale
+ * Lattice Grid 1.121.0, da-DK locale
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

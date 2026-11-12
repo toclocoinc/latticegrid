@@ -1,8 +1,12 @@
 /*!
- * Lattice Grid 1.120.0, data-router module type declarations
+ * Lattice Grid 1.121.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
+import type {
+  Window,
+} from '../lattice-grid.js';
+
 /**
  * A record routed through a data router: any object. Its partition comes from
  * the router's `key` and its identity within a grid from `rowKey`.
@@ -188,6 +192,18 @@ export type RouterEndpoint = unknown;
  * column filters, quick filter and `where` predicates,
  * re-evaluated on every filter change and followed across windows over
  * `broadcast`; absent, the edge follows the selection only, as before.
+ *
+ * `follow: 'filter'` with `mutual: true` also carries a filter CONDITION the
+ * other way: a condition added, changed or removed on the
+ * target grid — by a chart brush, a map's viewport filter, a filter row or the
+ * API — on a column the source grid also has is written into the source grid's
+ * filter model as a condition owned by that edge, replacing only what the edge
+ * wrote before and leaving the user's conditions untouched; a column the source
+ * lacks stays local. The source grid then genuinely filters, its filter row
+ * shows the condition, and its own outward follow narrows every other target,
+ * in this window or another. Requires a `{ from, to }` key map; a function
+ * relation cannot be inverted, warns (`data-router:mutual-fn`), and sends
+ * nothing back.
  */
 export interface RouterEdge { from: RouterEndpoint; to: RouterEndpoint; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean; follow?: 'filter' }
 
@@ -232,21 +248,27 @@ export interface RouterLinkOptions {
 }
 
 /**
- * A message a broadcasting router posts on its BroadcastChannel (v6). `filter` carries a follow source's
- * shown-row keys (null when its filter is cleared, or when more rows are shown
- * than one message carries — 10,000 — in which case the remote target is not
- * narrowed); the snapshot carries the current selections and filters so a late
- * joiner is filtered at once.
+ * A message a broadcasting router posts on its BroadcastChannel (v6). `filter` carries a follow
+ * source's shown-row keys (null when its filter is cleared, or when more rows
+ * are shown than one message carries — 10,000 — in which case the remote target
+ * is not narrowed); `filterCondition` carries a mutual follow-filter edge's
+ * conditions from the target window to the window holding the source grid, by
+ * the two route refs, applied there and never echoed back; the snapshot carries
+ * the current selections, filters and conditions so a late joiner is filtered at
+ * once.
  */
 export type DataRouterMessage =
   | { t: 'hello' }
   | { t: 'delta'; deltas: { op: string; row: unknown; seq?: number }[] }
   | { t: 'snapshot'; rows: unknown[]; seq?: number; checkpoint: Record<string, number>;
       selections: { ref: unknown; keys?: string[]; predicate?: object }[];
-      filters: { ref: unknown; keys: string[] }[] }
+      filters: { ref: unknown; keys: string[] }[];
+      conditions: { from: unknown; to: unknown; conditions: object[] }[] }
   | { t: 'selection'; ref: unknown; keys?: string[]; predicate?: object }
   | { t: 'state'; ref: unknown; state: object }
-  | { t: 'filter'; ref: unknown; keys: string[] | null };
+  | { t: 'filter'; ref: unknown; keys: string[] | null }
+  | { t: 'filterCondition'; from: unknown; to: unknown; conditions: object[] }
+  | { t: 'bye'; name: string };
 
 /**
  * `broadcast()` options (v6). `channel` is the BroadcastChannel name every peer
@@ -260,6 +282,47 @@ export interface BroadcastOptions {
   channel: string;
   /** Opt in to mirroring grid arrangement (filter/sort/search) across windows. */
   mirror?: { state?: boolean };
+}
+
+/**
+ * `popOut()` options. `url` resolves against the current
+ * page; `name` is the window name — a repeated call with the same still-open
+ * name focuses that window instead of opening another; `features` is the
+ * `window.open` features string; `onClose` runs when the child window closes;
+ * `closeWithOwner` (default true) closes the child on this page's own
+ * `pagehide`, so closing or reloading the dashboard closes the windows it
+ * opened.
+ */
+export interface PopOutOptions {
+  /** The URL to open, resolved against the current page. */
+  url: string;
+  /** The window name; also the key that reuses an already-open window. */
+  name: string;
+  /** The `window.open` features string (default 'popup,width=900,height=600'). */
+  features?: string;
+  /** Runs when the child window closes. */
+  onClose?: () => void;
+  /** Close the child when this page hides (default true). */
+  closeWithOwner?: boolean;
+}
+
+/**
+ * The handle `popOut()` returns. `window` is the opened
+ * window — null when the popup was blocked, and null again once the window
+ * has closed; `blocked` is true exactly in the blocked case, when `focus()`
+ * and `close()` are no-ops.
+ */
+export interface PopOutHandle {
+  /** The opened window, or null when blocked or once closed. */
+  readonly window: Window | null;
+  /** The window name the handle was opened under. */
+  readonly name: string;
+  /** True when the browser refused to open the window. */
+  readonly blocked: boolean;
+  /** Focus the window (a no-op once closed). */
+  focus(): PopOutHandle;
+  /** Close the window and run `onClose` (a no-op once closed). */
+  close(): PopOutHandle;
 }
 
 /**
@@ -1088,6 +1151,10 @@ export interface DataRouter {
   broadcast(opts: BroadcastOptions): DataRouter;
   /** Whether the router is mirroring to a BroadcastChannel (v6). */
   readonly broadcasting: boolean;
+  /** Open a panel in its own window; the window's router joins the channel on load, and closing it fires `onClose`. */
+  popOut(opts: PopOutOptions): PopOutHandle;
+  /** The pop-out windows this router currently has open. */
+  popped(): PopOutHandle[];
   /** Source the router from a pushdown adapter (v7): each `where` route is planned against the adapter's capabilities. */
   query(adapter: RouterQueryAdapter, request?: Record<string, unknown>): Promise<DataRouter>;
   /** The pushed/residual split of the last `query()` (v7), per fetch, or null before any. */

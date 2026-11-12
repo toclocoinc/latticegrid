@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.120.0, kanban module type declarations
+ * Lattice Grid 1.121.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -10,6 +10,7 @@ import type {
   Grid,
   PdfViewExportApi,
   SourceConfig,
+  Theme,
 } from '../lattice-grid.js';
 
 /** A row backing a card: any object. Its column comes from `columnProperty` and its identity from `rowKey`. */
@@ -682,10 +683,12 @@ export interface KanbanFlow {
  * board maps any customer schema (a status field, `points`, `sprint`,
  * `epic`, a swimlane property) without code change.
  *
- * Theme: no `theme` of its own — it inherits. Its colours are the
- * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's
- * `theme: 'dark'`, or `<html>`) darkens it with everything else, and the nearest
- * `data-theme` wins. Load the grid stylesheet, which carries the tokens.
+ * Theme: a `theme` of its own is written to `data-theme`
+ * on the board root, the same values the grid's `theme` takes. Without one
+ * the board follows a bound grid's `theme` (live, through the grid's
+ * `config:changed`), then the nearest `data-theme` on an ancestor, and is
+ * light when there is none — its colours are the grid's `--lattice-*`
+ * tokens, so one `data-theme="dark"` darkens it with everything else.
  */
 export interface KanbanConfig {
   /** The source rows, one per card. Use this or `grid`, not both — `rows` wins. */
@@ -696,6 +699,14 @@ export interface KanbanConfig {
    * board `rows.apply` and `setRows` are ignored with a warning.
    */
   grid?: unknown;
+  /**
+   * The board's own visual theme: the same values the grid's
+   * `theme` takes, written to `data-theme` on the board root so the board's
+   * token-derived roles resolve against it. Omit to follow a bound grid's
+   * `theme` (live), then the nearest `data-theme` on an ancestor, then light.
+   * Change it at runtime with {@link Kanban#setTheme}.
+   */
+  theme?: Theme;
   /**
    * A pushdown source the board binds to instead of `rows` or `grid`: the result of `createPushdownSource`. The board asks
    * the source's `fetch` for each column's cards one page at a time (loading
@@ -1785,6 +1796,14 @@ export interface Kanban {
    * collapse. `null` returns to the `orderProperty` order (or arrival order).
    */
   setOrder(fn: ((a: KanbanCard, b: KanbanCard, column: KanbanColumn) => number) | null): Kanban;
+  /**
+   * Set (or clear with null) the board's own theme, then reflect it onto the
+   * board root's `data-theme`. A string — the same values
+   * the grid's `theme` takes — pins the board to that theme; null clears the
+   * board's own choice so it falls back to a bound grid's `theme`, then the
+   * nearest `data-theme` on an ancestor.
+   */
+  setTheme(theme: Theme | null): Kanban;
   /**
    * Re-read the source and re-render: a bound grid's rows, or the configured array. Once
    * rows have arrived through `rows.apply` nothing is re-read — the board regroups what

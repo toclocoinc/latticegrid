@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.120.0, type declarations
+ * Lattice Grid 1.121.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14480,7 +14480,7 @@ export function resolveLocale(configured: string | undefined, declared?: string,
  * these blocks be found at all.
  */
 
-/** One of the thirty chart types `createChart` accepts. */
+/** One of the seventy-nine chart types `createChart` accepts. */
 export type ChartType =
   | 'line' | 'step' | 'area' | 'rangeArea'
   | 'bar' | 'horizontalBar' | 'waterfall'
@@ -16410,6 +16410,15 @@ export interface ChartSpec {
    */
   categoryOrder?: ChartCategoryOrder;
   /**
+   * The order a `series`-bound chart draws its series in: the
+   * legend, the stack (first series = bottom) and grouped-bar positions. Default:
+   * the order the series values first appear in. Series not named in an explicit
+   * list follow in first-seen order. The order holds when the bound grid's filter
+   * or data changes, and does not change which colour a series gets (colours stay
+   * keyed by name). See {@link ChartCategoryOrder}. <small>(optional)</small>
+   */
+  seriesOrder?: ChartCategoryOrder;
+  /**
    * On a histogram, `true` overlays a kernel density curve. On a `line`, an
    * `area` (and the line half of a `combo`/`pareto`), it names how the series
    * connects its readings: a {@link ChartCurve} name
@@ -17177,7 +17186,7 @@ export interface Chart {
   readonly element: HTMLElement;
   /** Redraw now. */
   draw(): void;
-  /** Change the spec and redraw; unnamed keys keep their values. */
+  /** Change the spec and redraw; unnamed keys keep their values, and each series value keeps its remembered colour unless `series` changes. */
   update(spec: Partial<ChartSpec>): void;
   /** The data the chart last bound. */
   data(): object | null;

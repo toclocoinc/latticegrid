@@ -1,5 +1,5 @@
 {
-  "version": "1.120.0",
+  "version": "1.121.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 784,
+  "count": 786,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -4199,6 +4199,28 @@
       "fix": "Route each value once, or create the router with `overlap: true` when one value really is meant to feed several viewers.",
       "snippet": "createDataRouter({ overlap: true });",
       "docs": "api/data-router.html#datarouter-overlap-example"
+    },
+    {
+      "id": "data-router:popout-name",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.121.0",
+      "message": "router.popOut() needs a non-empty string name; no window was opened.",
+      "meaning": "`popOut()` was called without a name, so there is no window name to open under and no key to reuse an already-open window on a later call. Nothing was opened.",
+      "fix": "Pass a string `name` — the same one you pass again later to focus the already-open window.",
+      "snippet": "router.popOut({ url: '?panel=chart', name: 'chart' });",
+      "docs": "api/data-router.html#datarouter-example"
+    },
+    {
+      "id": "data-router:popout-blocked",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.121.0",
+      "message": "router.popOut() could not open the window — the browser blocked the popup, or this runtime has no window API. Nothing was opened; the handle is blocked with no window.",
+      "meaning": "`window.open` returned nothing (the browser blocked the popup, or the code runs where no window API exists). The call does not throw: it returns a handle with `blocked: true` and `window: null`, whose `focus()`/`close()` are no-ops.",
+      "fix": "Open pop-outs from a user gesture so the browser lets them through, or accept the blocked handle and show the panel in-page instead.",
+      "snippet": "const h = router.popOut({ url: '?panel=chart', name: 'chart' }); if (h.blocked) showInPage();",
+      "docs": "api/data-router.html#datarouter-example"
     },
     {
       "id": "data-router:readonly-write",

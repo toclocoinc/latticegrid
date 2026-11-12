@@ -9,7 +9,7 @@ forms, lists, trees and an app shell.
 Zero runtime dependencies, with adapters for React, Vue, Svelte, Angular, Web
 Components and htmx. Free on localhost, licensed per domain to ship.
 
-Version 1.120.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.121.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ## Start
 
@@ -53,7 +53,7 @@ Every module is optional and none of them is loaded unless you import it.
 
 | Module | What it is |
 |---|---|
-| `modules/charts.esm.min.js` | Thirty-eight chart types drawn from the grid's data, including control and capability charts. |
+| `modules/charts.esm.min.js` | Forty-three chart types drawn from the grid's data, including control and capability charts. |
 | `modules/data-router.esm.min.js` | One stream split by property and routed to many grids and views. |
 | `modules/kanban.esm.min.js` | Board view: rows as cards grouped into columns. |
 | `modules/gantt.esm.min.js` | Editable, dependency-aware project plan with a computed critical path. |
@@ -165,7 +165,7 @@ enough to know whether the grid covers what you need.
 
 ### Seeing the data
 
-- **Charts.** `modules/charts` draws thirty-eight chart types from the grid's
+- **Charts.** `modules/charts`, with its opt-in chart modules, draws seventy-nine chart types from the grid's
   own data: line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
   funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
   chord, network, stream, violin, gantt, Q-Q, ECDF, Lorenz, correlogram,
@@ -499,7 +499,7 @@ a second copy.
 
 ### Chart-type extensions
 
-Twenty-three additional chart types ship as separate, tree-shakeable modules. Each
+Thirty-six additional chart types ship as separate, tree-shakeable modules. Each
 one **self-registers** its type onto the charts module's shared registry the
 moment it is loaded — so load the base charts module first, load the extension
 for its side effect, then name the type in `createChart`.

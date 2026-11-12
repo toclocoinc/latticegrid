@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.120.0</title>
+<title>Data router API Reference — Lattice Grid 1.121.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -813,7 +813,10 @@ router.live();                             <span class="cmt">// back to the head
 g.destroy(); router.destroy();
 <span class="kw">return</span> [head, past, traveling, back].join(' | ');</code></pre>
 
-    <p><strong>Cross-tab / pop-out window sync (v6, BACKLOG-0000913).</strong> <code>broadcast({ channel })</code> mirrors the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a routed grid popped into its own tab joins the <em>same</em> feed with no second socket. Each tab runs its own router on the same channel name and applies the mirrored deltas through the ordinary keyed-diff path, so its grids stay dumb and keep scroll/selection. What is mirrored is exactly what the router applied (post-order, post-dedupe); an inbound mirror is applied <em>without</em> re-broadcasting, so there is no echo loop. Calling <code>broadcast</code> announces the tab, and any peer already holding the feed answers with a snapshot (current world + resume checkpoint) so the new tab resyncs mid-stream via the v3 reconnect path. Off by default; <code>broadcasting</code> reports whether it is on, <code>destroy()</code> closes the channel. Needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly. (Not demonstrated headless: it depends on the browser's BroadcastChannel delivering across tabs asynchronously.)</p>
+    <p><strong>Cross-tab / pop-out window sync (v6, BACKLOG-0000913).</strong> <code>broadcast({ channel })</code> mirrors the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a routed grid popped into its own tab joins the <em>same</em> feed with no second socket. Each tab runs its own router on the same channel name and applies the mirrored deltas through the ordinary keyed-diff path, so its grids stay dumb and keep scroll/selection. What is mirrored is exactly what the router applied (post-order, post-dedupe); an inbound mirror is applied <em>without</em> re-broadcasting, so there is no echo loop. Calling <code>broadcast</code> announces the tab, and any peer already holding the feed answers with a snapshot (current world + resume checkpoint) so the new tab resyncs mid-stream via the v3 reconnect path. Off by default; <code>broadcasting</code> reports whether it is on, <code>destroy()</code> closes the channel. Needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly. A small helper completes the multi-window feature (BACKLOG-0006334): <code>popOut({ url, name })</code> opens a named panel window through <code>window.open</code> and returns <code>{ window, name, blocked, focus(), close() }</code>; the child's own router joins the channel on load, closing it fires <code>onClose</code>, a blocked popup returns <code>{ blocked: true, window: null }</code> without throwing, the owner's <code>pagehide</code> closes its children (opt out with <code>closeWithOwner: false</code>), and a repeated name focuses the already-open window. (Not demonstrated headless: it depends on the browser's BroadcastChannel delivering across tabs asynchronously.)</p>
+    <pre><code><span class="kw">const</span> panel = router.popOut({ url: '?panel=chart', name: 'chart', onClose: () =&gt; restore() });
+<span class="kw">if</span> (panel.blocked) showChartInline();   <span class="cmt">// the browser refused the popup</span>
+<span class="kw">const</span> open = router.popped();            <span class="cmt">// [panel] while the window is open</span></code></pre>
 
     <p><strong>DFQL/DuckDB query-slice routing (v7, BACKLOG-0000914).</strong> <code>query(adapter, request?)</code> sources the router from a query rather than a pushed feed: it runs <code>adapter.execute</code> (any pushdown adapter &mdash; a DFQL/DuckDB one, or a <code>createPushdownSource</code>-style object with <code>capabilities</code> and <code>execute(query)</code>), partitions the result across the routes, and drives the grids by the same keyed diff <code>load()</code> uses. Where a route declares a <code>where</code> (a filter-wire condition <code>{ col, op, value }</code> or an <code>and</code>/<code>or</code>/<code>not</code> group), that filter is pushed <em>down</em> into the engine where the adapter's capability model allows and the residual is finished client-side; routes without a <code>where</code> share one base query and are partitioned client-side. It composes with the per-route <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> (v3) and cross-grid links/graph, and <code>lastQueryPlan()</code> reports the pushed/residual split per fetch. Async.</p>
     <h3 id="datarouter-v7-example">Query-slice routing, executed</h3>
@@ -1598,6 +1601,48 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-PopOutOptions">PopOutOptions</h4>
+    <p class="section-note">`popOut()` options (BACKLOG-0006334). `url` resolves against the current page; `name` is the window name — a repeated call with the same still-open name focuses that window instead of opening another; `features` is the `window.open` features string; `onClose` runs when the child window closes; `closeWithOwner` (default true) closes the child on this page's own `pagehide`, so closing or reloading the dashboard closes the windows it opened.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="desc">The URL to open, resolved against the current page.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The window name; also the key that reuses an already-open window.</td></tr>
+          <tr><td class="name">features</td><td class="type">string</td><td class="desc">The `window.open` features string (default 'popup,width=900,height=600'). <small>(optional)</small></td></tr>
+          <tr><td class="name">closeWithOwner</td><td class="type">boolean</td><td class="desc">Close the child when this page hides (default true). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onClose</td><td class="type">() =&gt; void</td><td class="desc">&mdash;</td><td class="type"><code>=&gt; void</code></td><td class="desc">Runs when the child window closes. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-PopOutHandle">PopOutHandle</h4>
+    <p class="section-note">The handle `popOut()` returns (BACKLOG-0006334). `window` is the opened window — null when the popup was blocked, and null again once the window has closed; `blocked` is true exactly in the blocked case, when `focus()` and `close()` are no-ops.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">window</td><td class="type">Window | null</td><td class="desc">The opened window, or null when blocked or once closed. <small>(read-only)</small></td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The window name the handle was opened under. <small>(read-only)</small></td></tr>
+          <tr><td class="name">blocked</td><td class="type">boolean</td><td class="desc">True when the browser refused to open the window. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">focus</td><td class="type">(): <a href="#type-PopOutHandle">PopOutHandle</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-PopOutHandle">PopOutHandle</a></code></td><td class="desc">Focus the window (a no-op once closed).</td></tr>
+          <tr><td class="name">close</td><td class="type">(): <a href="#type-PopOutHandle">PopOutHandle</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-PopOutHandle">PopOutHandle</a></code></td><td class="desc">Close the window and run `onClose` (a no-op once closed).</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterJoinAggregate">RouterJoinAggregate</h4>
     <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null. `min`/`max` compare every non-null child value — a number numerically, a `Date` by its instant, and anything else (including a coerced date's `YYYY-MM-DD` string) by its text form (BACKLOG-0004696), so they work over dates, numbers and strings alike; `sum`/`avg` stay numbers-only, skipping a non-finite value.</p>
     <div class="table-wrap">
@@ -1972,6 +2017,8 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
           <tr><td class="name">resume</td><td class="type">(): <a href="#type-DataRouter">DataRouter</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Resume a paused replay from where it stopped (v4); a no-op when not paused.</td></tr>
           <tr><td class="name">live</td><td class="type">(): <a href="#type-DataRouter">DataRouter</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Return to live (v4): rebuild the head from the base plus every buffered delta.</td></tr>
           <tr><td class="name">broadcast</td><td class="type">(opts: <a href="#type-BroadcastOptions">BroadcastOptions</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>opts: <a href="#type-BroadcastOptions">BroadcastOptions</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Mirror the ordered, de-duplicated deltas to other tabs over a BroadcastChannel (v6), with no echo loop. Selection and link filtering follow the feed across windows; `mirror.state` also mirrors grid arrangement (BACKLOG-0006245).</td></tr>
+          <tr><td class="name">popOut</td><td class="type">(opts: <a href="#type-PopOutOptions">PopOutOptions</a>): <a href="#type-PopOutHandle">PopOutHandle</a></td><td class="desc"><code>opts: <a href="#type-PopOutOptions">PopOutOptions</a></code></td><td class="type"><code><a href="#type-PopOutHandle">PopOutHandle</a></code></td><td class="desc">Open a panel in its own window (BACKLOG-0006334); the window's router joins the channel on load, and closing it fires `onClose`.</td></tr>
+          <tr><td class="name">popped</td><td class="type">(): <a href="#type-PopOutHandle">PopOutHandle</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-PopOutHandle">PopOutHandle</a>[]</code></td><td class="desc">The pop-out windows this router currently has open (BACKLOG-0006334).</td></tr>
           <tr><td class="name">query</td><td class="type">(adapter: <a href="#type-RouterQueryAdapter">RouterQueryAdapter</a>, request?: Record&lt;string, unknown&gt;): Promise&lt;<a href="#type-DataRouter">DataRouter</a>&gt;</td><td class="desc"><code>adapter: <a href="#type-RouterQueryAdapter">RouterQueryAdapter</a></code><br><code>request?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>Promise&lt;<a href="#type-DataRouter">DataRouter</a>&gt;</code></td><td class="desc">Source the router from a pushdown adapter (v7): each `where` route is planned against the adapter's capabilities.</td></tr>
           <tr><td class="name">lastQueryPlan</td><td class="type">(): RouterQueryPlanEntry[] | null</td><td class="desc">&mdash;</td><td class="type"><code>RouterQueryPlanEntry[] | null</code></td><td class="desc">The pushed/residual split of the last `query()` (v7), per fetch, or null before any.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Detach every grid and drop every link (the host destroys the grids themselves).</td></tr>

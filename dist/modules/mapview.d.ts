@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.120.0, mapview module type declarations
+ * Lattice Grid 1.121.0, mapview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -390,6 +390,16 @@ export interface MapViewOptions {
   /** The initial camera. Default: fitted to the drawn rows. */
   view?: MapViewCamera;
   /**
+   * When the map fits itself to its rows: `'once'` (the default) fits once,
+   * at first draw, and leaves the camera to the reader after that; `'data'`
+   * also refits, animated and debounced (250 ms), after every redraw whose
+   * set of row keys changed — a filter or quick search — unless the reader
+   * has panned or zoomed since the last automatic fit, which stops it until
+   * `fitToRows()` re-arms it; `false` never fits on its own. An empty row
+   * set never moves the map.
+   */
+  fit?: 'once' | 'data' | false;
+  /**
    * `light` or `dark`; default the grid's own (`data-theme` above it, `auto`
    * read from the reader's colour-scheme preference).
    */
@@ -554,6 +564,11 @@ export interface MapView {
   update(options?: Partial<MapViewOptions>): void;
   /** Fly to one row, or fit the map to several. */
   flyTo(keys: string | number | Array<string | number>): void;
+  /**
+   * Fit the map to the rows it is drawing now, and arm the automatic fit
+   * again for `fit: 'data'` after the reader has panned or zoomed it.
+   */
+  fitToRows(): void;
   /** Draw the rows of one geometry with this layer kind. */
   setLayer(layer: MapViewLayer): void;
   /** What the map drew last: rows drawn, skipped and matched, and per layer. */
