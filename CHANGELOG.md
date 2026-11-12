@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.122.0] - 2026-11-12
+
+### Added
+
+- Chart bands under the split view's timeline (BACKLOG-0006361): small bar, line or area charts whose x axis is the timeline itself, with one mark per bucket centred under that bucket's span at every zoom, re-bucketed to the zoom and scroll-locked to the timeline.
+  - A series draws from a `value(bucketStart, bucketEnd, ctx)` function, a `[{ date, value }]` points array, a Lattice grid's filtered rows, or a `combine` over other series, and can be `cumulative`, split across a left/right axis, and stacked.
+  - `chartBands` on `mountSplit`, `getChartBandData`, `getChartBandState`/`setChartBandState` and `toggleChartBand`.
+  - Hovering a chart band (or focusing it and pressing the arrow keys) shows a tooltip with the bucket's dates and each series' value, formatted with the band's `format`/`currency` like a data band.
+  - The y axis, legend and tooltip are the charts module's own (a legend click hides or shows a series); the y axis sits in the left-hand column area, as wide as the task table, so the plot lines up with the timeline, and its tick labels always fit there, in the compact form of the band's currency where the full figure would not.
+
+- **Gantt resource cost per time bucket** (BACKLOG-0006362). `gantt.costByBucket(from, to, { zoom, by })` (or the standalone `computeCostByBucket`) reports each bucket's `Σ booked hours that day × the rate in force that day` — a `'material'` or `'cost'` amount falling on the task's start day — grouped by task, resource or the whole project, summing to `computeCost`'s `rateCost`. A data band's `value` reads the same figure for its bucket through `ctx.cost(taskId)`.
+
+### Fixed
+
+- A filter box focused in the first moments after the grid mounts kept its value list open only until the grid rebuilt its header to settle its layout, which dropped focus to the page; the rebuild now hands focus back to the same box with its operator, text, caret and open list intact (BACKLOG-0006364).
+
 ## [1.121.0] - 2026-11-11
 
 ### Added

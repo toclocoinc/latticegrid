@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.121.0, gantt module type declarations
+ * Lattice Grid 1.122.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1130,6 +1130,61 @@ export function computeCost(
   },
 ): GanttCostResult;
 
+/** One row of a per-bucket cost report. */
+export interface GanttCostByBucketRow {
+  /** The task id, resource name or `'project'` the row is for. */
+  key: string;
+  /** The row's label (a task name, a resource name or `'Project'`). */
+  label: string;
+  /** One cost per bucket; a bucket with no booked cost is `0`. */
+  cells: number[];
+  /** The row's total cost across the buckets. */
+  total: number;
+}
+
+/** The resource-rate cost report over time buckets. */
+export interface GanttCostByBucketResult {
+  /** Whether the cost could be computed. False when there is no successful schedule. */
+  ok: boolean;
+  /** Why the cost was refused — `NO_SCHEDULE` when the plan has not scheduled. */
+  error?: { code: string; message: string };
+  /** The buckets the rows are cut at (ascending, end exclusive). */
+  buckets?: Array<{ start: number; end: number }>;
+  /** The rows in the chosen grouping (`by`), schedule order for tasks. */
+  rows?: GanttCostByBucketRow[];
+  /** Every task keyed by id (leaf, summary and derived), as per-bucket cells. */
+  byTask?: Map<string, number[]>;
+  /** Every resource keyed by name, as per-bucket cells. */
+  byResource?: Map<string, number[]>;
+  /** The whole project's per-bucket cost. */
+  total?: number[];
+  /** The project's total cost across the buckets. */
+  projectTotal?: number;
+}
+
+/**
+ * Compute resource-rate cost per time bucket for a scheduled plan: the per-day booked hours {@link computeCost} prices,
+ * re-bucketed to a zoom and grouped by task, resource or the whole project.
+ * Summing a row's buckets equals `computeCost`'s `rateCost` for that task,
+ * resource or the project.
+ */
+export function computeCostByBucket(
+  tasks: GanttTask[],
+  schedule: GanttSchedule,
+  options?: {
+    from?: number | string | Date;
+    to?: number | string | Date;
+    zoom?: 'day' | 'week' | 'month' | 'quarter';
+    by?: 'task' | 'resource' | 'project';
+    weekStartDay?: number;
+    resources?: GanttResourceSpec;
+    resourceRates?: Map<string, { type: 'work' | 'material' | 'cost'; rate: number | null; rates: { from: number; rate: number }[]; cost: number | null }>;
+    hoursPerDay?: number;
+    isWorking?: ((day: number) => boolean) | null;
+    fields?: object;
+  },
+): GanttCostByBucketResult;
+
 /** One cumulative S-curve point: the value of each curve as of a bucket date. */
 export interface GanttSCurvePoint {
   /**
@@ -1706,6 +1761,8 @@ export interface GanttDataBandContext {
   end?: number;
   /** The zoom level the buckets were cut at (`value` only). */
   zoom?: string | null;
+  /** The rate-derived cost for a task in this bucket: `(taskId) => number | null` (`value` only). */
+  cost?: (taskId: string | number) => number | null;
   /** The bucket's start as an ISO date (`cellStyle` only). */
   bucketStart?: string;
   /** The bucket's exclusive end as an ISO date (`cellStyle` only). */
@@ -1772,6 +1829,79 @@ export interface GanttDataBand {
   editable?: boolean;
   /** What a moved or resized task does to its series: `'shift'` (default), `'stretch'` or `'keep'`. */
   onReschedule?: 'shift' | 'stretch' | 'keep';
+  /** Start collapsed to the header strip. */
+  collapsed?: boolean;
+}
+
+/**
+ * One series of a chart band: exactly one source and one
+ * mark. The x axis is the timeline itself, so the series carries no x column —
+ * every bucket's mark sits under that bucket's span at every zoom.
+ */
+export interface GanttChartBandSeries {
+  /** The series' id: names it in `getChartBandData` and lets a `combine` reference it. */
+  id: string;
+  /** The series' title, shown in the band's legend; defaults to its id. */
+  title?: string;
+  /** The mark: `'bar'` (default), `'line'` or `'area'`. */
+  mark?: 'bar' | 'line' | 'area';
+  /** A bucket's value: `(bucketStart, bucketEnd, ctx) => number`, dates as ISO strings, end exclusive. */
+  value?: (bucketStart: string, bucketEnd: string, ctx: GanttChartBandContext) => number | null | undefined;
+  /** A `[{ date, value }]` series, re-bucketed to the zoom. */
+  points?: GanttDataBandPoint[];
+  /** Rows of a Lattice grid: `date` and `value` name its columns, `series` (optional) splits into one sub-series per distinct value. Follows that grid's filter. */
+  grid?: { grid: unknown; date: string; value: string; series?: string };
+  /** Combine other series' bucket values: `'sum'` adds them, `'diff'` subtracts the rest from the first. */
+  combine?: { op: 'sum' | 'diff'; of: string[] };
+  /** Draw the running total of the buckets (after `combine`, when both are set). */
+  cumulative?: boolean;
+  /** Which y axis: `'left'` (default) or `'right'`. */
+  axis?: 'left' | 'right';
+  /** Bars with the same `stack` name stack on each other. */
+  stack?: string;
+}
+
+/** The context a chart band's `value` function receives. */
+export interface GanttChartBandContext {
+  /** The band's id. */
+  band: string;
+  /** The bucket's first day, as a day number. */
+  start: number;
+  /** The bucket's exclusive end day, as a day number. */
+  end: number;
+  /** The zoom level. */
+  zoom: string | null;
+  /** The bucket's index. */
+  bucket: number;
+}
+
+/**
+ * One linked chart band under the split view: a small chart
+ * whose x axis IS the timeline — one mark per bucket, re-bucketed to the zoom
+ * and scroll-locked to the timeline. Its y axis, legend and theme tokens come
+ * from the charts module.
+ */
+export interface GanttChartBand {
+  /** The band's id: names it in state and `getChartBandData`. */
+  id: string;
+  /** The band's title, shown in its header strip; defaults to its id. */
+  title?: string;
+  /** The series, in draw order (stacked after the data bands in the order given). */
+  series: GanttChartBandSeries[];
+  /** The band's height in pixels; default 160. */
+  height?: number;
+  /** The header strip's height in pixels; default 24. */
+  rowHeight?: number;
+  /** The band's colour scheme name or `{ series: [...] }`, handed to the charts module. */
+  scheme?: string | Record<string, unknown>;
+  /** A series colour palette, handed to the charts module. */
+  palette?: string[];
+  /** How the y-axis ticks and the tooltip's values display, as a data band: `'number'` (default), `'currency'`, `'percent'`, `{ type, currency, decimals }` or a function. A tick label too wide for the y-axis panel (the task table's width) is drawn in the compact form of the same format. */
+  format?: 'number' | 'currency' | 'percent' | { type: 'number' | 'currency' | 'percent'; currency?: string; decimals?: number } | ((value: number, ctx: object) => string);
+  /** The ISO currency code for `format: 'currency'`; default `'USD'`. */
+  currency?: string;
+  /** Fraction digits; defaults by format. */
+  decimals?: number;
   /** Start collapsed to the header strip. */
   collapsed?: boolean;
 }
@@ -3690,6 +3820,14 @@ export interface GanttSplitView {
   toggleDataBand(id: string, collapsed?: boolean): boolean;
   /** A data band as a plain table — left-hand texts then one column per bucket with the raw values — for an Excel/CSV writer; `null` for an unknown id. */
   getDataBandTable(id: string): { id: string; title: string; columns: Array<{ id: string; title: string }>; rows: Array<Array<string | number | null>> } | null;
+  /** Each chart band's collapsed flag, keyed by band id; `null` when none is mounted. */
+  getChartBandState(): Record<string, { collapsed: boolean }> | null;
+  /** Restore {@link getChartBandState}'s output and redraw. */
+  setChartBandState(state: Record<string, { collapsed?: boolean }>): void;
+  /** Collapse a chart band to its header strip or open it; omit `collapsed` to toggle. Returns whether it is now collapsed. */
+  toggleChartBand(id: string, collapsed?: boolean): boolean;
+  /** A chart band's computed data — buckets as ISO dates and each series' per-bucket values — for tests and export; `null` for an unknown id. */
+  getChartBandData(id: string): { buckets: Array<{ start: string; end: string }>; series: Record<string, Array<number | null>> } | null;
   /** The real grids the tables are mounted as; each `null` when that table is not a grid. */
   readonly grids: { tasks: Grid | null; workload: Grid | null; histogram: Grid | null };
   /**
@@ -3883,6 +4021,15 @@ export interface Gantt {
    * `cost` field — per task, rolled up to summaries and the project.
    */
   cost(costOpts?: { costField?: string }): GanttCostResult;
+  /**
+   * Compute resource-rate cost per time bucket for the current plan: the same per-day booked hours `cost()` prices,
+   * re-bucketed to a zoom and grouped by task, resource or the whole project.
+   */
+  costByBucket(
+    from?: number | string | Date,
+    to?: number | string | Date,
+    bucketOpts?: { zoom?: 'day' | 'week' | 'month' | 'quarter'; by?: 'task' | 'resource' | 'project'; weekStartDay?: number },
+  ): GanttCostByBucketResult;
   /**
    * Resolve resource over-allocation by shifting tasks later — resource
    * leveling. Honours the CPM dependencies and the
@@ -4644,6 +4791,12 @@ export interface Gantt {
      * See {@link GanttDataBand}.
      */
     dataBands?: GanttDataBand[];
+    /**
+     * Linked chart bands under the gantt: small charts whose
+     * x axis IS the timeline, stacked after the data bands in the order given.
+     * See {@link GanttChartBand}.
+     */
+    chartBands?: GanttChartBand[];
   }): GanttSplitView;
   /**
    * Capture a baseline (planned) snapshot of the current schedule as HOST data

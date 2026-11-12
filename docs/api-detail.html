@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.121.0</p>
+    <p class="rail__sub">Developer guide · v1.122.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.121.0</span>
+        <span class="chip">Version 1.122.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.121.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.122.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11878,8 +11878,10 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">sCurve</td><td class="desc">Gantt. The same earned-value arithmetic over time: one cumulative <code>{ date, pv, ev, ac }</code> point per bucket from the project start to the finish, where the final PV equals the total budget (BACKLOG-0001867).</td></tr>
           <tr><td class="name">mountSCurve</td><td class="desc">Gantt. Mount the S-curve chart (three series, a status-date marker, a legend with SPI/CPI and a hidden table of points); the returned handle's <code>refresh()</code> redraws it and <code>destroy()</code> detaches it (BACKLOG-0001867).</td></tr>
           <tr><td class="name">cost</td><td class="desc">Gantt. Resource-rate cost per task &mdash; a resource's hourly <code>rate</code> (dated changes honoured day by day), a <code>'material'</code> resource's cost per unit, or a <code>'cost'</code> resource's flat amount per assignment, plus each task's own fixed <code>cost</code> &mdash; rolled up to summaries and the project; read as the EV/BAC fallback by <code>earnedValue()</code> when a task states no <code>cost</code> (BACKLOG-0001866).</td></tr>
+          <tr><td class="name">costByBucket</td><td class="desc">Gantt. Resource-rate cost per time bucket &mdash; <code>costByBucket(from, to, { zoom, by })</code> reports each bucket's <code>&Sigma; booked hours that day &times; the rate in force that day</code> (a <code>'material'</code>/<code>'cost'</code> amount on the task's start day), grouped by <code>'task'</code>, <code>'resource'</code> or <code>'project'</code> and summing to <code>cost()</code>'s <code>rateCost</code>; a data band's <code>value</code> reads the same figure for its bucket through <code>ctx.cost(taskId)</code> (BACKLOG-0006362).</td></tr>
           <tr><td class="name">resources</td><td class="desc">Gantt. Compute the resource load and over-allocations on demand, optionally overriding the capacities for this call (BACKLOG-0000948).</td></tr>
           <tr><td class="name">mountSplit</td><td class="desc">Gantt. Mount the resource-load split view beneath the plan — as a table (<code>workload</code>, BACKLOG-0001281) or as bars with a capacity line (<code>histogram</code>, BACKLOG-0001860) — in hours or, per bucket, as a percent of the resource's own available hours (<code>unit</code>, BACKLOG-0001879), switchable live off the band's own <code>&lt;button aria-pressed&gt;</code> or <code>view.setWorkloadUnit()</code>.</td></tr>
+          <tr><td class="name">chartBands</td><td class="desc">Gantt split view option (BACKLOG-0006361). <code>mountSplit(el, { chartBands: [{ id, title, series, format?, currency?, height? }] })</code> stacks small bar, line or area charts after the data bands whose x axis is the timeline itself: one mark per bucket, centred under that bucket's span at every zoom and scroll-locked to the timeline. A series reads exactly one of <code>value(bucketStart, bucketEnd, ctx)</code>, <code>points: [{ date, value }]</code>, <code>grid: { grid, date, value }</code> (following that grid's filter) or <code>combine: { op: 'sum' | 'diff', of: [ids] }</code>, and may be <code>cumulative</code>, on the <code>'right'</code> axis or in a <code>stack</code>. Hovering the plot, or focusing it and pressing the arrow keys, shows a tooltip with the bucket's dates and each series' value, formatted with the band's <code>format</code>/<code>currency</code> as a data band. The y axis (ticks, labels, gridlines), legend, tooltip and colours come from the charts module (a legend click hides or shows a series); the y axis sits in the left-hand column area so the plot lines up with the timeline, and a tick label that would not fit falls back to the compact form of the band's currency; the view's <code>getChartBandData(id)</code> returns <code>{ buckets, series }</code>, and <code>getChartBandState</code>/<code>setChartBandState</code>/<code>toggleChartBand</code> carry the collapse.</td></tr>
           <tr><td class="name">previewAssignments</td><td class="desc">Gantt. The resource load as it would be if one task carried a given roster, from the same calculation as <code>resources()</code>; the split view's assignment picker uses it to warn of an over-allocation before it commits (BACKLOG-0001868). Nothing is changed or emitted.</td></tr>
           <tr><td class="name">previewEdit</td><td class="desc">Gantt. Dry-runs a <code>start</code> or <code>duration</code> edit and returns the schedule it would produce, without changing the model, emitting or writing back; both views call it on every drag frame so dependency arrows follow the bar and the successors the scheduler will push are previewed (BACKLOG-0001934). <code>null</code> when it cannot be scheduled.</td></tr>
           <tr><td class="name">mountSplit</td><td class="desc">Gantt. Mount the resource-load split view beneath the plan; display-only, it reports hours rather than accepting them (BACKLOG-0001281) — as a table (<code>workload</code>) or as bars with a capacity line (<code>histogram</code>, BACKLOG-0001860).</td></tr>
@@ -15531,7 +15533,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.121.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.122.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
