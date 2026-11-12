@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.122.1] - 2026-11-12
+
+### Fixed
+
+- **A Gantt chart band's y-axis tick labels were near-invisible in a dark theme** (BACKLOG-0006399). The band draws its y axis with the charts module's classes, whose label fill reads a chart role only a standalone chart's root declares; with no such root in the band the labels fell back to the SVG default (black) and vanished on the dark ground, and the gridlines drew no stroke at all. The band now scopes both to the same muted-text and border tokens the split view's own axis uses, so they follow the theme in light and dark while standalone charts are unchanged.
+
+- **Gantt chart and data bands drew monthly buckets at quarter zoom** (BACKLOG-0006400). At `zoom: 'quarter'` the bands (and the workload, histogram and cost buckets they share) cut one bucket per month, the same as month zoom. They now cut one bucket per calendar quarter, values are summed per quarter, `getChartBandData` returns those quarters, and the marks sit under the quarter's span in the scale header.
+
+- A chart band's bars of different stacks sat on top of each other instead of side by side (BACKLOG-0006401). The bucket's width splits, in series order, into one slot per bar group — each stack name is one group and each unstacked bar series is one — with a small gap between slots, so a stack and an unstacked bar (or two stacks) sit side by side and each keeps its own value; a single bar group keeps the full bucket width as before.
+
+- **A linked milestone could only be dragged from a few pixels at its edge** (BACKLOG-0006402). A dependency link's line or arrowhead drawn over a milestone's diamond or a task bar's own end took the press instead of the task underneath it; the task underneath now wins the press, and a link only wins where it does not overlap a task or milestone.
+
+- A Gantt task bar showed the same default cursor over its whole body, so there was no way to tell where a drag would move the task and where it would resize it; hovering now shows `ew-resize` over the same end-of-bar pixels (and the existing start-edge/progress handles) a press there would resize, and the move grab everywhere else, from the exact zone math a press itself uses — a read-only bar keeps the default cursor throughout (BACKLOG-0006403).
+
 ## [1.122.0] - 2026-11-12
 
 ### Added

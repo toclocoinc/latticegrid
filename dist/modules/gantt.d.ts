@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.122.0, gantt module type declarations
+ * Lattice Grid 1.122.1, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1857,7 +1857,7 @@ export interface GanttChartBandSeries {
   cumulative?: boolean;
   /** Which y axis: `'left'` (default) or `'right'`. */
   axis?: 'left' | 'right';
-  /** Bars with the same `stack` name stack on each other. */
+  /** Bars with the same `stack` name stack on each other; the bucket's width is split side by side in series order, with a small gap, into one slot per bar group — each stack name is one group and each unstacked bar series is one group (a single group keeps the full bucket width). */
   stack?: string;
 }
 
