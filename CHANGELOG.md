@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.123.1] - 2026-11-14
+
+### Fixed
+
+- **The focused cell's ring stayed the built-in blue when an app set its own `--lattice-accent` on the grid** (BACKLOG-0006681). Setting `.lattice { --lattice-accent: #7c3aed; }` (the house-palette pattern in the theming tutorial) recoloured the fill handle but not the focus ring, because the built-in light and dark scheme blocks re-stamped the focus colour as a literal while the accent was still a built-in one. The ring — and the range-selection border, which had the same defect — now derive from the element's own winning accent instead.
+  - **Light** uses the accent verbatim; **dark and `auto`** lighten it for contrast, exactly as today's built-in `#1a6bc7` light and `#6cb0f2` dark focus colours are reproduced, so a grid with no override is visually unchanged.
+  - **An explicit `--lattice-focus-color` still wins**, and the high-contrast and terminal themes keep their own focus colours.
+
+- `ingest: { dropSourceRows: true }` now releases the caller's row objects when the grid is built with `createGrid` (BACKLOG-0006682). The factory kept the configuration object it was called with, and `rows` on it pinned the whole array for the life of the grid, so a page that set its own reference to `null` and collected garbage still held every row object. Once the packed columns are built the factory and the grid drop their own references to the array, including a `source: { mode: 'memory', rows }` block's; every other key of the configuration still reads as before. Without the flag nothing changes: the objects are retained and `rows.data()` returns them.
+
+- **`grid.export.csv({ sanitise: { keepNumbers: true } })` guarded a negative number's formatted text instead of the value** (BACKLOG-0006683). `keepNumbers` checks the cell's value, so a negative number in a plain, currency or percent column exports unprefixed (`-£830.50`, `-4.0%`, `-12`) and stays numeric on import; a text value that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is still prefixed, with or without `keepNumbers`.
+
+### Internal
+
+- The test harness launches Chrome with `--password-store=basic` (BACKLOG-0006558). A locked desktop keyring — a reboot with no desktop login — otherwise makes headless Chrome's first HTTP request wait ~23 s for the keyring over the session D-Bus before timing out, and every browser test file paid that. Nothing here needs the keyring, so the harness asks for a plain in-memory store, and a page served from 127.0.0.1 loads in well under a second.
+
 ## [1.123.0] - 2026-11-14
 
 ### Added

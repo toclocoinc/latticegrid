@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.0, type declarations
+ * Lattice Grid 1.123.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9147,8 +9147,8 @@ export interface CsvExportOptions {
    * `=`, `+`, `-`, `@`, a tab or a CR is prefixed with an apostrophe, because
    * a spreadsheet would otherwise execute it when the file is opened. `false`
    * turns it off; an object tunes it — `characters` to widen or narrow the
-   * set, `prefix` to change the escape, `keepNumbers: true` to leave a field
-   * that is entirely a number alone (so a negative currency stays numeric).
+   * set, `prefix` to change the escape, `keepNumbers: true` to leave a cell
+   * whose value is a number alone (so a negative currency stays numeric).
    */
   sanitise?: boolean | {
     enabled?: boolean;
