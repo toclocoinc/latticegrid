@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.122.1, type declarations
+ * Lattice Grid 1.123.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14766,6 +14766,23 @@ export type ChartYMeasure = {
   cumulative?: boolean;
 };
 
+/**
+ * A heatmap's separate colour field: each cell is filled by the token its row's
+ * value in `field` maps to, so the measure can be printed in the cell
+ * (`labels: { show: true, format }`) rather than being what colours it.
+ */
+export interface ChartHeatmapColour {
+  /** The column whose value on a cell's row picks the cell's colour. */
+  field: string;
+  /**
+   * Value to colour: a variant name (`'success'`, `'warning'`, `'danger'`, ...) taken as
+   * the theme's solid for it, or any CSS colour or `var()` token. A value the map does not
+   * name takes the neutral variant. The printed label switches between light and dark
+   * text to read on the fill.
+   */
+  map: Record<string, string>;
+}
+
 /** How a chart axis's scale is chosen, rather than taken from the column's type. */
 export type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category';
 /** One axis's configuration. A bare string is the title. */
@@ -14803,6 +14820,12 @@ export interface ChartAxis {
   max?: number;
   /** A tick count, or the exact values to tick. */
   ticks?: number | unknown[];
+  /**
+   * Turn a band axis round, so the last category sits where the first did.
+   * On a `heatmap`, `axis.y.reverse` puts the last row at the top and
+   * `axis.x.reverse` puts the last column on the left. Read by `heatmap` only.
+   */
+  reverse?: boolean;
   /** A format mask, or a function of the value. */
   format?: string | ((value: unknown) => string);
   /** Draw the gridlines this axis owns. Default true for the measure axis. */
@@ -16056,6 +16079,13 @@ export interface ChartSpec {
   /** A diverging colour ramp, for heatmap and geomap. */
   diverging?: boolean;
   /**
+   * Heatmap only: colour each cell by a separate field's value instead of by the
+   * measure through the ramp; see {@link ChartHeatmapColour}. The ramp legend is not
+   * drawn then, since no magnitude colours the cells. A probability × impact matrix
+   * coloured by severity zone is the case.
+   */
+  colour?: ChartHeatmapColour;
+  /**
    * Country outlines, for a geomap drawing countries rather than continents.
    * Either GeoJSON, an object of code to SVG path data, or a geometry
    * {@link GeoPack} imported from an optional `modules/geo-*` package
@@ -16257,8 +16287,18 @@ export interface ChartSpec {
    * on a stacked or percent-stacked bar or column, the bar under it on a grouped one, the bar
    * whose span holds it on a floating one, the nearest series on a line or area. `false`
    * turns the tooltip off. A `cursor` follows this mode unless it sets its own `tooltip`.
+   *
+   * The object form keeps the mode and adds a value formatter:
+   * `tooltip: { mode: 'shared' | 'single', format }`. `format(point, series, ctx)` returns the
+   * text written for one series at one point, in place of the value the chart words itself — in
+   * shared and single modes alike; return `null` or `undefined` to keep the chart's own wording
+   * for that row. `ctx` is `{ grid, total }`: the chart's grid, and the number of rows the chart
+   * bound, so a formatter can word a share of the whole.
    */
-  tooltip?: boolean | 'shared' | 'single';
+  tooltip?: boolean | 'shared' | 'single' | {
+    mode?: 'shared' | 'single';
+    format?: (point: unknown, series: unknown, ctx: { grid: Grid; total: number }) => string | null | undefined;
+  };
   /**
    * Where the hover tooltip node lives. Defaults to `document.body`, so a host that blurs,
    * transforms or clips the chart cannot hide it; a chart mounted inside a shadow root

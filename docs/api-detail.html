@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.122.1</p>
+    <p class="rail__sub">Developer guide · v1.123.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.122.1</span>
+        <span class="chip">Version 1.123.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.122.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.123.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -8208,6 +8208,23 @@ chart.provenance().animation;   <span class="cmt">// { animated, reason, marks, 
       the unanimated chart draws. The reference's charts section has the details.</p>
     </div>
 
+    <h3 id="chart-heatmap-options-guide">A heatmap coloured by a field, with values, titles and a reversed axis</h3>
+    <p class="lead-in">
+      A <code>heatmap</code> colours each cell by its measure through the ramp. <code>colour: { field, map }</code>
+      colours it by another column's value instead, so a risk matrix can be coloured by severity zone
+      while the cell prints a count. <code>labels: { show: true, format }</code> prints the measure in the cell,
+      in light or dark text to read on the fill. <code>axis.x.title</code> and <code>axis.y.title</code> name the
+      two band axes, and <code>axis.y.reverse</code> (or <code>axis.x.reverse</code>) puts the last category at the
+      top (left); <code>categoryOrder</code> and <code>seriesOrder</code> set an explicit order.
+    </p>
+    <div class="example">
+      <p class="example__label">A probability by impact matrix coloured by zone</p>
+      <pre><code>createChart({ grid, container, type: 'heatmap', x: 'impact', series: 'probability', y: 'risks',
+  colour: { field: 'zone', map: { low: 'success', medium: 'warning', high: 'danger' } },
+  labels: { show: true, format: '0' },
+  axis: { x: { title: 'Impact' }, y: { title: 'Probability', reverse: true } } });</code></pre>
+    </div>
+
     <h3 id="chart-category-order-guide">Putting a chart's categories in order</h3>
     <p class="lead-in">
       A bar, column, line or area chart whose x is categories draws them in the order the rows
@@ -10701,6 +10718,14 @@ createGrid(el, {
       <code>true</code> or <code>'shared'</code> (every series at the category, the default),
       <code>'single'</code> (the category and only the series under the pointer: the stacked segment
       it is in, the grouped bar under it, the nearest line) or <code>false</code> (no tooltip).
+      The object form keeps the mode and adds a value formatter:
+      <code>tooltip: { mode: 'shared' | 'single', format }</code>. <code>format(point, series, ctx)</code>
+      is called once per series row and returns the text the tooltip writes for that point, instead
+      of the value the chart words itself &mdash; so a bar chart can read
+      <code>"3 responses, 75%"</code> rather than the raw measure. Return <code>null</code> or
+      <code>undefined</code> to keep the chart's own wording for that row. <code>ctx</code> is
+      <code>{ grid, total }</code>: the chart's grid, and the number of rows the chart bound, so a
+      formatter can word a share of the whole.
     </p>
     <p>
       Charts that share a <code>group</code> share the cursor <strong>by value</strong>. Hover one
@@ -11649,7 +11674,7 @@ grid.import.apply(preview);</code></pre>
       <table>
         <thead><tr><th>Name</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><td class="name">createChart</td><td class="desc">Draw one of the seventy-nine chart types from a grid’s own data. It follows the grid’s filters, and a mark can filter the grid back. A categorical x axis takes a <code>categoryOrder</code> (<code>{ by: 'value' | 'label', dir }</code>, or a list of labels), and a <code>series</code>-bound chart takes a <code>seriesOrder</code> of the same shape for its legend, stack and grouped bars.</td></tr>
+          <tr><td class="name">createChart</td><td class="desc">Draw one of the seventy-nine chart types from a grid’s own data. It follows the grid’s filters, and a mark can filter the grid back. A categorical x axis takes a <code>categoryOrder</code> (<code>{ by: 'value' | 'label', dir }</code>, or a list of labels), and a <code>series</code>-bound chart takes a <code>seriesOrder</code> of the same shape for its legend, stack and grouped bars. A <code>heatmap</code> takes <code>colour: { field, map }</code> to fill cells by a separate field, <code>labels</code> to print the measure in each cell, titles on both band axes, and <code>axis.y.reverse</code> / <code>axis.x.reverse</code> to turn a band axis round.</td></tr>
           <tr><td class="name">chartRange</td><td class="desc">Chart a selected cell range — the spreadsheet gesture. Derives the chart from the range’s shape (a leading text column is the categories, the numeric columns the measures), respects hidden and unreadable columns, and returns the live chart or null when there is nothing to measure.</td></tr>
           <tr><td class="name">canChartRange</td><td class="desc">Whether <code>chartRange</code> would draw something for the grid’s current selection — the question a menu asks before offering the item.</td></tr>
           <tr><td class="name">deriveRangeSpec</td><td class="desc">Decide what a chart of a range should be without drawing it: the type, the category column, the measures, and a spec ready for <code>createChart</code>.</td></tr>
@@ -15533,7 +15558,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.122.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.123.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

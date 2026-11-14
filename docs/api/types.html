@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.122.1</title>
+<title>Types API Reference — Lattice Grid 1.123.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -840,6 +840,7 @@
           <tr><td class="name">min</td><td class="type">number</td><td class="desc">Fix the low end of the axis rather than taking its extent from the data. Honoured on `y` and `y2`, and on `x` whenever the x axis is **continuous** — a time or linear axis, which is every cartesian type bound to a date or numeric column, plus a `bar` or `candlestick` that named `scale` (see BACKLOG-0001483). A banded x has no numeric domain to pin, so it ignores both; pin the rows instead, with a filter. On a time axis it is epoch milliseconds — the same number `Date.now()` returns — because that is what the axis's values are compared against. Readings outside the pinned domain are **clipped by the plot, not dropped**: the tooltip, the hit test and the accessible table still describe every row the chart was given. A pair that does not increase (`min &gt;= max`) is a mirrored axis rather than a narrow one, so it is refused with one warning and the data's own extent is drawn. This is also what the reader's `brush: 'zoom'` writes, so a pinned domain and a dragged one are the same mechanism, and a `zoom` narrows *inside* a pinned domain rather than against it. <small>(optional)</small></td></tr>
           <tr><td class="name">max</td><td class="type">number</td><td class="desc">Fix the high end of the axis rather than taking it from the data; see `min`. <small>(optional)</small></td></tr>
           <tr><td class="name">ticks</td><td class="type">number | unknown[]</td><td class="desc">A tick count, or the exact values to tick. <small>(optional)</small></td></tr>
+          <tr><td class="name">reverse</td><td class="type">boolean</td><td class="desc">Turn a band axis round, so the last category sits where the first did. On a `heatmap`, `axis.y.reverse` puts the last row at the top and `axis.x.reverse` puts the last column on the left. Read by `heatmap` only. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">string | ((value: unknown) =&gt; string)</td><td class="desc">A format mask, or a function of the value. <small>(optional)</small></td></tr>
           <tr><td class="name">grid</td><td class="type">boolean</td><td class="desc">Draw the gridlines this axis owns. Default true for the measure axis. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Draw the tick labels. <small>(optional)</small></td></tr>
@@ -1124,6 +1125,17 @@
           <tr><td class="name">gradient</td><td class="type">'linear' | 'radial'</td><td class="desc">`'linear'` along `angle`, or `'radial'` from the centre out.</td></tr>
           <tr><td class="name">angle</td><td class="type">number</td><td class="desc">A linear gradient's direction in CSS degrees: 0 bottom-to-top, 90 left-to-right, 180 (default) top-to-bottom. <small>(optional)</small></td></tr>
           <tr><td class="name">stops</td><td class="type">Array&lt;[number, string]&gt;</td><td class="desc">At least two `[offset, colour]` stops.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartHeatmapColour">ChartHeatmapColour</h4>
+    <p class="section-note">A heatmap's separate colour field: each cell is filled by the token its row's value in `field` maps to, so the measure can be printed in the cell (`labels: { show: true, format }`) rather than being what colours it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The column whose value on a cell's row picks the cell's colour.</td></tr>
+          <tr><td class="name">map</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Value to colour: a variant name (`'success'`, `'warning'`, `'danger'`, ...) taken as the theme's solid for it, or any CSS colour or `var()` token. A value the map does not name takes the neutral variant. The printed label switches between light and dark text to read on the fill.</td></tr>
         </tbody>
       </table>
     </div>

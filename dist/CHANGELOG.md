@@ -9,6 +9,27 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.123.0] - 2026-11-14
+
+### Added
+
+- **A chart tooltip value formatter for bar, column and horizontal bar charts** (BACKLOG-0006386). `tooltip` now also takes an object: `tooltip: { mode: 'shared' | 'single', format(point, series, ctx) }`, where `format` returns the text the tooltip writes for one series at one point — in shared and single modes alike — instead of the value the chart words itself. Return `null` or `undefined` to keep the chart's own wording for that row; `ctx` is `{ grid, total }`, so a formatter can word a share of the whole. The existing boolean and string forms are unchanged, and charts without a formatter read exactly as before.
+
+- **A heatmap can be coloured by a separate field, print its values, title its band axes and reverse them** (BACKLOG-0006427). *Recognise your own case: a probability × impact matrix coloured by severity zone had to be hand-built.*
+  - `colour: { field, map }` fills each cell by the mapped theme token of that field, and `labels: { show: true, format }` prints the measure in the cell in text that reads on the fill.
+  - `axis.x.title` and `axis.y.title` are drawn on a heatmap's band axes; `axis.y.reverse` / `axis.x.reverse` put the last category at the top / left, and `categoryOrder` now orders a heatmap's columns.
+  - A heatmap without these options draws as before.
+
+### Fixed
+
+- **A late milestone's diamond is now marked, not just its label and deadline line** (BACKLOG-0006363). When a milestone's date runs past its `deadline`, its diamond now carries a `__milestone--late` class drawn with the danger stroke token (the same 2px danger stroke a late bar gets), while keeping the task's own fill. Moving the milestone back on or before its deadline removes the class and stroke, and a milestone with no deadline is drawn exactly as before.
+
+- **Committing a cell edit without changing the value fired `cell:changed` with `oldValue` equal to the new value** (BACKLOG-0006484). Opening the editor and pressing Enter, Tab, or clicking another cell now commits a no-op edit silently — no `cell:changed`, no undo step — so a host that saves on `cell:changed` does not send a needless write for an edit that changed nothing. A real change still fires exactly once with its old and new values.
+
+- **A column-menu submenu in a narrow grid opens to the far side of its parent menu** (BACKLOG-0006485). When a column menu sits near the right edge of a container with no room for a submenu beside it, the submenu opens to the far side of the whole parent menu rather than back over its items, so a click on "Group by this column" after gliding the pointer over "Move column" groups the column instead of moving it. On a wide grid submenus still open beside the menu as before.
+
+- **`grid.diagnostics.operations()` never recorded the grid's own sort, filter, group or ingest work** (BACKLOG-0006557). The recorder existed but only the host-facing `diagnostics.record()` hook called it, so after sorting, filtering or grouping a large grid the operation history held no entries. Each operation now records its row count and elapsed `ms`, and a sort offloaded to the Worker records `worker: true`.
+
 ## [1.122.1] - 2026-11-12
 
 ### Fixed
