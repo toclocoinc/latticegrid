@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.123.2] - 2026-11-15
+
+### Fixed
+
+- A column-menu item with a submenu — Pin column, Move column and any other menu built on the shared `ContextMenu` — now opens its submenu on click, whether or not hovering already opened it, and a repeat click leaves it open (BACKLOG-0006684). A submenu's own outside-click detector read the mousedown half of a click on the item that opened it as a click outside itself and tore the submenu down before the click's own handler ran, and a stale reference then stopped a later click from rebuilding it — so pointing and clicking a submenu item, the ordinary way to use a menu, never reached its children. Enter, Space and ArrowRight on such an item now also move focus into the submenu's first item when it was already open from a hover; ArrowLeft and Escape from inside a submenu now agree, backing out one level and returning focus to the item that opened it, rather than Escape alone jumping straight to closing the whole menu.
+
 ## [1.123.1] - 2026-11-14
 
 ### Fixed

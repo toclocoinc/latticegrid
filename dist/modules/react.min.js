@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.1, react module
+ * Lattice Grid 1.123.2, react module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
