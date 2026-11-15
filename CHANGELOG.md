@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.123.3] - 2026-11-15
+
+### Fixed
+
+- **Gliding from a column-menu item into its open submenu keeps that submenu open across the sibling it crosses** (BACKLOG-0006685). Hovering a different item while a submenu was already open switched to that item's submenu — or closed the open one when the item had none — on the first pointer move, so the diagonal glide from "Move column" into its submenu, which crosses the sibling that sits between them, tore the submenu down mid-glide and the click landed on nothing. The switch now waits for the pointer to come to rest on the sibling, so the glide reaches "Move to end" intact, while a genuine stop on a sibling still opens that sibling's submenu exactly as before.
+
 ## [1.123.2] - 2026-11-15
 
 ### Fixed

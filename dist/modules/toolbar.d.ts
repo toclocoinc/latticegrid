@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.2, toolbar module type declarations
+ * Lattice Grid 1.123.3, toolbar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
