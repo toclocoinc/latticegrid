@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.123.3</p>
+    <p class="rail__sub">Developer guide · v1.124.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.123.3</span>
+        <span class="chip">Version 1.124.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.123.3'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.124.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2272,20 +2272,39 @@ return `a ${on('a')} | b ${on('b')}`;</code></pre>
       <code>warnLower</code> and <code>warnUpper</code> are the inner thresholds of a
       <code>specStatus</code> shadow: a reading inside <code>lower</code> and <code>upper</code>
       but beyond one of them is still in spec and is marked <code>'WARN'</code>.</p>
+    <p>A <code>specStatus</code> shadow with no limits of its own reads the watched column&rsquo;s
+      <code>spec</code> &mdash; the tolerance declared once on the column that the capability
+      figures and a control chart also share. A limit declared on the shadow wins over the
+      column&rsquo;s: each of <code>lower</code>, <code>upper</code>, <code>warnLower</code> and
+      <code>warnUpper</code> is taken from the shadow where it is set, and from the column&rsquo;s
+      <code>spec</code> where it is not. So
+      <code>{ id: 'diameter', spec: { lower: 9.95, upper: 10.05 } }</code> and a bare
+      <code>{ shadow: { kind: 'specStatus', of: 'diameter' } }</code> report the same verdicts,
+      and <code>{ shadow: { kind: 'specStatus', of: 'diameter', upper: 10.1 } }</code> keeps its
+      own <code>upper</code> while inheriting <code>lower</code> and any warn limits.</p>
     <p>A <code>cluster</code> shadow (BACKLOG-0002658) is the same shape applied to a whole
       set of numeric <code>columns</code> rather than one column&rsquo;s history:
       <code>{ kind: 'cluster', columns: ['x', 'y'], method: 'kmeans', k: 3 }</code> assigns each
       visible row a segment id over the filtered rows, and <code>clusterDistance</code> reports the
-      row&rsquo;s distance to its segment&rsquo;s centre. <code>method: 'dbscan'</code> grows
-      density-connected groups instead &mdash; <code>eps</code> is the neighbourhood radius and
-      <code>minPoints</code> the least neighbours a core point needs &mdash; and leaves sparse
+      row&rsquo;s distance to its segment&rsquo;s centre, in the clustering space — standardised
+      (unit-variance) units under <code>scale: 'standard'</code>, the columns&rsquo; own units under
+      <code>scale: 'none'</code> — not the original units the centres are reported in.
+      <code>method: 'dbscan'</code> grows
+      density-connected groups instead &mdash; <code>eps</code> is the neighbourhood radius, in
+      standardised (unit-variance) units under <code>scale: 'standard'</code> (the default) and the
+      columns&rsquo; own units under <code>scale: 'none'</code>, and <code>minPoints</code> the least
+      neighbours a core point needs; omit <code>eps</code> and the grid chooses it from the
+      data&rsquo;s k-distance knee and reports the radius used on
+      <code>statistics.clusters().eps</code> &mdash; and leaves sparse
       outliers as <code>null</code> noise. <code>scale: 'standard'</code> (the default) standardises
       each column to unit variance first so a wide-range column cannot dominate the distance;
       <code>scale: 'none'</code> clusters in the columns&rsquo; own units, and a <code>seed</code>
       reproduces the same segments across recomputes. The result is an ordinary numeric column, so
       it sorts, filters, groups, colours and exports like any other. The stats surface reads the
       same model: <code>grid.statistics.clusters(col)</code> returns the centres in original units
-      with sizes and inertia, <code>grid.statistics.autoK(spec)</code> picks <code>k</code> by the
+      with sizes and inertia, and segment ids are 1-based against that 0-based
+      <code>centres</code> array (segment 1 is <code>centres[0]</code>);
+      <code>grid.statistics.autoK(spec)</code> picks <code>k</code> by the
       elbow or silhouette criterion, and <code>grid.statistics.clusterShadow(kind, rowKey, spec)</code>
       reads one row&rsquo;s value by key.</p>
 
@@ -2302,6 +2321,7 @@ return `a ${on('a')} | b ${on('b')}`;</code></pre>
         <tbody>
           <tr><td class="name">Core</td><td class="desc"><code>text</code>, <code>number</code>, <code>boolean</code>, <code>date</code>, <code>dateString</code>, <code>object</code>, <code>lookup</code></td></tr>
           <tr><td class="name">Temporal</td><td class="desc"><code>datetime</code>, <code>timestamp</code>, <code>time</code>, <code>duration</code></td></tr>
+          <tr><td class="name">Exact big numbers</td><td class="desc"><code>bigint</code></td></tr>
           <tr><td class="name">Network</td><td class="desc"><code>ipv4</code>, <code>ipv6</code>, <code>cidr</code>, <code>mac</code>, <code>vlan</code></td></tr>
           <tr><td class="name">Numeric bases</td><td class="desc"><code>hex</code>, <code>hex8</code>, <code>hex16</code>, <code>hex32</code>, <code>binary</code>, <code>binary8</code>, <code>octal</code></td></tr>
           <tr><td class="name">Units: computing</td><td class="desc"><code>bytes</code>, <code>megabytes</code>, <code>gigabytes</code>, <code>bitrate</code>, <code>gigabits</code></td></tr>
@@ -2461,6 +2481,82 @@ const host = grid.rendererHost();
 return `${grid.rows.value('1', 'mac')} | ${host.cellText(grid.rows.get(0), col)}`;
 </code></pre>
     </div>
+
+    <h3 id="bigint">Exact big numbers</h3>
+    <p class="lead-in">
+      A <code>number</code> column holds a double, which is exact only up to 2<sup>53</sup>
+      (9,007,199,254,740,992). A token amount is a 256-bit integer (wei, 18 decimals), a ledger
+      balance is a count of minor units and an exact price is a fixed-point decimal; all of them
+      are far past that, and a <code>number</code> column rounds them the moment it reads them.
+      <code>type: 'bigint'</code> is the opt-in that keeps every digit. It takes <code>BigInt</code>
+      values or decimal strings (integer or fixed-point, negative too) and keeps the value exactly:
+      a <code>BigInt</code> for a whole number, a canonical decimal string otherwise, so
+      <code>rows.value()</code> answers the exact value and equal values group together.
+    </p>
+    <ul>
+      <li><strong>Display, CSV, Excel and the clipboard</strong> show every digit, grouped with the
+        grid locale&rsquo;s separators and never in exponent notation. Excel holds the cell as
+        text, because a spreadsheet number is a double too.</li>
+      <li><strong>Sorting</strong> orders by exact value, both directions, with empty values last in
+        either. The column sorts on the main thread even above <code>workerThreshold</code> rows,
+        so a Worker never orders it by a rounded value.</li>
+      <li><strong>Filters</strong> compare exact values: <code>eq</code>, <code>ne</code>,
+        <code>lt</code>, <code>lte</code>, <code>gt</code>, <code>gte</code>,
+        <code>between</code> and <code>in</code>, through the filter row, the column menu and
+        <code>state.apply({ filters })</code>. Give an operand as a decimal string or a
+        <code>BigInt</code>; a JavaScript number operand is read by its shortest decimal
+        spelling.</li>
+      <li><strong>Totals</strong> are exact: <code>sum</code> is <code>BigInt</code> arithmetic at the
+        finest scale present (the sum of fixed-point values is exact), and <code>min</code>,
+        <code>max</code>, <code>count</code> and <code>countValues</code> never round. Grouping by
+        the column, and the totals under each group, stay exact. <code>avg</code> is the one
+        reduction that <em>rounds</em>: the quotient is rounded half away from zero to six fraction
+        digits past the finest input, so the average of <code>1</code>, <code>2</code> and
+        <code>2</code> is <code>1.666667</code>.</li>
+    </ul>
+    <p class="lead-in">
+      Three <code>typeOptions</code> shape the display. <code>scale</code> shows a raw integer in
+      units by moving the point that many digits left: <code>scale: 18</code> shows wei as ETH
+      (<code>1500000000000000000</code> reads <code>1.5</code>), <code>scale: 6</code> shows USDC
+      base units as dollars. The stored value, the sort, the filters and the totals stay in raw
+      units, so nothing is rounded; text typed into a filter box, an editor or a paste is read in
+      the displayed units. <code>decimals</code> fixes the fraction digits shown (rounding half
+      away from zero) instead of showing every digit with trailing zeros trimmed, and
+      <code>grouping: false</code> drops the separators.
+    </p>
+    <div class="example">
+      <p class="example__label">Wei shown as ETH, sorted and summed with no lost digit</p>
+      <pre data-run="js" data-expect="1.000000000000000001 | 1.5 | 3.500000000000000003 | 3500000000000000003" data-covers="config:BigIntTypeOptions.scale config:ColumnTypeOptions.grouping"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  grandTotalRow: true,
+  columns: [
+    { field: 'id' },
+    { field: 'wei', type: 'bigint', typeOptions: { scale: 18 }, total: 'sum' },
+    { field: 'raw', type: 'bigint', typeOptions: { grouping: false }, total: 'sum' },
+  ],
+  rows: [
+    { id: 1, wei: 1500000000000000000n, raw: 1500000000000000000n },
+    { id: 2, wei: '1000000000000000001', raw: '1000000000000000001' },
+    { id: 3, wei: 1000000000000000002n, raw: 1000000000000000002n },
+  ],
+  source: { mode: 'memory', columnarBelow: 0 },
+});
+grid.sort.set([{ col: 'wei', dir: 'asc' }]);
+const host = grid.rendererHost();
+const text = (i, id) => host.cellText(grid.rows.get(i), grid.columns.get(id));
+const total = grid.rows.get(grid.rows.count() - 1);
+return [text(0, 'wei'), text(2, 'wei'),
+  host.cellText(total, grid.columns.get('wei')),
+  host.cellText(total, grid.columns.get('raw')).replace(/,/g, '')].join(' | ');
+</code></pre>
+    </div>
+    <p class="lead-in">
+      An ordinary <code>number</code> column given a decimal string or a <code>BigInt</code> beyond
+      2<sup>53</sup> does not round silently any more: it raises the
+      <code>type.number.precision.*</code> warning once per column, naming the column and
+      pointing here. The value still displays as it always did.
+    </p>
 
     <h3 id="units">Units</h3>
     <p class="lead-in">
@@ -3998,6 +4094,9 @@ pivot: { groupTotals: 'after', totalsLabel: 'All regions' }</code></pre>
       <code>maxColumns</code>, since they are columns like any other.</p>
       <p><strong>Opt in.</strong> Omitted, a pivot has the columns it has always had, so the option
       cannot quietly change what an existing grid exports or what a saved view restores.</p>
+      <p><strong>It needs grouped rows.</strong> The totals are read from the group rows, so with no
+      <code>group</code> on any column there is no group row to carry them, and no totals group
+      appears. Group at least one column first.</p>
     </div>
 
     <h3 id="total-filtered-only">totalFilteredOnly</h3>
@@ -4180,6 +4279,17 @@ return out.trim();
       <pre><code>grid.columns.group(['region']);
 grid.columns.pivot(['statusId']);   <span class="cmt">// a column per distinct status</span></code></pre>
     </div>
+    <p class="lead-in">
+      <strong>Pivoting needs a measure, and a count of rows is the one every grid has.</strong>
+      With a totalled column the pivot transposes it into one derived column per pivot value, the
+      reduction in each cell. With no column carrying a <code>total</code>, <code>groupTotal</code>
+      or <code>grandTotal</code>, the pivot does not sit there doing nothing: it transposes a count
+      of rows instead, one derived column per pivot value holding the number of rows behind that
+      (group, pivot value) crossing. A column that is totalled only at the grand-total level has no
+      per-group measure to transpose, so the pivot leaves it out rather than drawing blank columns.
+      So &ldquo;Pivot by this column&rdquo; changes what the grid draws whenever any column carries a
+      total.
+    </p>
 
     <h2 id="pinned-rows">Pinned rows</h2>
     <p class="lead-in">
@@ -4858,9 +4968,10 @@ assigned.on('rowReceive:cancelled', (e) =&gt; console.log(e.reason));  <span cla
       <p><strong>The count and the filter are the same question.</strong> The chip is not a second
       detector: it reads the <code>anomalyFlag</code> shadow column, so the number it shows is the
       number of rows that column marks, and the click sets a filter on that same column
-      (<code>{ col, op: 'eq', value: true }</code>). The count comes from
-      <code>grid.statistics.anomalies()</code> over the shadow's base column, so the chip adds no
-      detection of its own — the score is the API's, shown with its method, never an opaque verdict.</p>
+      (<code>{ col, op: 'eq', value: true }</code>). The count is the number of displayed rows whose
+      flag value is <code>true</code>, read straight off that shadow column — it is not a call to
+      <code>grid.statistics.anomalies()</code> — so the chip adds no detection of its own; the score
+      behind the flag is the shadow's.</p>
       <p>Off by default, and it draws nothing unless a column carries an <code>anomalyFlag</code>
       shadow. When more than one does, <code>column</code> names the base to summarise.</p>
     </div>
@@ -6291,7 +6402,12 @@ detail.destroy();
         on it re-derives the comparison, because a comparison whose other side has moved is wrong
         rather than merely late. A column present on only one side cannot be compared and is still
         reported, with a null <code>magnitude</code> and <code>unmatched</code> set to
-        <code>'A'</code> or <code>'B'</code>, so you see that it was skipped and why.</li>
+        <code>'A'</code> or <code>'B'</code>, so you see that it was skipped and why.
+        <strong>Key and near-unique categorical columns are left out as identifiers</strong> &mdash;
+        the row key on either side, and an id or date with more distinct values than about half its
+        rows, which differs by construction rather than as a fact about the data &mdash; exactly as
+        <code>subsetVsPopulation()</code> leaves them out, unless you name them in
+        <code>columns</code>.</li>
     </ul>
     <p><strong>Every row says how much it saw.</strong> <code>n</code> is the rows the figure
       covered, and it is on the row because a derived statistic travels: a coefficient exported to
@@ -6461,6 +6577,70 @@ columns: [
       <pre><code>{ field: 'capacity', edit: {
   validate: (p) =&gt; p.value &gt; 0 || 'Capacity must be positive',
 }}</code></pre>
+    </div>
+
+    <h3 id="grid-level-edit">One switch for the whole grid</h3>
+    <p class="lead-in">
+      <code>edit: true</code> at the grid level is the flag a developer reaches for first, so it turns
+      every <strong>data</strong> column editable, not just the editing engine (BACKLOG-0006690). A
+      column still has the last word: <code>edit: false</code> keeps it read-only, and a column&rsquo;s own
+      <code>edit</code> object still names its editor and rules. Computed, shadow and the generated
+      checkbox, row-number and group columns stay read-only.
+    </p>
+    <div class="example">
+      <p class="example__label">Grid-level <code>edit: true</code></p>
+      <pre data-run="js" data-expect="edit:true true,true,false,true,false | columns:true true,true,false,true,false | master false" data-covers="config:EditConfig.columns"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const rows = [{ name: 'a', total: 10 }];
+const columns = [
+  { field: 'name' },
+  { field: 'total', type: 'number' },
+  { field: 'optOut', edit: false },
+  { field: 'custom', edit: { editor: 'select' } },
+  { id: 'computed', value: { deps: [], compute: () =&gt; 1 } },
+];
+
+<span class="cmt">// One flag: every data column inherits edit.enabled, a column's own edit wins.</span>
+const enabled = (g) =&gt; ['name', 'total', 'optOut', 'custom', 'computed']
+  .map((id) =&gt; g.columns.get(id).edit.enabled === true).join(',');
+
+const on = createHeadlessGrid({ columns, rows, edit: true });
+const object = createHeadlessGrid({ columns, rows, edit: { columns: true } });
+
+<span class="cmt">// An edit object without `columns` keeps today's meaning: master switch only.</span>
+const master = createHeadlessGrid({ columns, rows, edit: { enabled: true } });
+
+return `edit:true ${enabled(on)} | columns:true ${enabled(object)} | master ${master.columns.get('name').edit.enabled === true}`;</code></pre>
+    </div>
+    <p>
+      <code>edit: { enabled: true }</code> &mdash; the object spelling of the master switch &mdash; keeps its
+      old meaning: editing is on, but each column is still read-only until it enables itself. Add
+      <code>columns: true</code> to turn the columns on too:
+      <code>edit: { enabled: true, columns: true }</code>. The <code>columns</code> key is the documented
+      way to ask for it in the object form.
+    </p>
+
+    <h3 id="enter-after-commit">What Enter does after a commit</h3>
+    <p class="lead-in">
+      By default Enter commits and opens the editor on the cell below (Shift+Enter, above), which keeps fast entry
+      flowing down a column. <code>edit.enterAfterCommit</code> is the one switch over the whole shape of that:
+      <code>'edit'</code> (the default) opens the next editor; <code>'move'</code> commits and moves the selection
+      down without opening an editor, spreadsheet-style; <code>'stay'</code> commits in place. A read-only cell below
+      is landed on rather than skipped: under <code>'edit'</code> the selection moves onto it without opening an
+      editor, and under <code>'move'</code> the selection lands on it like any other cell. The older
+      <code>edit.enterMovesDown</code> still works and reads as the same setting: <code>true</code> is
+      <code>'edit'</code>, <code>false</code> is <code>'stay'</code>, and an explicit <code>enterAfterCommit</code>
+      wins when both are given.
+    </p>
+    <div class="example">
+      <p class="example__label">Choose what Enter does</p>
+      <pre data-run="js" data-expect="default edit | move | stay" data-covers="config:EditConfig.enterAfterCommit method:edit.enterAfterCommit"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const columns = [{ field: 'name', edit: true }];
+const rows = [{ name: 'a' }, { name: 'b' }];
+<span class="cmt">// 'edit' opens the next editor, 'move' just steps, 'stay' stays put.</span>
+const def = createHeadlessGrid({ columns, rows, edit: { enabled: true } });
+const move = createHeadlessGrid({ columns, rows, edit: { enabled: true, enterAfterCommit: 'move' } });
+const stay = createHeadlessGrid({ columns, rows, edit: { enabled: true, enterAfterCommit: 'stay' } });
+return `default ${def.edit.enterAfterCommit} | ${move.edit.enterAfterCommit} | ${stay.edit.enterAfterCommit}`;</code></pre>
     </div>
 
     <h3 id="editing-input-mask">An input mask on a text column</h3>
@@ -6851,9 +7031,11 @@ grid.destroy();
       cell averages. Both axes expand and collapse and both are virtualised through the shared row-template
       layer, so a wide, deep matrix draws only the cells on screen. Clicking a body cell emits
       <code>pivot:drill</code> with the keys of the contributing rows, the pivot's answer to &ldquo;what is
-      behind this number&rdquo;. The collapse state rides in a saved view, and because a matrix cannot be
-      read on a phone, at or below <code>maxWidth</code> the pivot degrades to a card list, exactly as the
-      table does under <code>responsive</code>. Like the others it is presentation only.
+      behind this number&rdquo;. That event fires only in this matrix view: a table row is not a pivot
+      measure cell, so clicking one never drills. The collapse state rides in a saved view, and because a
+      matrix cannot be read on a phone, at or below <code>maxWidth</code> the pivot degrades to a card
+      list, exactly as the table does under <code>responsive</code>. Like the others it is presentation
+      only.
     </p>
 
     <div class="example">
@@ -9648,7 +9830,7 @@ return `default ${on.edit.undoShortcuts} | off ${off.edit.undoShortcuts}`;</code
           <tr><td class="sig">Ctrl/Cmd + C, V, D</td><td class="desc">Copy, paste, fill down.</td></tr>
           <tr><td class="sig">Delete / Backspace</td><td class="desc">Clear the focused cell, or every editable cell of the selected range as one undo step (<a href="#clear-on-delete"><code>edit.clearOnDelete</code></a>).</td></tr>
           <tr><td class="sig">Ctrl/Cmd + Z, Ctrl + Y or Ctrl/Cmd + Shift + Z</td><td class="desc">Undo, redo (<a href="#undo-shortcuts"><code>edit.undoShortcuts</code></a>).</td></tr>
-          <tr><td class="sig">Enter</td><td class="desc">Start editing; commit and step down.</td></tr>
+          <tr><td class="sig">Enter</td><td class="desc">Start editing; commit and step down, or do whatever <a href="#enter-after-commit"><code>edit.enterAfterCommit</code></a> says.</td></tr>
           <tr><td class="sig">Tab</td><td class="desc">While editing, commit and step across. Not editing, leave the grid for the next focusable element on the page; Shift+Tab goes to the previous one.</td></tr>
           <tr><td class="sig">Escape</td><td class="desc">Cancel the edit; restore a maximised grid once nothing else wants it. Coming back from full screen, whether by Escape or the rail's restore button, puts focus back on the cell you were on, not on the page.</td></tr>
           <tr><td class="sig">Ctrl/Cmd + F</td><td class="desc">Open the <a href="#find">find bar</a>; in it, Enter / Shift+Enter step through the matches and Escape closes.</td></tr>
@@ -9887,6 +10069,57 @@ return `targets ${cells.map((c) =&gt; Number(x(c))).join(',')} | bands ${cells.m
       value by value tells a listener less than the sentence does.</p>
     </div>
 
+    <h2 id="explain">Explaining a number</h2>
+    <p class="lead-in">
+      <code>grid.explain</code> breaks a column's total over the filtered rows into ranked
+      contributors &mdash; the rows themselves, or the groups of a dimension you name &mdash; so
+      &ldquo;why is this total what it is&rdquo; gets an answer, not just a number.
+    </p>
+    <div class="example">
+      <p class="example__label">Who drives the total, and who drove its change</p>
+      <pre data-run="js" data-expect="500 | North:300 South:200 | 350 to 500 | North:100 South:50" data-covers="method:explain config:GridExplainOptions.column config:GridExplainOptions.group config:GridExplainOptions.compare"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [
+    { field: <span class="str">'id'</span>, type: <span class="str">'number'</span> },
+    { field: <span class="str">'region'</span> },
+    { field: <span class="str">'quarter'</span> },
+    { field: <span class="str">'amount'</span>, type: <span class="str">'number'</span>, total: <span class="str">'sum'</span> },
+  ],
+  rows: [
+    { id: 1, region: <span class="str">'North'</span>, quarter: <span class="str">'Q1'</span>, amount: 100 },
+    { id: 2, region: <span class="str">'North'</span>, quarter: <span class="str">'Q2'</span>, amount: 200 },
+    { id: 3, region: <span class="str">'South'</span>, quarter: <span class="str">'Q1'</span>, amount: 50 },
+    { id: 4, region: <span class="str">'South'</span>, quarter: <span class="str">'Q2'</span>, amount: 150 },
+  ],
+});
+<span class="kw">const</span> r = grid.explain({ column: <span class="str">'amount'</span>, group: <span class="str">'region'</span> });
+<span class="kw">const</span> c = grid.explain({ column: <span class="str">'amount'</span>, group: <span class="str">'region'</span>, compare: { col: <span class="str">'quarter'</span>, op: <span class="str">'eq'</span>, value: <span class="str">'Q2'</span> } });
+<span class="kw">const</span> who = r.contributors.map((x) =&gt; `${x.label}:${x.contribution}`).join(' ');
+<span class="kw">const</span> why = c.compare.drivers.map((d) =&gt; `${d.label}:${d.effect}`).join(' ');
+grid.destroy();
+<span class="kw">return</span> `${r.total} | ${who} | ${c.compare.before} to ${c.compare.after} | ${why}`;</code></pre>
+    </div>
+    <p>
+      The arithmetic is the grid's own &mdash; the same <code>total</code> kernels the totals row
+      uses, over the same filtered rows <code>statistics.reduce</code> reads &mdash; so an
+      explanation and the number it explains cannot disagree. <code>sum</code>, <code>count</code>
+      and <code>countValues</code> add up: a contributor's <code>contribution</code> is its own
+      value and <code>share</code> is that over the total. <code>avg</code> is not additive, so a
+      contributor's <code>contribution</code> is its weighted effect and the result says so with
+      <code>weighted: true</code>; <code>min</code> and <code>max</code> have one contributor and
+      say <code>single: true</code>. With <code>compare</code> the change is decomposed into
+      drivers marked <code>new</code>, <code>dropped</code> or <code>changed</code>, ranked by
+      effect. Every result also carries <code>explanation</code>: the plain-language sentence
+      the Explain panel writes &mdash; who accounts for the most, and the runner-up &mdash;
+      localised through the same catalogue the panel uses, so the field and the panel can never
+      differ. When <code>compare</code> was given, that sentence is the change's, and it also
+      rides on <code>compare.explanation</code>. Over a pivoted pushdown grid it returns
+      <code>null</code> &mdash; a pivot's terminal
+      groups carry no leaf rows client-side &mdash; while on a memory source pivoting is
+      presentation over rows the grid still holds, so <code>explain</code> reads them normally.
+    </p>
+
     <h2 id="statistics">Profiling and statistics</h2>
     <p class="lead-in">
       <code>grid.statistics</code> answers questions about the rows the filters left, so every
@@ -9894,19 +10127,26 @@ return `targets ${cells.map((c) =&gt; Number(x(c))).join(',')} | bands ${cells.m
     </p>
     <div class="example">
       <p class="example__label">Everything worth knowing about a column, in one pass</p>
-      <pre><code><span class="kw">const</span> p = grid.statistics.profile('capacity');
-
-p.count; p.missing; p.distinct;
-p.min; p.q1; p.median; p.q3; p.max;
-p.mean; p.stdDev;
-p.outliers;      <span class="cmt">// by the interquartile rule</span>
-p.histogram;     <span class="cmt">// bins, ready to draw</span>
-p.alerts;        <span class="cmt">// what is worth looking at</span></code></pre>
+      <pre data-run="js" data-expect="5|5|0|5|10|20|30|40|60|32|19.2|0|3" data-covers="method:statistics.profile"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [{ field: <span class="str">'id'</span>, type: <span class="str">'number'</span> }, { field: <span class="str">'capacity'</span>, type: <span class="str">'number'</span> }],
+  rows: [
+    { id: 1, capacity: 10 }, { id: 2, capacity: 20 }, { id: 3, capacity: 30 }, { id: 4, capacity: 40 }, { id: 5, capacity: 60 },
+  ],
+});
+<span class="kw">const</span> p = grid.statistics.profile(<span class="str">'capacity'</span>);
+<span class="cmt">// The real ColumnProfile fields: rows, present, missing, distinct, min, q1,
+// median, q3, max, mean, stddev, outliers, histogram.</span>
+<span class="kw">const</span> out = [p.rows, p.present, p.missing, p.distinct, p.min, p.q1, p.median, p.q3, p.max, p.mean, p.stddev.toFixed(1), p.outliers, p.histogram.length];
+grid.destroy();
+<span class="kw">return</span> out.join(<span class="str">'|'</span>);</code></pre>
     </div>
     <p>
-      <code>alerts</code> is the part that saves time: a column that never varies, a key that turns
-      out not to be unique, a fifth of the rows missing. A profile that reports only numbers leaves
-      the reader to notice those, and readers reliably do not.
+      One pass over the filtered rows, so every figure agrees with the others and with the totals
+      row. <code>rows</code> and <code>present</code> say how much of the column is there to read,
+      the quartiles and <code>stddev</code> describe its spread, <code>outliers</code> counts by the
+      interquartile rule and <code>histogram</code> is the bins, ready to draw.
     </p>
     <div class="example">
       <p class="example__label">The profile of a column the grid does not hold, computed by the source</p>
@@ -9938,11 +10178,11 @@ return [held, p.computed, p.rows, p.median, named, buckets].join('|');</code></p
         <thead><tr><th>Method</th><th>Answers</th></tr></thead>
         <tbody>
           <tr><td class="name">reduce</td><td class="desc">A column through any of the thirty-eight named kernels, or one of your own.</td></tr>
-          <tr><td class="name">profileAsync</td><td class="desc"><code>grid.statistics.profileAsync(colId)</code>: the same profile when the grid does not hold the rows. Over a pushdown source without <code>fullDataset</code> the source's engine computes the count, distinct count, min, max, mean, quartiles, median and standard deviation the adapter supports, over the grid's filters; a figure it could not push down is named under <code>unavailable</code> with the reason rather than left blank. Everywhere else it is <code>profile()</code>, resolved.</td></tr>
+          <tr><td class="name">profileAsync</td><td class="desc"><code>grid.statistics.profileAsync(colId)</code>: the same profile when the grid does not hold the rows. Over a pushdown source without <code>fullDataset</code> the source's engine computes the count, distinct count, min, max, mean, quartiles, median and standard deviation the adapter supports, over the grid's filters; a figure it could not push down is named under <code>unavailable</code> with the reason rather than left blank. It is never a Web Worker &mdash; that pushdown call is the only case that leaves the main thread, and everywhere else it is <code>profile()</code>, resolved on the main thread.</td></tr>
           <tr><td class="name">correlation</td><td class="desc">Pearson's r between two columns. <code>spearman</code> resists an outlier; <code>kendall</code> is tau-b.</td></tr>
           <tr><td class="name">regression</td><td class="desc">A least-squares fit of one column on another, with slope, intercept and r².</td></tr>
           <tr><td class="name">weightedAverage</td><td class="desc">One column averaged by another. <code>weightedQuantile</code> for the median and beyond.</td></tr>
-          <tr><td class="name">series</td><td class="desc">How a column varies along an ordering. <code>by</code> is required and never guessed.</td></tr>
+          <tr><td class="name">series</td><td class="desc">How a column varies along an ordering. <code>by</code> is required and never guessed. <code>maxDrawdownFrom</code>/<code>maxDrawdownTo</code> are 0-based positions into the ordered filtered rows &mdash; not dates &mdash; and the matching <code>maxDrawdownFromAt</code>/<code>maxDrawdownToAt</code> carry the ordering axis at those positions.</td></tr>
           <tr><td class="name">shadow</td><td class="desc">What the grid knows about a row over time: updates, delta, rate, rank, percentile, streak.</td></tr>
         </tbody>
       </table>
@@ -9971,16 +10211,29 @@ r.chosenBy;    <span class="cmt">// 'auto', and r.reason says why this test over
 r.pValue;      <span class="cmt">// the datum to interpret; there is no `significant` flag</span>
 r.interval;    <span class="cmt">// { estimate, lower, upper, method } on the difference</span>
 r.effectSize;  <span class="cmt">// { name, value, label } — Cohen's d, Cliff's delta, Cramer's V or eta squared</span>
-r.verdict;     <span class="cmt">// "Group b's hours are higher than group a's, with a large effect"</span></code></pre>
+r.reliable;    <span class="cmt">// false when a compared group stands on fewer than ten rows</span>
+r.verdict;     <span class="cmt">// "Hours is higher for b than for a by about 10; the difference is unlikely to be chance (p &lt; 0.001) and the effect is large."</span></code></pre>
     </div>
     <p>
-      <code>test: 'auto'</code> is the default and picks from the data: a normality and variance
-      screen routes two numeric groups to the pooled t, Welch or Mann-Whitney; three or more to
-      ANOVA or Kruskal-Wallis; a categorical measure to a two-proportion z or chi-square. Force
-      the test with <code>test</code> when the question fixes it. <code>paired</code> names a key
-      column to match the two groups as pairs. A group with fewer than three readings, or with
-      zero variance, is refused with a warning — the grid will not hand back a p-value computed
-      from a sample too small or too flat to carry one.
+      <code>test: 'auto'</code> is the default and picks from the data: two numeric groups use
+      <strong>Welch's t</strong> (unequal variances not assumed), or Mann-Whitney U when a group
+      is non-normal — the pooled Student's t runs only when forced with <code>test: 't'</code>;
+      three or more numeric groups use ANOVA or Kruskal-Wallis; a categorical measure a
+      two-proportion z or chi-square. Force the test with <code>test</code> when the question
+      fixes it. <code>paired</code> names a key column to match the two groups as pairs. A group
+      with fewer than three readings, or with zero variance, is refused with a warning — the grid
+      will not hand back a p-value computed from a sample too small or too flat to carry one.
+    </p>
+    <p>
+      Two group-comparison calls, one test each: <code>compare</code> and
+      <code>compareGroups</code> agree on the two-group numeric case (Welch by default, the same
+      p-value, interval and effect size, and the same one-sentence verdict). They differ in how
+      they treat more than two groups. <code>compareGroups</code> is always a two-group test:
+      with three or more groups and none named, it compares the two most frequent and says which
+      in its <code>groups</code>. <code>compare</code> runs the multi-group test instead — ANOVA
+      or Kruskal-Wallis over <em>every</em> group — and its <code>groups</code> lists them all;
+      the Compare groups panel prints that list under "Groups compared" so a multi-group verdict
+      is never mistaken for a two-group one.
     </p>
     <div class="why">
       <p><strong>No multiple-comparison correction.</strong> Each <code>statistics.compare</code>
@@ -10013,7 +10266,7 @@ c.cp; c.cpk;         <span class="cmt">// short-term spread, from the moving ran
 c.pp; c.ppk;         <span class="cmt">// overall spread</span>
 c.outOfSpec;         <span class="cmt">// parts outside the customer's tolerance</span>
 c.limits;            <span class="cmt">// { centre, upper, lower, sigma }</span>
-c.violations;        <span class="cmt">// [{ index, rule, description }, …]</span>
+c.violations;        <span class="cmt">// [{ index, key, rule, description }, …] — index is 0-based (the 38th reading is 37); key is the row's key</span>
 c.interval;          <span class="cmt">// a confidence interval for cpk</span></code></pre>
     </div>
     <div class="why">
@@ -10075,11 +10328,35 @@ grid.statistics.interval('status', {
       method that suits it: Student's <em>t</em> for a mean, the Wilson score for a proportion, and
       Bissell's approximation for Cpk.
     </p>
+    <p>
+      When the readings are not a column — the rows behind one bar of a chart, a subgroup, a
+      hand-assembled sample — <code>statistics.intervalOf(values, confidence)</code> answers the
+      same mean question for the numbers you already hold, so a chart's whisker and a panel's
+      bounds cannot disagree.
+    </p>
+    <div class="example">
+      <p class="example__label">A mean interval from readings you already hold</p>
+      <pre data-run="js" data-expect="10|100.5|98.33|102.67" data-covers="method:statistics.intervalOf"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'w', type: 'number' }],
+  rows: [98, 102, 97, 105, 103, 99, 101, 100, 104, 96].map((w, i) => ({ id: i, w })),
+});
+const ci = grid.statistics.intervalOf([98, 102, 97, 105, 103, 99, 101, 100, 104, 96]);
+grid.destroy();
+return `${ci.n}|${ci.mean.toFixed(1)}|${ci.lower.toFixed(2)}|${ci.upper.toFixed(2)}`;</code></pre>
+    </div>
     <div class="why">
       <p><strong>The line the product draws.</strong> Lattice quantifies uncertainty. It does not
-      adjudicate hypotheses: there are no p-values and no significance tests. An interval says how
-      precisely a figure is known and leaves the judgement where it belongs. A tool that returns a
-      verdict invites it to be read as one, and a grid is the wrong place for that.</p>
+      adjudicate hypotheses: an interval says how precisely a figure is known and leaves the
+      judgement where it belongs — a tool that returns a verdict invites it to be read as one, and
+      a grid is the wrong place for that. Where a significance test is the question, the product
+      has them, and they hand the p-value back as data to interpret, never as a bare
+      <code>significant</code> flag: on <code>grid.statistics</code>, <code>compare</code> and
+      <code>compareGroups</code> run the two-sample tests (t, Welch, Mann-Whitney, chi-square,
+      ANOVA, Kruskal-Wallis, proportions) and phrase the difference as a one-sentence verdict
+      that describes it rather than adjudicating it, <code>regressionModel</code> reports a t and
+      p per coefficient, and <code>adf</code> reports a p-value for stationarity.</p>
       <p><strong>Wilson, not the textbook formula.</strong> The normal approximation gives bounds
       below zero and above one at small counts, which is visibly wrong to anyone who reads it. The
       Wilson score stays inside the interval it is describing.</p>
@@ -11635,7 +11912,8 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">columnPresets</td><td class="desc">Named bundles applied with preset: 'money'.</td></tr>
           <tr><td class="name">columnVirtualisationAbove</td><td class="desc">Column count above which columns virtualise too.</td></tr>
           <tr><td class="name">delimiter</td><td class="desc">(optional)</td></tr>
-          <tr><td class="name">enterMovesDown</td><td class="desc">(optional)</td></tr>
+          <tr><td class="name">enterAfterCommit</td><td class="desc">What Enter does after a commit: <code>'edit'</code> opens the next editor, <code>'move'</code> moves the selection down without opening one, <code>'stay'</code> stays put.</td></tr>
+          <tr><td class="name">enterMovesDown</td><td class="desc">Shorthand for <code>enterAfterCommit</code>: <code>true</code> is <code>'edit'</code>, <code>false</code> is <code>'stay'</code>.</td></tr>
           <tr><td class="name">fillHandle</td><td class="desc">(optional)</td></tr>
           <tr><td class="name">granularity</td><td class="desc">hour &amp;hellip; year. Chosen from the span when omitted.</td></tr>
           <tr><td class="name">groupFooter</td><td class="desc">A closing total row per group.</td></tr>
@@ -15228,8 +15506,8 @@ map.provenance().computed; // 'engine' once the view has answered</code></pre>
         <thead><tr><th>Event</th><th>Fires when</th></tr></thead>
         <tbody>
           <tr><td class="name">column:filter:open</td><td class="desc">Header filter popup opened.</td></tr>
-          <tr><td class="name">column:profile:open</td><td class="desc">The column statistics ("describe") panel was asked to open on a column, from the column menu's "Column statistics" item (<code>{ colId }</code>). A mounted tool panel opens its <code>statistics</code> panel seeded on that column.</td></tr>
-          <tr><td class="name">column:compareGroups:open</td><td class="desc">The "Compare groups" panel was asked to open on a column, from the column menu's "Compare groups" item (<code>{ colId }</code>). A mounted tool panel opens its <code>compareGroups</code> panel seeded on that column as the measure.</td></tr>
+          <tr><td class="name">column:profile:open</td><td class="desc">The column statistics ("describe") panel was asked to open on a column, from the column menu's "Column statistics" item (<code>{ colId }</code>). A mounted tool panel opens its <code>statistics</code> panel seeded on that column, adding it on the fly if <code>toolPanel.panels</code> was never set explicitly; an explicit list that leaves <code>statistics</code> out hides the menu item instead (BACKLOG-0006708). A grid with no <code>toolPanel</code> option mounts its dock on demand when this fires (BACKLOG-0006741).</td></tr>
+          <tr><td class="name">column:compareGroups:open</td><td class="desc">The "Compare groups" panel was asked to open on a column, from the column menu's "Compare groups" item (<code>{ colId }</code>). A mounted tool panel opens its <code>compareGroups</code> panel seeded on that column as the measure, adding it on the fly if <code>toolPanel.panels</code> was never set explicitly; an explicit list that leaves <code>compareGroups</code> out hides the menu item instead (BACKLOG-0006708). A grid with no <code>toolPanel</code> option mounts its dock on demand when this fires (BACKLOG-0006741).</td></tr>
           <tr><td class="name">column:grouped</td><td class="desc">The row-group column list changed.</td></tr>
           <tr><td class="name">column:menu:open</td><td class="desc">Header menu opened.</td></tr>
           <tr><td class="name">column:moved</td><td class="desc">Reordered by drag or by API.</td></tr>
@@ -15239,7 +15517,7 @@ map.provenance().computed; // 'engine' once the view has answered</code></pre>
           <tr><td class="name">column:visible</td><td class="desc">Columns shown or hidden.</td></tr>
           <tr><td class="name">columns:changed</td><td class="desc">The column set was replaced or reordered wholesale.</td></tr>
           <tr><td class="name">columns:tagged</td><td class="desc">A column's tags changed.</td></tr>
-          <tr><td class="name">explain:open</td><td class="desc">An Explain entry point — the totals row's context menu, the keyboard, or a KPI tile — asked the Explain panel to open on the named column.</td></tr>
+          <tr><td class="name">explain:open</td><td class="desc">An Explain entry point — the totals row's context menu, the keyboard (<kbd>Ctrl+Alt+E</kbd>), or a KPI tile — asked the Explain panel to open on the named column. A mounted tool panel adds its <code>explain</code> panel on the fly if <code>toolPanel.panels</code> was never set explicitly; an explicit list that leaves <code>explain</code> out hides the "Explain this number" item instead (BACKLOG-0006708). A grid with no <code>toolPanel</code> option mounts its dock on demand when this fires (BACKLOG-0006741).</td></tr>
         </tbody>
       </table>
     </div>
@@ -15558,7 +15836,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.123.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.124.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

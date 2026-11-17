@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.123.3</title>
+<title>Types API Reference — Lattice Grid 1.124.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -452,7 +452,7 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">acf</td><td class="type">number[]</td><td class="desc">The autocorrelation at each lag; index 0 is lag 0 and is always 1.</td></tr>
+          <tr><td class="name">acf</td><td class="type">number[]</td><td class="desc">The autocorrelation at each lag; index 0 is lag 0 and is always 1, so a correlogram usually starts its bars at lag 1.</td></tr>
           <tr><td class="name">pacf</td><td class="type">number[]</td><td class="desc">The partial autocorrelation at each lag; index 0 is 1, and `pacf[1] === acf[1]`.</td></tr>
           <tr><td class="name">bounds</td><td class="type">{ upper: number; lower: number }</td><td class="desc">The approximate ±1.96/√n white-noise confidence band.</td></tr>
           <tr><td class="name">n</td><td class="type">number</td><td class="desc">The series length the ACF/PACF were computed over.</td></tr>
@@ -471,8 +471,8 @@
           <tr><td class="name">usedLag</td><td class="type">number</td><td class="desc">The number of augmenting lags chosen by AIC.</td></tr>
           <tr><td class="name">nobs</td><td class="type">number</td><td class="desc">The observations the final regression used.</td></tr>
           <tr><td class="name">criticalValues</td><td class="type">{ '1%': number; '5%': number; '10%': number }</td><td class="desc">MacKinnon's constant+trend critical values at the 1%, 5% and 10% levels.</td></tr>
-          <tr><td class="name">pValue</td><td class="type">number</td><td class="desc">An approximate p-value, interpolated across the critical-value ladder.</td></tr>
-          <tr><td class="name">pApproximate</td><td class="type">boolean</td><td class="desc">Always true: the p-value is an interpolation, not the MacKinnon surface.</td></tr>
+          <tr><td class="name">pValue</td><td class="type">number</td><td class="desc">MacKinnon's (1994) approximate p-value for the statistic.</td></tr>
+          <tr><td class="name">pApproximate</td><td class="type">boolean</td><td class="desc">Always true: the p-value is MacKinnon's approximation, not an exact one.</td></tr>
           <tr><td class="name">stationary</td><td class="type">boolean</td><td class="desc">Whether the series is stationary at the 5% level.</td></tr>
           <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The plain-language verdict: `'stationary'` or `'non-stationary'`.</td></tr>
           <tr><td class="name">regression</td><td class="type">'ct'</td><td class="desc">The regression form used — always `'ct'` (constant + trend) in v1.</td></tr>
@@ -539,10 +539,11 @@
           <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column that put this row over the line.</td></tr>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
           <tr><td class="name">value</td><td class="type">number</td><td class="desc">The row's value in that column.</td></tr>
-          <tr><td class="name">score</td><td class="type">number</td><td class="desc">The modified z-score, for the `modifiedZScore` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">score</td><td class="type">number</td><td class="desc">The modified z-score, for the `modifiedZScore` and `rollingModifiedZScore` methods. <small>(optional)</small></td></tr>
           <tr><td class="name">lower</td><td class="type">number</td><td class="desc">The lower fence, for the `iqr` method. <small>(optional)</small></td></tr>
           <tr><td class="name">upper</td><td class="type">number</td><td class="desc">The upper fence, for the `iqr` method. <small>(optional)</small></td></tr>
-          <tr><td class="name">method</td><td class="type">Extract&lt;<a href="#type-OutlierMethod">OutlierMethod</a>, 'modifiedZScore' | 'iqr'&gt;</td><td class="desc">Which rule flagged it. <small>(optional)</small></td></tr>
+          <tr><td class="name">method</td><td class="type">Extract&lt;<a href="#type-OutlierMethod">OutlierMethod</a>, 'modifiedZScore' | 'iqr' | 'rollingModifiedZScore' | 'rollingIqr'&gt;</td><td class="desc">Which rule flagged it. <small>(optional)</small></td></tr>
+          <tr><td class="name">windowLen</td><td class="type">number</td><td class="desc">The trailing window length, for the rolling methods. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -551,8 +552,9 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">method</td><td class="type">Extract&lt;<a href="#type-OutlierMethod">OutlierMethod</a>, 'modifiedZScore' | 'iqr' | 'mahalanobis'&gt;</td><td class="desc">Which rule produced the report.</td></tr>
+          <tr><td class="name">method</td><td class="type"><a href="#type-OutlierMethod">OutlierMethod</a> <small class="literals">'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr'</small></td><td class="desc">Which rule produced the report.</td></tr>
           <tr><td class="name">k</td><td class="type">number</td><td class="desc">The IQR fence multiplier, for the `iqr` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">windowLen</td><td class="type">number</td><td class="desc">The trailing window length, for the rolling methods. <small>(optional)</small></td></tr>
           <tr><td class="name">n</td><td class="type">number</td><td class="desc">How many rows the scan ran over.</td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-AnomalyRow">AnomalyRow</a>[]</td><td class="desc">The flagged rows, worst first.</td></tr>
           <tr><td class="name">flagged</td><td class="type">number</td><td class="desc">How many rows were flagged.</td></tr>
@@ -624,6 +626,16 @@
           <tr><td class="name">align</td><td class="type">'left' | 'center' | 'right'</td><td class="desc">Horizontal alignment within the symbol's width. Default `'center'`. <small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number</td><td class="desc">The gap in SVG user units between the text baseline and the symbol's edge. Default `2`. <small>(optional)</small></td></tr>
           <tr><td class="name">font</td><td class="type">string</td><td class="desc">A CSS `font` shorthand for the text line. Default `'10px sans-serif'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BigIntTypeOptions">BigIntTypeOptions</h4>
+    <p class="section-note">The unit shift of a `bigint` column (BACKLOG-0006686), read from `Column.typeOptions`. Declared on its own interface so the option name does not claim the shared `scale` capability from the older options that carry it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">scale</td><td class="type">number</td><td class="desc">A `bigint` column's unit shift: how many digits the point moves left when the raw integer is displayed, copied and exported. `18` shows wei as ether (`1500000000000000000` as `1.5`), `6` shows USDC base units as dollars. The stored value, the sort, the filters and the totals stay in raw units, so nothing is rounded; text typed into a filter box, edited or pasted is read in the displayed units, while a `filters` condition set through the API is in raw units. For a `bigint` column `decimals` fixes the fraction digits shown (rounding half away from zero) instead of showing every digit. Never an exponent. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1437,11 +1449,12 @@
           <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method produced the clusters.</td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The column ids clustered over, in order.</td></tr>
           <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Whether the columns were standardised before clustering.</td></tr>
-          <tr><td class="name">k</td><td class="type">number</td><td class="desc">How many segments were found.</td></tr>
-          <tr><td class="name">centres</td><td class="type">number[][]</td><td class="desc">Each segment's centre, in the columns' original units.</td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">How many segments were found (segment ids run 1..k).</td></tr>
+          <tr><td class="name">centres</td><td class="type">number[][]</td><td class="desc">Each segment's centre, in the columns' original units. 0-based: segment id `i` sits at `centres[i - 1]`.</td></tr>
           <tr><td class="name">sizes</td><td class="type">number[]</td><td class="desc">Each segment's size, in the same order as `centres`.</td></tr>
           <tr><td class="name">inertia</td><td class="type">number | null</td><td class="desc">For k-means, the within-cluster sum of squares in the clustering space; null for DBSCAN.</td></tr>
           <tr><td class="name">noise</td><td class="type">number | null</td><td class="desc">For DBSCAN, how many rows were noise; null for k-means.</td></tr>
+          <tr><td class="name">eps</td><td class="type">number | null</td><td class="desc">For DBSCAN, the neighbourhood radius used — the one named, or the k-distance knee chosen when none was named — in the clustering space (standardised units under `scale: 'standard'`, the columns' own units under `scale: 'none'`). Null for k-means.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1454,7 +1467,7 @@
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The numeric column ids to cluster over.</td></tr>
           <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method partitions the rows: k-means (`k` groups) or DBSCAN (density). <small>(optional)</small></td></tr>
           <tr><td class="name">k</td><td class="type">number</td><td class="desc">For k-means, the number of clusters (default 3). <small>(optional)</small></td></tr>
-          <tr><td class="name">eps</td><td class="type">number</td><td class="desc">For DBSCAN, the neighbourhood radius. <small>(optional)</small></td></tr>
+          <tr><td class="name">eps</td><td class="type">number</td><td class="desc">For DBSCAN, the neighbourhood radius two points must be within to be neighbours, in the clustering space: standardised (unit-variance) units under `scale: 'standard'` (the default), the columns' own units under `scale: 'none'`. Omit to choose it from the data's k-distance curve (the knee, with `minPoints` as k); the radius used is reported on `statistics.clusters().eps`. <small>(optional)</small></td></tr>
           <tr><td class="name">minPoints</td><td class="type">number</td><td class="desc">For DBSCAN, the least neighbours a core point needs (default 5). <small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Standardise each column first (`'standard'`, the default) or cluster as-is (`'none'`). <small>(optional)</small></td></tr>
           <tr><td class="name">seed</td><td class="type">number</td><td class="desc">A PRNG seed for the k-means start. <small>(optional)</small></td></tr>
@@ -1468,6 +1481,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column id.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column id, kept separately from `name` so a caller can look the column up while `name` carries the title.</td></tr>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
           <tr><td class="name">measure</td><td class="type">Extract&lt;<a href="#type-DriftMeasure">DriftMeasure</a>, 'standardizedMeanDifference' | 'categoricalTotalVariation'&gt;</td><td class="desc">The effect size reported for this column's family: the standardized mean difference for a numeric column, the total variation of the category mix for a categorical one. Never a p-value.</td></tr>
           <tr><td class="name">magnitude</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
@@ -1600,6 +1614,7 @@
           <tr><td class="name">difference</td><td class="type">number | null</td><td class="desc">The difference the interval is around (means or proportions), or null.</td></tr>
           <tr><td class="name">method</td><td class="type">string</td><td class="desc">The test's method, named for honesty.</td></tr>
           <tr><td class="name">categorical</td><td class="type">boolean</td><td class="desc">True for a categorical measure.</td></tr>
+          <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when any compared group is under the reliability floor.</td></tr>
           <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The one-sentence verdict: groups, direction, magnitude and effect.</td></tr>
         </tbody>
       </table>
@@ -1688,6 +1703,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column id, present on both grids.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column id, kept separately from `name` so a caller can look the column up while `name` carries the title.</td></tr>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
           <tr><td class="name">measure</td><td class="type">Extract&lt;<a href="#type-DriftMeasure">DriftMeasure</a>, 'pooledStandardMeanDifference' | 'categoricalTotalVariation'&gt;</td><td class="desc">The effect size reported for this column's family: the pooled standardised mean difference (Cohen's d) for a numeric column, the total variation of the category mix for a categorical one. Never a p-value.</td></tr>
           <tr><td class="name">magnitude</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
@@ -1829,6 +1845,7 @@
           <tr><td class="name">weighted</td><td class="type">boolean</td><td class="desc">Whether the effects are weighted (avg) rather than additive.</td></tr>
           <tr><td class="name">single</td><td class="type">boolean</td><td class="desc">Whether the aggregate names a single contributor (min/max).</td></tr>
           <tr><td class="name">drivers</td><td class="type"><a href="#type-ExplainDriver">ExplainDriver</a>[]</td><td class="desc">The drivers, ranked by absolute effect.</td></tr>
+          <tr><td class="name">explanation</td><td class="type">string</td><td class="desc">The plain-language sentence for the change, the one the Explain panel writes.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1939,7 +1956,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">step</td><td class="type">number</td><td class="desc">The step ahead, `1 … horizon`.</td></tr>
-          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The time-axis position the step is stamped at, extrapolated at the mean spacing.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The time-axis position the step is stamped at. A series that sits exactly on a calendar boundary (every day, week, month, quarter or year) steps by that calendar unit, so monthly history keeps landing on the 1st of each following month; any irregular series steps by its typical (median) spacing. From `grid.stats.forecast` with `by`, it is on that column's axis (epoch milliseconds for a date column); without `by` it is the row number.</td></tr>
           <tr><td class="name">mean</td><td class="type">number</td><td class="desc">The point forecast.</td></tr>
           <tr><td class="name">lower</td><td class="type">number | null</td><td class="desc">The prediction-interval lower bound (a future observation), or null when none applies.</td></tr>
           <tr><td class="name">upper</td><td class="type">number | null</td><td class="desc">The prediction-interval upper bound, or null when none applies.</td></tr>
@@ -1961,7 +1978,7 @@
           <tr><td class="name">n</td><td class="type">number</td><td class="desc">How many finite readings the fit used.</td></tr>
           <tr><td class="name">sigma</td><td class="type">number | null</td><td class="desc">The residual standard deviation the bands were built from, or null when there was none.</td></tr>
           <tr><td class="name">r2</td><td class="type">number</td><td class="desc">The fit's coefficient of determination — `linear` only. <small>(optional)</small></td></tr>
-          <tr><td class="name">params</td><td class="type">{ slope?: number; intercept?: number; alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number; }</td><td class="desc">The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`.</td></tr>
+          <tr><td class="name">params</td><td class="type">{ slope?: number; intercept?: number; alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number; }</td><td class="desc">The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`. `slope` and `intercept` are on the time axis: slope is per unit of `at` (per row for an index axis, per millisecond for a date column's epoch-millisecond axis) and intercept is the fitted value at `at = 0`.</td></tr>
           <tr><td class="name">points</td><td class="type"><a href="#type-ForecastPoint">ForecastPoint</a>[]</td><td class="desc">The forecast, one entry per step.</td></tr>
         </tbody>
       </table>
@@ -2022,6 +2039,7 @@
           <tr><td class="name">weighted</td><td class="type">boolean</td><td class="desc">True when contributions are weighted effects (avg).</td></tr>
           <tr><td class="name">single</td><td class="type">boolean</td><td class="desc">True when the aggregate names a single contributor (min/max).</td></tr>
           <tr><td class="name">contributors</td><td class="type"><a href="#type-ExplainContributor">ExplainContributor</a>[]</td><td class="desc">The contributors, ranked by absolute contribution.</td></tr>
+          <tr><td class="name">explanation</td><td class="type">string</td><td class="desc">The plain-language sentence the Explain panel writes; when `compare` was given this is the change sentence, also carried on `compare.explanation`.</td></tr>
           <tr><td class="name">compare</td><td class="type"><a href="#type-ExplainChange">ExplainChange</a></td><td class="desc">The change decomposition, present only when `compare` was given. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -2046,6 +2064,7 @@
       </table>
     </div>
     <h4 id="type-GroupComparison">GroupComparison</h4>
+    <p class="section-note">The result of {@link StatisticsApi.compareGroups}: how big *and* how sure, as data to interpret. Carries the p-value as a number (never a flag or a badge) and a one-sentence verdict that says the difference in words.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -2064,6 +2083,7 @@
           <tr><td class="name">groups</td><td class="type">[unknown, unknown]</td><td class="desc">The two group values compared, as keys.</td></tr>
           <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when either group is under the reliability floor.</td></tr>
           <tr><td class="name">method</td><td class="type">string</td><td class="desc">The test's method, named per the reference-suite honesty rule.</td></tr>
+          <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The one-sentence verdict: groups, direction, magnitude and effect.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2088,8 +2108,9 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The named measure: `pooledStandardMeanDifference` (Cohen's d) for the numeric tests, `categoricalTotalVariation` for chi-square.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The named measure: `cohensD` (Cohen's d against the pooled sample deviation) for the numeric tests, `categoricalTotalVariation` for chi-square.</td></tr>
           <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The conventional label — `negligible`, `small`, `medium` or `large` — on the same thresholds {@link StatisticsApi.compare} reports, so the two comparison APIs read the same magnitude the same way.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2433,7 +2454,7 @@
           <tr><td class="name">limits</td><td class="type">{ centre: number; upper: number; lower: number; sigma: number } | null</td><td class="desc">Three sigma either side of the process mean, from the moving range.</td></tr>
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc">How many leading readings set the limits. <small>(optional)</small></td></tr>
           <tr><td class="name">ruleSet</td><td class="type"><a href="#type-ControlChartRuleSet">ControlChartRuleSet</a> <small class="literals">'westernElectric' | 'nelson'</small></td><td class="desc">Which rule set `violations` were judged against, they number differently. <small>(optional)</small></td></tr>
-          <tr><td class="name">violations</td><td class="type">{ index: number; rule: number; description: string }[]</td><td class="desc">Each point the control rules flagged, with its index, the rule number and what the rule says. Judged against limits from the baseline period, so a step change shows as a run rather than flagging everything. Read `ruleSet` alongside — the two rule sets number their rules differently.</td></tr>
+          <tr><td class="name">violations</td><td class="type">{ index: number; key: string | null; rule: number; description: string }[]</td><td class="desc">Each point the control rules flagged, with its 0-based `index` into the ordered readings (the 38th reading is index 37), the row `key` (so a caller can find the row after a sort or a feed, where an index would not survive), the rule number and what the rule says. Judged against limits from the baseline period, so a step change shows as a run rather than flagging everything. Read `ruleSet` alongside — the two rule sets number their rules differently.</td></tr>
           <tr><td class="name">interval</td><td class="type"><a href="#type-CapabilityInterval">CapabilityInterval</a> | null</td><td class="desc">A confidence interval for `cpk`. A study that reports the point estimate alone overstates itself: 1.35 from thirty parts has a lower bound below 1. <small>(optional)</small></td></tr>
           <tr><td class="name">intervalPp</td><td class="type"><a href="#type-CapabilityInterval">CapabilityInterval</a> | null</td><td class="desc">The same, for `ppk`. <small>(optional)</small></td></tr>
         </tbody>
@@ -2929,9 +2950,11 @@
           <tr><td class="name">annualisedVolatility</td><td class="type">number | null</td><td class="desc">The same, times the root of `periodsPerYear`; null unless one was given.</td></tr>
           <tr><td class="name">growth</td><td class="type">number | null</td><td class="desc">Compound growth per period, annualised when `periodsPerYear` is given.</td></tr>
           <tr><td class="name">maxDrawdown</td><td class="type">number | null</td><td class="desc">The largest peak-to-trough fall, as a fraction.</td></tr>
-          <tr><td class="name">maxDrawdownFrom</td><td class="type">number</td><td class="desc">The index of the peak the largest fall started from.</td></tr>
-          <tr><td class="name">maxDrawdownTo</td><td class="type">number</td><td class="desc">The index of the trough the largest fall ended at.</td></tr>
-          <tr><td class="name">autocorrelation</td><td class="type">number | null</td><td class="desc">Lag-1: positive is momentum, negative is mean reversion.</td></tr>
+          <tr><td class="name">maxDrawdownFrom</td><td class="type">number</td><td class="desc">The 0-based index of the peak the largest fall started from, into the ordered filtered rows — not a date.</td></tr>
+          <tr><td class="name">maxDrawdownTo</td><td class="type">number</td><td class="desc">The 0-based index of the trough the largest fall ended at, into the ordered filtered rows.</td></tr>
+          <tr><td class="name">maxDrawdownFromAt</td><td class="type">number</td><td class="desc">The `by` axis at `maxDrawdownFrom` — epoch milliseconds for a date column, the raw value otherwise.</td></tr>
+          <tr><td class="name">maxDrawdownToAt</td><td class="type">number</td><td class="desc">The `by` axis at `maxDrawdownTo`.</td></tr>
+          <tr><td class="name">autocorrelation</td><td class="type">number | null</td><td class="desc">Lag-1 autocorrelation of the period-to-period changes: positive is momentum, negative is mean reversion, and null when the changes have no variance to correlate.</td></tr>
           <tr><td class="name">upDays</td><td class="type">number</td><td class="desc">How many period-on-period moves were upward. A period whose previous reading was zero has no return and counts in neither.</td></tr>
           <tr><td class="name">downDays</td><td class="type">number</td><td class="desc">How many period-on-period moves were downward.</td></tr>
         </tbody>
@@ -3017,6 +3040,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">ranked</td><td class="type"><a href="#type-ColumnDifference">ColumnDifference</a>[]</td><td class="desc">Every compared column, largest difference first.</td></tr>
+          <tr><td class="name">filterColumns</td><td class="type">string[]</td><td class="desc">The columns the active filter is on, listed separately rather than ranked: the filter forced the subset/population split, so their difference is the filter's, not the data's.</td></tr>
           <tr><td class="name">subsetN</td><td class="type">number</td><td class="desc">How many rows the filtered subset holds.</td></tr>
           <tr><td class="name">populationN</td><td class="type">number</td><td class="desc">How many rows the whole population holds.</td></tr>
           <tr><td class="name">filtered</td><td class="type">boolean</td><td class="desc">Whether a filter is actually narrowing the set.</td></tr>
@@ -3617,6 +3641,9 @@
     <h4 id="type-EditConfirmMode">EditConfirmMode</h4>
     <p class="section-note">How an optimistic write settles: on what `commit` returns, or only when you call `edit.settle` yourself.</p>
     <p class="type-def"><code>type EditConfirmMode = 'auto' | 'manual'</code></p>
+    <h4 id="type-EditEnterAction">EditEnterAction</h4>
+    <p class="section-note">What Enter does after it commits a cell edit (`edit.enterAfterCommit`, §11.1). - `'edit'` (the default) opens the editor on the next row in the same column (Shift+Enter opens it on the row above). - `'move'` commits and moves the selection to the next row without opening an editor, as a spreadsheet does. - `'stay'` commits in place and moves nothing.</p>
+    <p class="type-def"><code>type EditEnterAction = 'edit' | 'move' | 'stay'</code></p>
     <h4 id="type-EditMode">EditMode</h4>
     <p class="section-note">How an edit session is scoped: one cell committing on move-away, or one row held open until the whole row commits as a step.</p>
     <p class="type-def"><code>type EditMode = 'cell' | 'row'</code></p>
@@ -4588,7 +4615,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolPanelName">ToolPanelName</h4>
     <p class="section-note">The built-in tool panels, addressable by name from configuration.</p>
-    <p class="type-def"><code>type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatting' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatting' | 'statistics' | 'regression' | 'compare' | 'compareGroups' | 'insights' | 'explain' | (string &amp; {})</code></p>
     <h4 id="type-ToolPanelSide">ToolPanelSide</h4>
     <p class="section-note">Which edge a docked tool panel sits against.</p>
     <p class="type-def"><code>type ToolPanelSide = 'left' | 'right'</code></p>

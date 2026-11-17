@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.3, type declarations
+ * Lattice Grid 1.124.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -27,6 +27,8 @@
 export type TypeName =
   | 'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup'
   | 'image'
+  // Exact big numbers: BigInt and decimal strings that keep every digit.
+  | 'bigint'
   // Extended catalogue. Never inferred, a column asks for these by name.
   | 'time' | 'datetime' | 'duration' | 'timestamp'
   | 'ipv4' | 'ipv6' | 'cidr' | 'mac'
@@ -636,6 +638,12 @@ export interface DataType {
    * circular chain fails at construction.
    */
   extends?: TypeName;
+  /**
+   * `true` for a type whose values are exact big numbers (`BigInt` and decimal
+   * strings), as the built-in `bigint` type is. Such a column compares, filters
+   * and totals by exact value and sorts on the main thread, never in a Worker.
+   */
+  exact?: boolean;
   /**
    * Recognise a value as belonging to this type, for type inference from a
    * sample. A type is inferred only when every sampled value matches.
@@ -1316,7 +1324,9 @@ export interface Editor {
  */
 export type EditorCtor = new () => Editor;
 /** The built-in tool panels, addressable by name from configuration. */
-export type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatting' | (string & {});
+export type ToolPanelName =
+  | 'columns' | 'filters' | 'views' | 'quick' | 'formatting' | 'statistics' | 'regression'
+  | 'compare' | 'compareGroups' | 'insights' | 'explain' | (string & {});
 
 /**
  * The built-in cell renderers, addressable by name through `cell.render`.
@@ -1868,6 +1878,11 @@ export interface ColumnEditSpec {
    * Whether this column's cells can be edited. `false` by default; a function
    * is asked per cell, and a throw is reported once and the cell treated as
    * read-only.
+   *
+   * The column's own value wins over the grid-level
+   * {@link EditConfig.columns} switch: `edit: false` keeps a column read-only
+   * in a grid that turned every column on, and `edit: true` (or an `edit`
+   * object) still sets this column's editor and rules when the grid did not.
    */
   enabled?: boolean | ((p: CellParams) => boolean);
   /**
@@ -2066,7 +2081,7 @@ export interface ColumnLayoutSpec {
    * declared and never implemented — every reader tested truthiness, so either
    * one pinned the column wherever it already sat — and the union was narrowed
    * to the boolean the grid actually honours. Put a column
-   * at an edge by ordering `columns`, or pin it with `layout.pinned`.
+   * at an edge by ordering `columns`, or pin it with `layout.pin`.
    */
   lockPosition?: boolean;
 }
@@ -2242,7 +2257,7 @@ export type ClusterScale = 'standard' | 'none';
 /** A running total's shape: a running sum, a running percentage, or a period-over-period delta. */
 export type RunningTotalMode = 'total' | 'percent' | 'delta';
 /** The options a column's data type reads (`Column.typeOptions`). */
-export interface ColumnTypeOptions {
+export interface ColumnTypeOptions extends BigIntTypeOptions {
   /**
    * A `list` column's item type: any scalar data type name, `'text'` by
    * default. A name that is not a known scalar type warns once by name
@@ -2267,6 +2282,11 @@ export interface ColumnTypeOptions {
    * since it always displays as a whole number.
    */
   decimals?: number;
+  /**
+   * A `bigint` column's digit grouping. `true` by default (`1,000,000.5` in an
+   * `en` grid); `false` shows the digits with no separators.
+   */
+  grouping?: boolean;
   /**
    * A `vlan` column that holds one ID only. `true` makes the column refuse a
    * list or a range (`10,20-30`) with a message, so an access-VLAN column
@@ -2344,7 +2364,13 @@ export interface Column {
   value?: ColumnValueSpec;
   /** The renderer, and what it is given. A string names a registered renderer. */
   cell?: ColumnCellSpec | string;
-  /** Whether and how the cell can be edited. A string names an editor. */
+  /**
+   * Whether and how the cell can be edited. A string names an editor.
+   *
+   * This column's own `edit` wins over the grid-level {@link EditConfig.columns}
+   * switch: a column may opt out with `edit: false` while the grid turns every
+   * data column on, or opt in with `edit: true` while the grid stays silent.
+   */
   edit?: ColumnEditSpec | boolean | string;
   /**
    * Declarative edit-validation rules. Each is checked against
@@ -2436,8 +2462,9 @@ export interface Column {
      * For `kind: 'specStatus'`, the hard specification the row is judged
      * against. `lower`/`upper` are the pass limits (a value beyond either
      * fails); the optional `warnLower`/`warnUpper` are inner thresholds that
-     * mark a still-in-spec reading `'WARN'`. Centred-target ± tolerance is a
-     * deliberate follow-up and is not read here.
+     * mark a still-in-spec reading `'WARN'`. A limit left unset falls back to
+     * the watched column's own `spec`, and one declared here overrides it. Centred-target ± tolerance is a deliberate follow-up
+     * and is not read here.
      */
     lower?: number;
     upper?: number;
@@ -2536,8 +2563,12 @@ export interface Column {
      */
     k?: number;
     /**
-     * For `method: 'dbscan'`, the neighbourhood radius (in the working space) two
-     * points must be within to be neighbours.
+     * For `method: 'dbscan'`, the neighbourhood radius two points must be
+     * within to be neighbours, in the clustering space: standardised
+     * (unit-variance) units under `scale: 'standard'` (the default), the
+     * columns' own units under `scale: 'none'`. Omit to choose it from the
+     * data's k-distance curve (the knee, with `minPoints` as k); the radius
+     * used is reported on `statistics.clusters().eps`.
      */
     eps?: number;
     /**
@@ -2547,7 +2578,10 @@ export interface Column {
     /**
      * Whether to standardise each column to unit variance before clustering.
      * `'standard'` (the default) stops a wide-range column dominating; `'none'`
-     * clusters in the columns' own units.
+     * clusters in the columns' own units. A `clusterDistance` shadow reads the
+     * same space — standardised units under `'standard'`, the columns' own units
+     * under `'none'` — while `statistics.clusters().centres` is always in the
+     * columns' original units.
      */
     scale?: ClusterScale;
     /**
@@ -2566,12 +2600,15 @@ export interface Column {
   running?: RunningTotalMode
     | { of?: string; kind?: RunningTotalMode };
   /**
-   * The customer's tolerance, for process capability and control charts.
-   * Declared here rather than passed to each call so the capability figures,
-   * a control chart and any rule marking an out-of-tolerance cell cannot
-   * disagree about what the tolerance is.
+   * The customer's tolerance, for process capability, control charts and a
+   * `specStatus` shadow with no limits of its own. Declared here rather than
+   * passed to each call so the capability figures, a control chart and any
+   * rule marking an out-of-tolerance cell cannot disagree about what the
+   * tolerance is. `warnLower`/`warnUpper` are the optional inner warning
+   * thresholds a `specStatus` shadow reads; `target` is the centred nominal
+   * the capability figures and charts read.
    */
-  spec?: { lower?: number; upper?: number; target?: number };
+  spec?: { lower?: number; upper?: number; target?: number; warnLower?: number; warnUpper?: number };
   /** Width, pinning and flex. A bare number is the width in pixels. */
   layout?: ColumnLayoutSpec | number;
   /** The header cell: its text, tooltip, menu and any header chart. */
@@ -2827,7 +2864,9 @@ export interface ResolvedColumn {
   cell: ColumnCellSpec;
   /**
    * The resolved editing spec. `enabled` is `false` unless the column turned
-   * editing on, so a column is read-only until it says otherwise.
+   * editing on itself or the grid's {@link EditConfig.columns} switch did —
+   * a column's own `edit` wins, so `edit: false` stays read-only under a
+   * grid-wide opt-in. Computed and other non-data columns are read-only.
    */
   edit: ColumnEditSpec;
   /**
@@ -4197,6 +4236,16 @@ export type EditMode = 'cell' | 'row';
 export type EditStartGesture = 'single' | 'double' | 'key';
 /** How an optimistic write settles: on what `commit` returns, or only when you call `edit.settle` yourself. */
 export type EditConfirmMode = 'auto' | 'manual';
+/**
+ * What Enter does after it commits a cell edit (`edit.enterAfterCommit`, §11.1).
+ *
+ * - `'edit'` (the default) opens the editor on the next row in the same column
+ *   (Shift+Enter opens it on the row above).
+ * - `'move'` commits and moves the selection to the next row without opening an
+ *   editor, as a spreadsheet does.
+ * - `'stay'` commits in place and moves nothing.
+ */
+export type EditEnterAction = 'edit' | 'move' | 'stay';
 export interface EditConfig {
   /**
    * Turn editing on for the grid. `edit: true` is the shorthand; over a remote
@@ -4204,6 +4253,21 @@ export interface EditConfig {
    * letting cells change on screen and never save.
    */
   enabled?: boolean;
+  /**
+   * Make every data column editable with this one switch.
+   *
+   * `edit: true` is the shorthand for `{ enabled: true, columns: true }`: the
+   * grid-level flag a developer reaches for first is the whole opt-in, and
+   * each data column inherits `edit.enabled: true` unless it states its own.
+   * A column's own `edit` wins — `edit: false` keeps it read-only, and an
+   * `edit` object still names its editor and rules — as does
+   * `columnDefaults.edit`. Computed, shadow and other non-data columns stay
+   * read-only, and so do the generated checkbox, row-number and group
+   * columns. An `edit` object without `columns: true` keeps today's meaning:
+   * the master switch and behaviour config, with columns read-only until one
+   * enables itself.
+   */
+  columns?: boolean;
   /**
    * `'cell'` (the default) edits one cell at a time — moving to another
    * commits the first. `'row'` keeps one session open across the row, so the
@@ -4218,8 +4282,17 @@ export interface EditConfig {
    */
   start?: EditStartGesture;
   /**
+   * What Enter does after it commits a cell edit: `'edit'` (the default) opens
+   * the editor on the cell below (Shift+Enter, above); `'move'` commits and
+   * moves the selection down without opening an editor; `'stay'` commits in
+   * place. `enterMovesDown` still works — `true` is `'edit'`, `false` is
+   * `'stay'` — and an explicit `enterAfterCommit` wins when both are given.
+   */
+  enterAfterCommit?: EditEnterAction;
+  /**
    * Whether Enter commits and moves to the cell below, as a spreadsheet does.
-   * On by default; Shift+Enter moves up.
+   * On by default; Shift+Enter moves up. Shorthand for `enterAfterCommit`:
+   * `true` is `'edit'`, `false` is `'stay'`.
    */
   enterMovesDown?: boolean;
   /** How many steps the undo timeline keeps. 10 by default. */
@@ -5488,19 +5561,34 @@ export interface GridConfig {
    * pivot are assembled by drag, which is why it carries three drop zones as
    * well as the visibility list — a column opts out of each with `allowGroup`,
    * `allowPivot` and `allowTotal`.
+   *
+   * `true` (or an object) docks the panels. Leave it out entirely and there is
+   * still no visible rail, but the column menu's "Column statistics" and
+   * "Compare groups", the cell menu's "Explain this number" and the
+   * `Ctrl+Alt+E` shortcut still open their panel — the dock mounts itself the
+   * first time one of them is asked for. `false` opts out of that too, so the
+   * routes are hidden rather than doing nothing.
    */
   toolPanel?: boolean | {
     /**
      * Which panels to offer, each given one of three ways: a built-in name
      * (`columns`, `filters`, `views`, `quick`, `formatting`, `statistics`,
-     * `regression`, `compare`, `insights`); an object naming a built-in and
-     * giving it props, a title or an icon of its own (`{ name: 'regression',
-     * props: { predictors: ['x1', 'x2'], response: 'y' } }`); or a panel
-     * constructor of your own (§18.5: `init`, `element`, optional `refresh`
-     * and `destroy`) — bare, or as an object's `name` to give it props too.
-     * Entry props win over any config-derived props (`views`, `insights`,
-     * `regression`) for the same panel. An unrecognised name warns once and
-     * is dropped rather than rendering an empty tab.
+     * `regression`, `compare`, `compareGroups`, `insights`, `explain`); an
+     * object naming a built-in and giving it props, a title or an icon of its
+     * own (`{ name: 'regression', props: { predictors: ['x1', 'x2'], response:
+     * 'y' } }`); or a panel constructor of your own (§18.5: `init`, `element`,
+     * optional `refresh` and `destroy`) — bare, or as an object's `name` to
+     * give it props too. Entry props win over any config-derived props
+     * (`views`, `insights`, `regression`) for the same panel. An unrecognised
+     * name warns once and is dropped rather than rendering an empty tab.
+     *
+     * Left unset (the default `['columns', 'filters']` applies), the dock adds
+     * `statistics`, `compareGroups` or `explain` on its own the first time the
+     * column menu, cell menu or `Ctrl+Alt+E` asks for one — a plain grid gets
+     * every menu route working with no `panels` list to write. Naming this
+     * list explicitly turns that off: you get exactly the panels named, and a
+     * menu item whose panel is left out is hidden rather than offered and
+     * doing nothing.
      */
     panels?: (ToolPanelName | Function
       | { name: ToolPanelName | Function; props?: object; title?: string; icon?: string })[];
@@ -6713,7 +6801,9 @@ export interface StatisticsApi {
   /**
    * One shadow value for one row, by the column it shadows and the kind. For
    * `kind: 'specStatus'`, `spec` carries the `{lower, upper, warnLower,
-   * warnUpper}` limits to judge the row's value against; other kinds ignore it.
+   * warnUpper}` limits to judge the row's value against — any limit it leaves
+   * unset falls back to the watched column's own `spec`, and a limit declared
+   * on the shadow overrides; other kinds ignore it.
    */
   shadow(colId: string, kind: ShadowKind, rowKey: string,
     scope?: RowScope, spec?: object): unknown;
@@ -6728,14 +6818,19 @@ export interface StatisticsApi {
   /**
    * One clustering shadow value for a row, by key: the
    * segment id (`cluster`) or the distance to the row's cluster centre
-   * (`clusterDistance`), over the filtered rows. Null for a row outside the
-   * clustering.
+   * (`clusterDistance`), over the filtered rows. The distance is in the
+   * clustering space — standardised units under `scale: 'standard'` (the
+   * default), the columns' own units under `scale: 'none'` — while the centres
+   * `statistics.clusters` reports are in the columns' original units. Null for
+   * a row outside the clustering.
    */
   clusterShadow(kind: 'cluster' | 'clusterDistance', rowKey: string,
     spec: ClusterSpec): number | null;
   /**
    * The clusters a `cluster`/`clusterDistance` column found,
    * over the filtered rows. Pass the column id, or a `ClusterSpec` directly.
+   * Segment ids are 1-based; the returned `centres` array is 0-based, so
+   * segment `i` sits at `centres[i - 1]`.
    */
   clusters(specOrColumn: string | ClusterSpec): ClusterModel | null;
   /**
@@ -6746,7 +6841,7 @@ export interface StatisticsApi {
   autoK(spec: ClusterSpec & { criterion?: 'elbow' | 'silhouette'; maxK?: number }):
     { k: number; criterion: 'elbow' | 'silhouette'; scores: number[]; ks: number[] } | null;
   /** A running total at one row, down the grid as it is currently ordered. */
-  running(colId: string, kind: 'total' | 'percent', rowKey: string): number | null;
+  running(colId: string, kind: RunningTotalMode, rowKey: string): number | null;
   /** Make the current values the new baseline: "mark all". */
   rebase(colId?: string): void;
   /** What the shadow histories are costing. */
@@ -6757,12 +6852,14 @@ export interface StatisticsApi {
   profile(colId: string): ColumnProfile | null;
   /**
    * `profile`, answered by the source's engine when the grid does not hold the
-   * rows: over a pushdown source without `fullDataset` it
-   * asks `source.aggregate()` for the count, distinct count, min, max, mean,
+   * rows. It is never a Web Worker: the only case that leaves
+   * the main thread is a pushdown source without `fullDataset`, where it asks
+   * `source.aggregate()` for the count, distinct count, min, max, mean,
    * quartiles, median and standard deviation the adapter supports, over the
    * grid's filters, and lists under `unavailable` each figure it could not push
    * down — a figure is never filled in from the rows the browser happens to
-   * hold. Wherever the grid holds the rows this is `profile()`, resolved.
+   * hold. Wherever the grid holds the rows this is `profile()`, resolved on the
+   * main thread.
    */
   profileAsync(colId: string): Promise<ColumnProfile | null>;
   /**
@@ -6792,21 +6889,26 @@ export interface StatisticsApi {
    * in the two peers where Glass's delta is not); a categorical column the total
    * variation of its category mix; both land on one bounded scale. Both sides
    * are read over their filtered rows. Only shared columns are ranked; a column
-   * on one side alone is returned under `unmatched`.
+   * on one side alone is returned under `unmatched`. Key columns (a `rowKey`
+   * field on either grid) and near-unique categorical columns are left out as
+   * identifiers, exactly as {@link subsetVsPopulation} leaves them out, unless
+   * named in `columns`.
    */
   datasetVsDataset(other: Grid, opts?: { columns?: string[] }): DatasetComparison;
   /**
    * Is the difference between two groups real? A two-sample test returned as
-   * data to interpret — never a verdict. The significance
-   * boundary the comparison story (653, 735) stopped short of: those rank by how
-   * *much* columns differ and return no p-value; this answers *how sure* for one
-   * chosen pair of groups and hands the p-value back as data. There is no
-   * `significant` flag, no badge, and no multiple-comparison correction. The
-   * rows are split by `opts.by`, the test is chosen by the column's family and
-   * named in the result (overridable with `opts.test`): Welch's t or
-   * Mann-Whitney U for a numeric column, chi-square for a categorical one. Every
-   * result pairs a confidence interval on the difference with the effect size,
-   * so it is always "how big and how sure".
+   * data to interpret — the p-value, a `reliable` flag and a plain-language
+   * verdict. The significance boundary the comparison story
+   * (653, 735) stopped short of: those rank by how *much* columns differ and
+   * return no p-value; this answers *how sure* for one chosen pair of groups and
+   * hands the p-value back as data. There is no `significant` flag, no badge,
+   * and no multiple-comparison correction. The rows are split by `opts.by`, the
+   * test is chosen by the column's family and named in the result (overridable
+   * with `opts.test`): Welch's t or Mann-Whitney U for a numeric column,
+   * chi-square for a categorical one. When there are more than two groups and
+   * none are named, only the two most frequent are compared. Every result pairs
+   * a confidence interval on the difference with the effect size, so it is
+   * always "how big and how sure".
    */
   compareGroups(colId: string, opts: TwoSampleSpec): GroupComparison | null;
   /**
@@ -6819,15 +6921,17 @@ export interface StatisticsApi {
    * The rows are split by `opts.by` — `opts.groups` (two chosen values), or
    * every group when there are three or more — and `opts.measure` is compared
    * between them over the filtered rows. `opts.test` is `'auto'` by default and
-   * picks from the data, naming the choice and the reason in the result: t,
-   * Welch or Mann-Whitney for two numeric groups (by normality and variance);
+   * picks from the data, naming the choice and the reason in the result: Welch
+   * (the default, so it agrees with {@link compareGroups}) or Mann-Whitney for
+   * two numeric groups by normality, the pooled Student's t only when forced;
    * ANOVA or Kruskal-Wallis for three or more; a two-proportion z or chi-square
    * for a categorical measure. Every result carries an effect size (Cohen's d,
-   * Cliff's delta, Cramer's V or eta squared) with a label, and a verdict that
-   * names the groups, the direction, the magnitude and the effect. A group with
-   * fewer than three readings, or with zero variance, is refused (null).
-   * `opts.paired` names a key column to match the two groups as pairs. No
-   * multiple-comparison correction is applied — see the docs for the caveat.
+   * Cliff's delta, Cramer's V or eta squared) with a label, a `reliable` flag,
+   * and a verdict that names the groups, the direction, the magnitude and the
+   * effect. A group with fewer than three readings, or with zero variance, is
+   * refused (null). `opts.paired` names a key column to match the two groups as
+   * pairs. No multiple-comparison correction is applied — see the docs for the
+   * caveat.
    */
   compare(opts: CompareSpec): CompareResult | null;
   /** Pearson's correlation between two columns. */
@@ -6850,16 +6954,17 @@ export interface StatisticsApi {
    * The Augmented Dickey-Fuller stationarity test over the `of` series in
    * `orderBy` order, constant+trend form with the lag order
    * chosen by AIC up to an optional cap. Returns the statistic, the lag used,
-   * MacKinnon's critical values, an approximate (interpolated) p-value and a
-   * plain-language verdict at the 5% level — a scalar readout, not a column.
+   * MacKinnon's critical values, MacKinnon's (1994) approximate p-value and a
+   * plain-language verdict at the 5% level — a scalar readout, not a column,
+   * computed over the filtered rows.
    */
   adf(spec: { of: string; orderBy: string; maxlag?: number }): AdfResult | null;
   /**
    * The autocorrelation (ACF) and partial autocorrelation (PACF) of the `of`
    * series in `orderBy` order out to `maxlag`, with the
-   * approximate ±1.96/√n band. A short-series readout; feed the arrays to a bar
-   * chart over explicit points with the band as reference lines. The lag-1
-   * autocorrelation matches `series(...).autocorrelation`.
+   * approximate ±1.96/√n band. A short-series readout, computed over the
+   * filtered rows; feed the arrays to a bar chart over explicit points with the
+   * band as reference lines.
    */
   acf(spec: { of: string; orderBy: string; maxlag?: number }): AcfResult | null;
   /** Spearman's rank correlation, which one outlier cannot drag. */
@@ -6894,6 +6999,13 @@ export interface StatisticsApi {
     /** Which rows count as successes, for a proportion. Truthiness by default. */
     where?: (value: unknown, row: Row) => boolean;
   }): ConfidenceInterval | ProportionInterval | null;
+  /**
+   * A confidence interval for the mean of numbers you already hold, for a
+   * caller whose readings are not a column — the rows behind one bar of a
+   * chart, a subgroup, a hand-assembled sample. One t-quantile in the product,
+   * so a chart's whisker cannot disagree with the panel's bounds.
+   */
+  intervalOf(values: number[] | Float64Array, confidence?: number): ConfidenceInterval | null;
   /**
    * How a column varies along an ordering. `by` is required and never guessed:
    * kernels see rows in the order they arrived, which is not the grid's sort.
@@ -7148,7 +7260,7 @@ export const FORECAST_METHODS: readonly ('movingAverage' | 'ses' | 'holt' | 'hol
 export interface ForecastPoint {
   /** The step ahead, `1 … horizon`. */
   step: number;
-  /** The time-axis position the step is stamped at, extrapolated at the mean spacing. */
+  /** The time-axis position the step is stamped at. A series that sits exactly on a calendar boundary (every day, week, month, quarter or year) steps by that calendar unit, so monthly history keeps landing on the 1st of each following month; any irregular series steps by its typical (median) spacing. From `grid.stats.forecast` with `by`, it is on that column's axis (epoch milliseconds for a date column); without `by` it is the row number. */
   at: number;
   /** The point forecast. */
   mean: number;
@@ -7178,7 +7290,7 @@ export interface ForecastResult {
   sigma: number | null;
   /** The fit's coefficient of determination — `linear` only. */
   r2?: number;
-  /** The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`. */
+  /** The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`. `slope` and `intercept` are on the time axis: slope is per unit of `at` (per row for an index axis, per millisecond for a date column's epoch-millisecond axis) and intercept is the fitted value at `at = 0`. */
   params: {
     slope?: number; intercept?: number;
     alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number;
@@ -7198,8 +7310,12 @@ export interface ForecastResult {
  * innovations state-space forecast variances at the normal quantile; the linear
  * and moving-average bands are the exact Student-t intervals, and `linear` also
  * reports the narrower mean-response (confidence) band. A smoothing factor absent
- * from `opts` is fit by minimising the in-sample one-step SSE. Returns null when
- * the series is too short for the chosen method.
+ * from `opts` is fit by minimising the in-sample one-step SSE. Forecast points
+ * are stamped past the last reading by the calendar unit the axis steps by —
+ * day, week, month, quarter or year — when every reading sits exactly on that
+ * unit's boundary, else by the typical (median) spacing, so
+ * monthly history keeps landing on the 1st of each following month. Returns null
+ * when the series is too short for the chosen method.
  */
 export function forecast(
   seq: ArrayLike<number | null> | { at?: number; value: number | null }[],
@@ -7302,9 +7418,14 @@ export type ShadowKind =
    * id from a k-means or DBSCAN clustering over the columns named on the
    * declaration (`shadow: { kind: 'cluster', columns, method: 'kmeans', k }`);
    * `clusterDistance` is the companion that reports the row's distance to its
-   * cluster centre. They follow the grid's filters, are sortable, filterable,
-   * groupable and exportable like any cell, and read `null` for a row missing a
-   * chosen column or (density) marked noise.
+   * cluster centre. The distance is measured in the clustering space —
+   * standardised (unit-variance) units when `scale: 'standard'` (the default),
+   * the columns' own units when `scale: 'none'` — while `statistics.clusters`
+   * reports centres in the columns' original units. Segment ids are 1-based;
+   * the `centres` array is 0-based, so segment 1 is `centres[0]`. They follow
+   * the grid's filters, are sortable, filterable, groupable and exportable like
+   * any cell, and read `null` for a row missing a chosen column or (density)
+   * marked noise.
    */
   | 'cluster' | 'clusterDistance';
 
@@ -7406,9 +7527,9 @@ export interface AdfResult {
   nobs: number;
   /** MacKinnon's constant+trend critical values at the 1%, 5% and 10% levels. */
   criticalValues: { '1%': number; '5%': number; '10%': number };
-  /** An approximate p-value, interpolated across the critical-value ladder. */
+  /** MacKinnon's (1994) approximate p-value for the statistic. */
   pValue: number;
-  /** Always true: the p-value is an interpolation, not the MacKinnon surface. */
+  /** Always true: the p-value is MacKinnon's approximation, not an exact one. */
   pApproximate: boolean;
   /** Whether the series is stationary at the 5% level. */
   stationary: boolean;
@@ -7420,7 +7541,10 @@ export interface AdfResult {
 
 /** Autocorrelation (ACF) and partial autocorrelation (PACF) arrays. */
 export interface AcfResult {
-  /** The autocorrelation at each lag; index 0 is lag 0 and is always 1. */
+  /**
+   * The autocorrelation at each lag; index 0 is lag 0 and is always 1, so a
+   * correlogram usually starts its bars at lag 1.
+   */
   acf: number[];
   /** The partial autocorrelation at each lag; index 0 is 1, and `pacf[1] === acf[1]`. */
   pacf: number[];
@@ -7501,7 +7625,14 @@ export interface ClusterSpec {
   method?: ClusterMethod;
   /** For k-means, the number of clusters (default 3). */
   k?: number;
-  /** For DBSCAN, the neighbourhood radius. */
+  /**
+   * For DBSCAN, the neighbourhood radius two points must be within to be
+   * neighbours, in the clustering space: standardised (unit-variance) units
+   * under `scale: 'standard'` (the default), the columns' own units under
+   * `scale: 'none'`. Omit to choose it from the data's k-distance curve (the
+   * knee, with `minPoints` as k); the radius used is reported on
+   * `statistics.clusters().eps`.
+   */
   eps?: number;
   /** For DBSCAN, the least neighbours a core point needs (default 5). */
   minPoints?: number;
@@ -7519,9 +7650,9 @@ export interface ClusterModel {
   columns: string[];
   /** Whether the columns were standardised before clustering. */
   scale: ClusterScale;
-  /** How many segments were found. */
+  /** How many segments were found (segment ids run 1..k). */
   k: number;
-  /** Each segment's centre, in the columns' original units. */
+  /** Each segment's centre, in the columns' original units. 0-based: segment id `i` sits at `centres[i - 1]`. */
   centres: number[][];
   /** Each segment's size, in the same order as `centres`. */
   sizes: number[];
@@ -7529,6 +7660,13 @@ export interface ClusterModel {
   inertia: number | null;
   /** For DBSCAN, how many rows were noise; null for k-means. */
   noise: number | null;
+  /**
+   * For DBSCAN, the neighbourhood radius used — the one named, or the
+   * k-distance knee chosen when none was named — in the clustering space
+   * (standardised units under `scale: 'standard'`, the columns' own units
+   * under `scale: 'none'`). Null for k-means.
+   */
+  eps: number | null;
 }
 
 export interface ProcessCapability {
@@ -7587,12 +7725,15 @@ export interface ProcessCapability {
   /** Which rule set `violations` were judged against, they number differently. */
   ruleSet?: ControlChartRuleSet;
   /**
-   * Each point the control rules flagged, with its index, the rule number and
-   * what the rule says. Judged against limits from the baseline period, so a
-   * step change shows as a run rather than flagging everything. Read `ruleSet`
-   * alongside — the two rule sets number their rules differently.
+   * Each point the control rules flagged, with its 0-based `index` into the
+   * ordered readings (the 38th reading is index 37), the row `key` (so a caller
+   * can find the row after a sort or a feed, where an index would not survive),
+   * the rule number and what the rule says. Judged against limits from the
+   * baseline period, so a step change shows as a run rather than flagging
+   * everything. Read `ruleSet` alongside — the two rule sets number their rules
+   * differently.
    */
-  violations: { index: number; rule: number; description: string }[];
+  violations: { index: number; key: string | null; rule: number; description: string }[];
   /**
    * A confidence interval for `cpk`. A study that reports the point estimate
    * alone overstates itself: 1.35 from thirty parts has a lower bound below 1.
@@ -7627,11 +7768,19 @@ export interface SeriesStats {
   growth: number | null;
   /** The largest peak-to-trough fall, as a fraction. */
   maxDrawdown: number | null;
-  /** The index of the peak the largest fall started from. */
+  /** The 0-based index of the peak the largest fall started from, into the ordered filtered rows — not a date. */
   maxDrawdownFrom: number;
-  /** The index of the trough the largest fall ended at. */
+  /** The 0-based index of the trough the largest fall ended at, into the ordered filtered rows. */
   maxDrawdownTo: number;
-  /** Lag-1: positive is momentum, negative is mean reversion. */
+  /** The `by` axis at `maxDrawdownFrom` — epoch milliseconds for a date column, the raw value otherwise. */
+  maxDrawdownFromAt: number;
+  /** The `by` axis at `maxDrawdownTo`. */
+  maxDrawdownToAt: number;
+  /**
+   * Lag-1 autocorrelation of the period-to-period changes: positive is
+   * momentum, negative is mean reversion, and null when the changes have no
+   * variance to correlate.
+   */
   autocorrelation: number | null;
   /**
    * How many period-on-period moves were upward. A period whose previous
@@ -7778,6 +7927,8 @@ export type DriftMeasure =
 export interface ColumnDifference {
   /** The column id. */
   column: string;
+  /** The column id, kept separately from `name` so a caller can look the column up while `name` carries the title. */
+  id: string;
   /** The column's display name, or its id. */
   name: string;
   /**
@@ -7807,6 +7958,12 @@ export interface ColumnDifference {
 export interface SubsetComparison {
   /** Every compared column, largest difference first. */
   ranked: ColumnDifference[];
+  /**
+   * The columns the active filter is on, listed separately rather than ranked:
+   * the filter forced the subset/population split, so their difference is the
+   * filter's, not the data's.
+   */
+  filterColumns: string[];
   /** How many rows the filtered subset holds. */
   subsetN: number;
   /** How many rows the whole population holds. */
@@ -7824,14 +7981,16 @@ export interface AnomalyReason {
   name: string;
   /** The row's value in that column. */
   value: number;
-  /** The modified z-score, for the `modifiedZScore` method. */
+  /** The modified z-score, for the `modifiedZScore` and `rollingModifiedZScore` methods. */
   score?: number;
   /** The lower fence, for the `iqr` method. */
   lower?: number;
   /** The upper fence, for the `iqr` method. */
   upper?: number;
   /** Which rule flagged it. */
-  method?: Extract<OutlierMethod, 'modifiedZScore' | 'iqr'>;
+  method?: Extract<OutlierMethod, 'modifiedZScore' | 'iqr' | 'rollingModifiedZScore' | 'rollingIqr'>;
+  /** The trailing window length, for the rolling methods. */
+  windowLen?: number;
 }
 
 export interface AnomalyRow {
@@ -7853,9 +8012,11 @@ export interface AnomalyRow {
 
 export interface AnomalyReport {
   /** Which rule produced the report. */
-  method: Extract<OutlierMethod, 'modifiedZScore' | 'iqr' | 'mahalanobis'>;
+  method: OutlierMethod;
   /** The IQR fence multiplier, for the `iqr` method. */
   k?: number;
+  /** The trailing window length, for the rolling methods. */
+  windowLen?: number;
   /** How many rows the scan ran over. */
   n: number;
   /** The flagged rows, worst first. */
@@ -7883,6 +8044,8 @@ export interface AnomalyReport {
 export interface DatasetColumnDifference {
   /** The column id, present on both grids. */
   column: string;
+  /** The column id, kept separately from `name` so a caller can look the column up while `name` carries the title. */
+  id: string;
   /** The column's display name, or its id. */
   name: string;
   /**
@@ -7952,12 +8115,19 @@ export interface TwoSampleSpec {
 /** The effect size paired with a two-sample test — the "how big" half. */
 export interface GroupEffectSize {
   /**
-   * The named measure: `pooledStandardMeanDifference` (Cohen's d) for the
-   * numeric tests, `categoricalTotalVariation` for chi-square.
+   * The named measure: `cohensD` (Cohen's d against the pooled sample
+   * deviation) for the numeric tests, `categoricalTotalVariation` for
+   * chi-square.
    */
   name: string;
   /** The effect size in its own terms, or null when it has no scale here. */
   value: number | null;
+  /**
+   * The conventional label — `negligible`, `small`, `medium` or `large` — on
+   * the same thresholds {@link StatisticsApi.compare} reports, so the two
+   * comparison APIs read the same magnitude the same way.
+   */
+  label: string;
 }
 
 /** A confidence interval on the difference a two-sample test measured. */
@@ -7979,13 +8149,14 @@ export interface GroupDifferenceInterval {
   category?: unknown;
 }
 
-/**
- * The result of {@link StatisticsApi.compareGroups}: how big *and* how sure, as
- * data to interpret. Carries no significance verdict — the p-value is a number,
- * never a flag or a badge.
- */
 /** Whether a two-sample test was chosen automatically, or forced by the caller. */
 export type TestSelection = 'auto' | 'override';
+
+/**
+ * The result of {@link StatisticsApi.compareGroups}: how big *and* how sure, as
+ * data to interpret. Carries the p-value as a number (never a flag or a badge)
+ * and a one-sentence verdict that says the difference in words.
+ */
 export interface GroupComparison {
   /** The test used, named so it is never hidden. */
   test: Extract<SignificanceTest, 'welch' | 'mannWhitney' | 'chiSquare'>;
@@ -8018,6 +8189,8 @@ export interface GroupComparison {
   reliable: boolean;
   /** The test's method, named per the reference-suite honesty rule. */
   method: string;
+  /** The one-sentence verdict: groups, direction, magnitude and effect. */
+  verdict: string;
 }
 
 /** Which statistical test {@link StatisticsApi.compare} runs, or `auto` to pick. */
@@ -8122,6 +8295,8 @@ export interface CompareResult {
   method: string;
   /** True for a categorical measure. */
   categorical: boolean;
+  /** False when any compared group is under the reliability floor. */
+  reliable: boolean;
   /** The one-sentence verdict: groups, direction, magnitude and effect. */
   verdict: string;
 }
@@ -8302,9 +8477,9 @@ export type EventName =
   | 'rows:queued'
   /** A flush ran out of its frame budget and carried the rest of the change into the next one. */
   | 'rows:deferred'
-  /** `grid.changes.pause()` held the feed: changes keep arriving and stop being applied. */
+  /** `grid.updates.pause()` held the feed: changes keep arriving and stop being applied. */
   | 'rows:paused'
-  /** `grid.changes.resume()` released the feed and applied what had been held. */
+  /** `grid.updates.resume()` released the feed and applied what had been held. */
   | 'rows:resumed'
   /** A row dragged from another grid was accepted into this one, on the receiving grid. */
   | 'row:received'
@@ -9313,7 +9488,9 @@ export interface RowsApi {
   /**
    * The row at a display index — the index the grid draws at, so group
    * headings, footers and the grand total are counted. `undefined` past the
-   * end.
+   * end. `index` is a non-negative integer position, never a row key; a
+   * value that is not one returns `undefined` and warns naming {@link
+   * RowsApi.byKey} instead.
    */
   get(index: number): Row | undefined;
   /**
@@ -10242,6 +10419,8 @@ export interface EditApi {
   readonly clearOnDelete: boolean;
   /** Whether Ctrl/Cmd+Z and Ctrl+Y undo and redo from the keyboard (`edit.undoShortcuts`). */
   readonly undoShortcuts: boolean;
+  /** What Enter does after a commit (`edit.enterAfterCommit`): `'edit'`, `'move'` or `'stay'`. */
+  readonly enterAfterCommit: EditEnterAction;
   /**
    * Compute what a paste would change, without committing (§12). The engine
    * behind `edit.pastePreview`: `changes` are the accepted writes with their old
@@ -10726,6 +10905,26 @@ export interface CaptureOptions {
    * `download: false` says otherwise.
    */
   fileName?: string;
+}
+
+/**
+ * The unit shift of a `bigint` column, read from
+ * `Column.typeOptions`. Declared on its own interface so the option name does
+ * not claim the shared `scale` capability from the older options that carry it.
+ */
+export interface BigIntTypeOptions {
+  /**
+   * A `bigint` column's unit shift: how many digits the point moves left when
+   * the raw integer is displayed, copied and exported. `18` shows wei as ether
+   * (`1500000000000000000` as `1.5`), `6` shows USDC base units as dollars. The
+   * stored value, the sort, the filters and the totals stay in raw units, so
+   * nothing is rounded; text typed into a filter box, edited or pasted is read
+   * in the displayed units, while a `filters` condition set through the API is
+   * in raw units. For a `bigint` column `decimals` fixes the fraction
+   * digits shown (rounding half away from zero) instead of showing every digit.
+   * Never an exponent.
+   */
+  scale?: number;
 }
 
 /**
@@ -12666,7 +12865,8 @@ export interface Grid {
    * Explain a number: break a column's total over the
    * filtered rows into ranked contributors, or decompose the change against a
    * second filter into its drivers. Returns null when the column is missing,
-   * its handle cannot be read, or the grid is pivoted.
+   * its handle cannot be read, or the grid is a pivoted pushdown grid (a
+   * pivot keeps no leaf rows client-side).
    */
   explain(options: GridExplainOptions): GridExplainResult | null;
 
@@ -12883,6 +13083,8 @@ export interface ExplainChange {
   single: boolean;
   /** The drivers, ranked by absolute effect. */
   drivers: ExplainDriver[];
+  /** The plain-language sentence for the change, the one the Explain panel writes. */
+  explanation: string;
 }
 
 /** The result of `grid.explain`. */
@@ -12899,6 +13101,9 @@ export interface GridExplainResult {
   single: boolean;
   /** The contributors, ranked by absolute contribution. */
   contributors: ExplainContributor[];
+  /** The plain-language sentence the Explain panel writes; when `compare` was
+   * given this is the change sentence, also carried on `compare.explanation`. */
+  explanation: string;
   /** The change decomposition, present only when `compare` was given. */
   compare?: ExplainChange;
 }
@@ -17531,7 +17736,7 @@ export interface RowsDeferredEvent extends GridEvent {
 /**
  * `rows:paused` and `rows:resumed`: the whole counter set the feed keeps,
  * which is what a host watching a live feed wants at the moment it stops or
- * starts. Identical to what `grid.changes.stats()` returns.
+ * starts. Identical to what `grid.updates.stats()` returns.
  */
 export interface RowsFlowEvent extends GridEvent {
   /** Whether the feed is held. */
@@ -19088,9 +19293,9 @@ export interface EventPayloads {
   'rows:queued': RowsQueuedEvent;
   /** How much a flush carried into the next frame, and the budget it ran out of. */
   'rows:deferred': RowsDeferredEvent;
-  /** The whole feed counter set, as `grid.changes.stats()` returns it. */
+  /** The whole feed counter set, as `grid.updates.stats()` returns it. */
   'rows:paused': RowsFlowEvent;
-  /** The whole feed counter set, as `grid.changes.stats()` returns it. */
+  /** The whole feed counter set, as `grid.updates.stats()` returns it. */
   'rows:resumed': RowsFlowEvent;
   /** The row that arrived, where it landed, and anything the insert refused. */
   'row:received': RowReceivedEvent;

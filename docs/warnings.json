@@ -1,5 +1,5 @@
 {
-  "version": "1.123.3",
+  "version": "1.124.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 786,
+  "count": 793,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2525,6 +2525,16 @@
       "docs": "api/grid.html#cross-filter"
     },
     {
+      "id": "rows.get.badIndex",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.124.0",
+      "message": "rows.get() takes a non-negative integer display index and was given {value}. Use rows.byKey() to look a row up by its key.",
+      "meaning": "`rows.get(index)` addresses the row drawn at a display position — an integer counting group headings, footers and the grand total. A row key, a fraction or a negative number is never a valid position, so the call answers `undefined` rather than guessing which row was meant or crashing on the attempt.",
+      "fix": "Pass the display index `get()` expects, or call `rows.byKey(key)` to look a row up by its key.",
+      "docs": "api/grid.html#rows"
+    },
+    {
       "id": "rows.leavesOf.unsupported",
       "module": "core",
       "severity": "warn",
@@ -3522,6 +3532,16 @@
       "docs": "api-detail.html"
     },
     {
+      "id": "clusters.dbscan.no-clusters:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.124.0",
+      "message": "dbscan with eps {eps} found no cluster in {cols} (every row is noise), so the cluster shadow reads null. Try a larger eps, or fewer columns.",
+      "meaning": "DBSCAN ran with the radius shown and no row became a core point, so no cluster grew and the cluster shadow reads null on every row. This is said once rather than left as a silent null, and `statistics.clusters()` still answers — with `k: 0` and this `eps` — so a caller can tell \"no clusters at this radius\" from \"clustering could not run\".",
+      "fix": "Pass a larger `eps` — in the clustering space, so standardised (unit-variance) units under `scale: 'standard'`, the columns' own units under `scale: 'none'` — or a smaller `minPoints`, or cluster over fewer columns.",
+      "docs": "API.html#statistics"
+    },
+    {
       "id": "stat.windowed:*:*",
       "module": "core",
       "severity": "warn",
@@ -3550,6 +3570,26 @@
       "meaning": "A pivot's terminal groups are pushed down and answered as aggregated cells: they carry no leaf rows at all, so `reduce()` would otherwise read the pivot's own aggregated group rows as if they were the leaf population a reduction describes — a wrong number with no symptom. `reduce()` returns `null` instead, and this fires once per statistic and column.",
       "fix": "Turn the pivot off to reduce the leaf population, or read the number the grid already computed from the pivot's own cells (`grid.rows.value`) instead of `reduce()`.",
       "docs": "API.html#stat-pivot"
+    },
+    {
+      "id": "subsetVsPopulation.unknown:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "subsetVsPopulation: \"{colId}\" is not a column in this grid, so it was left out of the ranking.",
+      "meaning": "`subsetVsPopulation()` was asked to rank a column id that this grid does not have — a misspelling, a field the source renamed away, or a column that was removed. The name is dropped rather than silently left out: once per column, so a caller who misspelled a column learns it instead of reading a ranking that quietly omits it.",
+      "fix": "Pass an id this grid's columns actually use, or pass no `columns` at all to rank every column.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "stat.capability.rules:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.124.0",
+      "message": "capability was asked for rule set '{rules}', which is not one of 'westernElectric' or 'nelson'; it judged against Western Electric and reports that set.",
+      "meaning": "`capability(colId, { rules })` was given a value that is neither 'westernElectric' nor 'nelson'. The report is not refused: the violations are judged against Western Electric (the default), and `ruleSet` in the result reports 'westernElectric' so the caller and the chart both name the set actually used rather than echoing the unknown value back. Fires once per unknown value.",
+      "fix": "Pass 'westernElectric' or 'nelson', or leave `rules` out for the default.",
+      "docs": "api-detail.html#spc"
     },
     {
       "id": "store.dup.*",
@@ -3682,6 +3722,27 @@
       "fix": "Supply `tree.path` (a function returning the ancestry as an array) or `tree.parentKey`.",
       "snippet": "createGrid(el, { rowKey: 'id', tree: { parentKey: 'managerId' } });",
       "docs": "api/grid.html#type-TreeConfig"
+    },
+    {
+      "id": "type.bigint.unparsed.*",
+      "module": "core",
+      "severity": "info",
+      "since": "1.124.0",
+      "message": "column \"{colId}\" is declared type \"bigint\" but holds a value that is not a number; storing it as empty.",
+      "meaning": "Informational. A `bigint` column's raw value was neither a `BigInt`, a number nor a decimal string (\"n/a\", a label). It is stored as empty, so it is left out of sorts, filters and totals and sorted after every number, rather than being read as something it is not.",
+      "fix": "Clean the source data, or declare a different type if the column is not purely numeric.",
+      "docs": "api/grid.html#column-specs"
+    },
+    {
+      "id": "type.number.precision.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.124.0",
+      "message": "column \"{colId}\" is declared type \"number\" but holds a value beyond 2^53, which a number cannot hold exactly; its digits are rounded when it sorts, filters or totals. Declare type \"bigint\" to keep every digit.",
+      "meaning": "A `number` column was given a decimal string or a `BigInt` larger than 2^53 (9,007,199,254,740,992), the limit of what a double holds exactly — a 256-bit token amount, an 18-decimal wei value, a ledger balance in minor units. Strings are read as doubles, so their low digits are rounded; a `BigInt` is kept as given but compares, sorts and totals as a double. The value still displays as it always did; the warning is the only change, and it is raised once per column, not per value.",
+      "fix": "Declare the column `type: 'bigint'`, which keeps every digit through display, sort, filter, totals and export, and add `typeOptions: { scale: 18 }` to show a raw integer in units.",
+      "snippet": "createGrid(el, { rows, columns: [{ field: 'amount', type: 'bigint', typeOptions: { scale: 18 }, total: 'sum' }] });",
+      "docs": "api/grid.html#column-specs"
     },
     {
       "id": "type.number.unparsed.*",
@@ -8329,6 +8390,17 @@
       "fix": "Mark exactly one tab `selected: true`, or mark none to fall back to the first tab.",
       "snippet": "{ id: 'main', tabs: [{ id: 'a' }, { id: 'b', selected: true }] }  // b is active on first render",
       "docs": "api-detail.html#shell-live"
+    },
+    {
+      "id": "stat.interval-kind",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "'{kind}' is not an interval kind; interval() estimates a mean or a proportion, so it returned null rather than answering a different question.",
+      "meaning": "`statistics.interval(colId, { kind })` was given a kind that is neither `mean` nor `proportion` (for example `median`). The old code fell through to the mean loop and answered the mean's question without saying so, so `kind: 'median'` silently returned a mean interval. Now the call returns `null` — the same answer a missing column gives — and this fires once, naming the offending kind, so the typo is visible rather than a wrong number with no symptom.",
+      "fix": "Pass `kind: 'mean'` (the default) or `kind: 'proportion'`, or leave `kind` off for the mean.",
+      "snippet": "grid.statistics.interval('capacity');  // mean, by default",
+      "docs": "api-detail.html#intervals"
     }
   ]
 }

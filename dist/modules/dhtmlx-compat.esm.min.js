@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.3, dhtmlx-compat module
+ * Lattice Grid 1.124.0, dhtmlx-compat module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

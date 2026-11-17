@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.123.3, pdf module
+ * Lattice Grid 1.124.0, pdf module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
