@@ -491,6 +491,35 @@ function titleCase(s) {
     return String(s).replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
 }
 
+function variantColumn(grid, name) {
+    if (!grid || typeof name !== 'string' || !name)
+        return null;
+    const columns = grid.columns;
+    if (!columns)
+        return null;
+    if (typeof columns.get === 'function') {
+        const byId = columns.get(name);
+        if (byId)
+            return byId;
+    }
+    if (typeof columns.all === 'function') {
+        const byField = columns.all().find((c) => c && c.field === name);
+        if (byField)
+            return byField;
+    }
+    return null;
+}
+
+function variantOf(grid, field, value) {
+    const column = variantColumn(grid, field);
+    const lookup = column && column.lookup;
+    const option = lookup && typeof lookup.option === 'function' ? lookup.option(value) : null;
+    const name = option && typeof option.variant === 'string' && option.variant !== 'none'
+        ? option.variant
+        : null;
+    return name || null;
+}
+
 function expand(value, key, whenTrue) {
     if (value === undefined)
         return undefined;

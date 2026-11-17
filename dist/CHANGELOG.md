@@ -9,6 +9,26 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.124.1] - 2026-11-17
+
+### Fixed
+
+- **A filter row's operator picked with an empty box survived an outside clear** (BACKLOG-0006770). An empty box leaves the column's filter branch null, so `grid.filters.set(null)` or clear-all had nothing in the model to reset and the picker stayed on the chosen operator, while a cleared active filter reset to the default. The row now hears the clear and drops the in-flight pick, so the picker falls back to the column's default operator exactly as a cleared active filter does. A header rebuild with no clear still keeps the picked operator.
+
+- **Kanban and the map view read a column's option-variant lookup from the shared core rather than from the charts module** (BACKLOG-0006771). The shared lookup that resolves which variant a column's option assigns a value (`variantColumn`, `variantOf`) now lives in a shared core internal file that the charts module, the map view and Kanban all already reach, so a Kanban-only page does not pull in chart code. No behaviour change: a value's variant still colours a chart series, a map marker and a Kanban chip the same as before.
+
+- **The Compare groups panel cut its figures off on a grid under about 750 px, and its effect size and interval disagreed in sign** (BACKLOG-0006772). The stat list now takes the dock's width and long values wrap instead of running past the dock edge or ending in an ellipsis, so the p-value reads in full. Cohen's d and Cliff's delta are read in the same direction as the confidence interval, which names the pair once ("South − North").
+
+- **The docked regression panel hid its p column at the default dock width** (BACKLOG-0006774). A two-predictor model's coefficient table ran 15 px past the dock's content box at its default width, so the "p" header never showed and its values sat under the cut-edge fade BACKLOG-0006758 added — the column most readers look for first was unreachable without clipping the term column. The coefficient table's cell padding is tighter, and a p below 0.001 reads `<0.001` (the Breusch-Pagan line's own bucket) instead of an exponent like `2.138e-9`, so the five-column table now fits the default dock for a two-predictor model with no sideways scroll; a model with more or longer-named predictors than fit still scrolls, with nothing spilling out of the dock.
+
+### Internal
+
+- **The chart layout sweep and the BACKLOG-0004775 bottom-gap test wait on the chart's own `draw` event settling, not a fixed count of animation frames** (BACKLOG-0006765). `test/support/chart-layout-sweep.js`'s harness read a render's geometry after exactly two `requestAnimationFrame` turns; a chart's container `ResizeObserver` (BACKLOG-0001291) can queue a correcting redraw a frame or more later, and under gate load — many concurrent `node --test` workers and real Chrome instances contending for the same CPU — two frames is not always enough, so a correct render was occasionally read before its correction landed. The harness now counts the chart's `draw` events and waits, bounded at 5s of real time, until a render stops redrawing before reading its boxes; `withSweep`'s `window.__ready` poll also fails loudly on a 10s timeout instead of silently reading an unready page. Verified against a temporary product regression (an 80px bottom gutter reintroduced into `plotRect`): both files still fail it by name.
+
+- **The `2606` browser test waited a fixed number of animation frames after a drop before reading the painted rows, so under gate load — when the grid's repaint frame can arrive late — it occasionally read the pre-move rows and failed even though the move had worked** (BACKLOG-0006764). The test now polls the painted frame until the rows match the expected order before asserting, so it passes under load and still fails when a moved row really is left in the source.
+
+- **The customer-path browser harness keeps a test page's window focus settled across a Tab that leaves the document** (BACKLOG-0006775). Headless Chrome can deliver the window blur a Tab past the last focusable element causes late under pack load, so a click made straight after could open a filter list and then have the late blur close it again; the harness now waits for that blur to land before returning, matching the synchronous blur of a customer's foreground window.
+
 ## [1.124.0] - 2026-11-17
 
 ### Corrected results

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.0, ai module
+ * Lattice Grid 1.124.1, ai module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

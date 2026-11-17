@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.0, chart-hexmap module
+ * Lattice Grid 1.124.1, chart-hexmap module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

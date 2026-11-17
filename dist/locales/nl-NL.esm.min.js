@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.0, nl-NL locale
+ * Lattice Grid 1.124.1, nl-NL locale
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
