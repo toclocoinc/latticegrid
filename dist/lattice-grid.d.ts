@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.1, type declarations
+ * Lattice Grid 1.125.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -5580,7 +5580,10 @@ export interface GridConfig {
      * optional `refresh` and `destroy`) — bare, or as an object's `name` to
      * give it props too. Entry props win over any config-derived props
      * (`views`, `insights`, `regression`) for the same panel. An unrecognised
-     * name warns once and is dropped rather than rendering an empty tab.
+     * name warns once and is dropped rather than rendering an empty tab. The
+     * `compareGroups` panel takes one prop of its own: `{ name: 'compareGroups',
+     * props: { bayesian: false } }` hides the Bayesian estimate section it adds
+     * for a binary measure with two groups; the section is on by default.
      *
      * Left unset (the default `['columns', 'filters']` applies), the dock adds
      * `statistics`, `compareGroups` or `explain` on its own the first time the
@@ -6342,6 +6345,69 @@ export interface ProportionInterval {
   confidence: number;
 }
 
+/** The Beta prior a {@link StatisticsApi.bayes} estimate starts from. */
+export interface BayesPrior {
+  /** `uniform`, `jeffreys`, or `custom` for a caller's own shapes. */
+  name: string;
+  /** The prior's first Beta shape. */
+  alpha: number;
+  /** The prior's second Beta shape. */
+  beta: number;
+}
+
+/** One group's Beta-Binomial posterior in a {@link StatisticsApi.bayes} result. */
+export interface BayesGroup {
+  /** The group's value, or null when the rows were not split by a column. */
+  value: unknown;
+  /** The group's display label. */
+  label: string;
+  /** How many rows counted as the focal category. */
+  successes: number;
+  /** How many rows the group stood on. */
+  trials: number;
+  /** The posterior's first Beta shape: prior alpha plus successes. */
+  alpha: number;
+  /** The posterior's second Beta shape: prior beta plus failures. */
+  beta: number;
+  /** The posterior mean: alpha over alpha plus beta. */
+  mean: number;
+  /** The lower equal-tailed credible bound. */
+  lower: number;
+  /** The upper equal-tailed credible bound. */
+  upper: number;
+}
+
+/** A Bayesian estimate for a proportion, from {@link StatisticsApi.bayes}. */
+export interface BayesResult {
+  /** The prior the estimate started from. */
+  prior: BayesPrior;
+  /** The level the credible interval was computed at, 0 to 1. */
+  level: number;
+  /** The focal category the rate is the share of. */
+  category: unknown;
+  /** One posterior per group. */
+  groups: BayesGroup[];
+  /** With exactly two groups, P(second group's rate > first's). */
+  probabilityHigher?: number;
+}
+
+/** The options for {@link StatisticsApi.bayes}. */
+export interface BayesSpec {
+  /** A column to split the rows by; one group of every filtered row when omitted. */
+  by?: string;
+  /** The prior: `uniform` (default), `jeffreys`, or a custom positive shape. */
+  prior?: 'uniform' | 'jeffreys' | { alpha: number; beta: number };
+  /** The level for the credible interval, 0 to 1. 0.95 by default. */
+  level?: number;
+  /**
+   * The counted value — the category the rate is the share of. Refused (null)
+   * when the column does not hold it. When omitted, the counted value is the
+   * affirmative of a clear affirmative pair (true/false, yes/no, 1/0, any
+   * letter case) and otherwise the category whose string form sorts first.
+   */
+  category?: unknown;
+}
+
 /** An interval for a capability index, by Bissell's approximation. */
 export interface CapabilityInterval {
   /**
@@ -7006,6 +7072,24 @@ export interface StatisticsApi {
    * so a chart's whisker cannot disagree with the panel's bounds.
    */
   intervalOf(values: number[] | Float64Array, confidence?: number): ConfidenceInterval | null;
+  /**
+   * A Bayesian estimate for a proportion: the Beta-Binomial posterior over a
+   * binary measure, with an equal-tailed credible interval.
+   *
+   * The measured column must hold exactly two distinct values. The counted
+   * value — the category whose rate is estimated — is the caller's `category`
+   * when it names one the column holds; otherwise it is the affirmative of a
+   * clear affirmative pair (true/false, yes/no, 1/0, any letter case) and
+   * otherwise the category whose string form sorts first.
+   * The rows are optionally split `by` a second column; each group returns
+   * successes, trials, posterior `alpha` and `beta`, the posterior mean and a
+   * credible interval at `level`. With exactly two groups the result also
+   * carries `probabilityHigher`, the probability the second group's rate
+   * exceeds the first's. A non-binary measure, a non-positive prior, or a
+   * `category` the column does not hold is refused (null) with a one-time
+   * warning.
+   */
+  bayes(colId: string, opts?: BayesSpec): BayesResult | null;
   /**
    * How a column varies along an ordering. `by` is required and never guessed:
    * kernels see rows in the order they arrived, which is not the grid's sort.
@@ -8105,9 +8189,14 @@ export interface TwoSampleSpec {
   /** The confidence level for the interval, 0 to 1. 0.95 by default. */
   confidence?: number;
   /**
-   * The focal category for a chi-square difference interval, when the column has
-   * more than two categories. Without it, a multi-category comparison reports no
-   * scalar interval, only the effect size.
+   * The counted value for a binary measure — the category whose rate the
+   * interval and verdict are about. Refused (null) when the column does not
+   * hold it. When omitted, the counted value is the affirmative of a clear
+   * affirmative pair (true/false, yes/no, 1/0, any letter case) and otherwise
+   * the category whose string form sorts first. For a chi-square difference
+   * interval on a measure with more than two categories, this names the focal
+   * category; without it a multi-category comparison reports no scalar
+   * interval, only the effect size.
    */
   category?: unknown;
 }
@@ -8215,6 +8304,14 @@ export interface CompareSpec {
   measureName?: string;
   /** A unit for the measure, appended to the verdict's magnitude. */
   unit?: string;
+  /**
+   * The counted value for a binary measure — the category whose rate the
+   * difference, interval and verdict are about. Refused (null) when the column
+   * does not hold it. When omitted, the counted value is the affirmative of a
+   * clear affirmative pair (true/false, yes/no, 1/0, any letter case) and
+   * otherwise the category whose string form sorts first.
+   */
+  category?: unknown;
 }
 
 /** One group's summary in a {@link CompareResult}. */
@@ -8295,6 +8392,8 @@ export interface CompareResult {
   method: string;
   /** True for a categorical measure. */
   categorical: boolean;
+  /** The Beta-Binomial estimate, when the measure was binary (two groups). */
+  bayesian?: BayesResult;
   /** False when any compared group is under the reliability floor. */
   reliable: boolean;
   /** The one-sentence verdict: groups, direction, magnitude and effect. */

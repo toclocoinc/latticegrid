@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.1, chart-spiral module
+ * Lattice Grid 1.125.0, chart-spiral module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

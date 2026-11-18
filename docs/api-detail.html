@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.124.1</p>
+    <p class="rail__sub">Developer guide · v1.125.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.124.1</span>
+        <span class="chip">Version 1.125.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.124.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.125.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -10184,6 +10184,7 @@ return [held, p.computed, p.rows, p.median, named, buckets].join('|');</code></p
           <tr><td class="name">weightedAverage</td><td class="desc">One column averaged by another. <code>weightedQuantile</code> for the median and beyond.</td></tr>
           <tr><td class="name">series</td><td class="desc">How a column varies along an ordering. <code>by</code> is required and never guessed. <code>maxDrawdownFrom</code>/<code>maxDrawdownTo</code> are 0-based positions into the ordered filtered rows &mdash; not dates &mdash; and the matching <code>maxDrawdownFromAt</code>/<code>maxDrawdownToAt</code> carry the ordering axis at those positions.</td></tr>
           <tr><td class="name">shadow</td><td class="desc">What the grid knows about a row over time: updates, delta, rate, rank, percentile, streak.</td></tr>
+          <tr><td class="name">bayes</td><td class="desc">A Bayesian estimate for a rate: <code>grid.statistics.bayes(colId)</code> reads a binary measure and returns each group's successes, trials, Beta-Binomial posterior and equal-tailed credible interval, with the probability one group's rate is higher when split <code>by</code> a column.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10234,6 +10235,28 @@ r.verdict;     <span class="cmt">// "Hours is higher for b than for a by about 1
       or Kruskal-Wallis over <em>every</em> group — and its <code>groups</code> lists them all;
       the Compare groups panel prints that list under "Groups compared" so a multi-group verdict
       is never mistaken for a two-group one.
+    </p>
+    <p>
+      On a binary measure with two groups the result also carries <code>bayesian</code> — the same
+      Beta-Binomial estimate <code>statistics.bayes</code> reports: each group's posterior rate with
+      its equal-tailed credible interval, and the probability the second group's rate is higher. The
+      Compare groups panel prints it under its own "Bayesian estimate (uniform prior)" heading after
+      the existing figures, in words that can never be read as the p-value beside it. Set
+      <code>toolPanel: { panels: [{ name: 'compareGroups', props: { bayesian: false } }] }</code> to
+      hide that section; it is on by default. Any other measure or group count shows no section and
+      no empty heading.
+    </p>
+    <p>
+      A categorical or binary measure is compared as a rate, and every reading names the value it
+      counts — the verdict sentence, the Bayesian rate rows and the result's
+      <code>category</code> — so a yes/no measure reads "Yes rate is higher for b than for a…",
+      never a bare "rate". Which value is counted never depends on row order, sorting or filtering:
+      a boolean column, or a column holding exactly one clear affirmative pair (true/false, yes/no,
+      1/0, any letter case), is counted on its affirmative member, and any other pair — red/blue,
+      for example — uses the one stable rule that the value whose string form sorts first by code
+      point is counted. To name the counted value yourself, pass <code>category</code>; a value the
+      measured column does not hold is refused with a one-time <code>[lattice]</code> warning and a
+      <code>null</code> result, never a rate of zero built from nothing.
     </p>
     <div class="why">
       <p><strong>No multiple-comparison correction.</strong> Each <code>statistics.compare</code>
@@ -10361,6 +10384,48 @@ return `${ci.n}|${ci.mean.toFixed(1)}|${ci.lower.toFixed(2)}|${ci.upper.toFixed(
       below zero and above one at small counts, which is visibly wrong to anyone who reads it. The
       Wilson score stays inside the interval it is describing.</p>
     </div>
+
+    <h2 id="statistics-bayes">A Bayesian rate estimate</h2>
+    <p class="lead-in">
+      <code>grid.statistics.bayes</code> answers "how likely is the rate, and how sure are we" with
+      a Beta-Binomial posterior: start from a Beta prior, count the successes in the trials, and
+      report the posterior mean and the equal-tailed credible interval that holds the middle
+      <code>level</code> of the posterior's mass. The measured column must be binary. The counted
+      value — reported as <code>category</code>, and named in the Compare groups panel's rate rows
+      and probability sentence — never depends on row order, sorting or filtering: a boolean column
+      or a clear affirmative pair (true/false, yes/no, 1/0, any letter case) is counted on its
+      affirmative member, and any other pair uses the one stable rule that the value whose string
+      form sorts first by code point is counted.
+    </p>
+    <div class="example">
+      <p class="example__label">A rate per group, and the chance one group is higher</p>
+      <pre data-run="js" data-expect="true|2/3|1/2|0.3714" data-covers="method:statistics.bayes"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'passed', type: 'boolean' }, { field: 'group', type: 'string' }],
+  rows: [
+    { id: 0, passed: true, group: 'a' },
+    { id: 1, passed: false, group: 'a' },
+    { id: 2, passed: true, group: 'a' },
+    { id: 3, passed: false, group: 'b' },
+    { id: 4, passed: true, group: 'b' },
+  ],
+});
+const r = grid.statistics.bayes('passed', { by: 'group' });
+grid.destroy();
+return `${r.category}|${r.groups[0].successes}/${r.groups[0].trials}|${r.groups[1].successes}/${r.groups[1].trials}|${r.probabilityHigher.toFixed(4)}`;</code></pre>
+    </div>
+    <p>
+      <code>prior</code> is <code>'uniform'</code> (Beta(1, 1), the default), <code>'jeffreys'</code>
+      (Beta(½, ½)), or <code>{ alpha, beta }</code> with both positive; <code>level</code> defaults
+      to 0.95. Each group reports its <code>successes</code>, <code>trials</code>, posterior
+      <code>alpha</code> and <code>beta</code>, posterior <code>mean</code>, and the
+      <code>lower</code>/<code>upper</code> credible bounds. With exactly two groups
+      <code>probabilityHigher</code> is P(second group's rate &gt; first's). To count a particular
+      value yourself, pass <code>category</code>; a value the column does not hold is refused with a
+      one-time <code>[lattice]</code> warning, as is a non-binary measure
+      or a prior that is not positive, rather than answered with a number built from nothing.
+    </p>
 
     <h2 id="stat-tiles">Statistic tiles</h2>
     <p class="lead-in">
@@ -15836,7 +15901,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.124.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.125.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.124.1, pt-BR locale type declarations
+ * Lattice Grid 1.125.0, pt-BR locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

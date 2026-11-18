@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.125.0] - 2026-11-18
+
+### Added
+
+- **A Bayesian estimate for a rate** (BACKLOG-0006790). `grid.statistics.bayes(colId)` reads a binary measure and returns each group's successes, trials, Beta-Binomial posterior and equal-tailed credible interval; split by a second column, it also returns the probability the second group's rate is higher.
+
+- **The Compare groups panel shows a Bayesian estimate for a yes/no measure** (BACKLOG-0006791). On a binary measure with two groups, the panel adds a "Bayesian estimate (uniform prior)" section after the existing figures: each group's posterior rate with its 95% credible interval, and one sentence stating the probability the second group's rate is higher. The figures equal the `statistics.compare` result's `bayesian` estimate for the same rows and follow the grid's filter, and the section never uses the words "significant", "chance" or "p". The panel option `{ name: 'compareGroups', props: { bayesian: false } }` turns the section off; it is on by default.
+
+### Fixed
+
+- **A `running` total, percent or delta column only repainted the row an update touched, leaving every other row's figure stale on screen** (BACKLOG-0006789). `grid.rows.apply({ update })`'s cells-only paint path (BACKLOG-0002261) named only the rows the update itself carried, but a running column answers "by the time we reach this row" — a change to one row's measured value moves the grand total a `percent` column divides by, the sum a `total` carries forward, and the neighbour a `delta` compares against, for rows the update never named. `grid.statistics.running()` and `rows.value()` already recomputed correctly; only the painted cell lagged. The cells-only path now also marks the running columns a touched field feeds across the rows the renderer has on screen, so they repaint in the same pass, without falling back to a full grid repaint. A row outside that window still reads fresh the moment it scrolls into view. Also fixed: a `total` and a `percent` (or `delta`) column reading the same source column shared one cache slot keyed by column rather than by column *and* kind, so reading both inside one paint evicted each other's result and rebuilt the whole running pass on every cell — harmless at one row, increasingly expensive as more rows needed the fix above. The cache is now kept per column and kind.
+
+- **A yes/no comparison names the value it counts and reads the same in any row order** (BACKLOG-0006793). The value a rate counts does not depend on which row the engine happened to see first. A boolean column, or a column holding exactly one clear affirmative pair (true/false, yes/no, 1/0, any letter case), is counted on its affirmative member; any other pair (for example red/blue) uses the one stable rule that the value whose string form sorts first by code point is counted. Every reading names the counted value — the two-group verdict sentence, the Compare groups panel's Bayesian rate rows and probability sentence, and the result objects' `category`/`focalCategory`. The `statistics.compare`, `statistics.compareGroups` and `statistics.bayes` calls accept a `category` option to name the counted value directly; a value the column does not hold is refused with a one-time `[lattice]` warning and a `null` result rather than a rate of zero built from nothing. Number formats are unchanged.
+
 ## [1.124.1] - 2026-11-17
 
 ### Fixed

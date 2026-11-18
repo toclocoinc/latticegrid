@@ -1,5 +1,5 @@
 {
-  "version": "1.124.1",
+  "version": "1.125.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 793,
+  "count": 798,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -983,6 +983,17 @@
       "docs": "api/grid.html#statistics"
     },
     {
+      "id": "compareGroups:category",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "compareGroups: the category '{value}' is not one of the measured column's values, so it returned null rather than count a value the column does not hold.",
+      "meaning": "`compareGroups` was given a `category` to count, and that value never appears in the measured column over the compared rows. Counting it would report a rate of zero for a value the column never held, so the call returned `null` rather than answer with a number built from nothing.",
+      "fix": "Pass a value the measured column actually holds, or leave `category` off to let the grid count the affirmative of a clear affirmative pair (true/false, yes/no, 1/0).",
+      "snippet": "grid.statistics.compareGroups('converted', { by: 'segment', category: 'yes' });",
+      "docs": "api-detail.html#statistics-compare"
+    },
+    {
       "id": "compareGroups:degenerate",
       "module": "core",
       "severity": "warn",
@@ -1041,6 +1052,17 @@
       "meaning": "`statistics.compare` tests one measure across groups of rows, and both the `measure` (what is tested) and the `by` column (what splits the rows) are required. Without either there is nothing to compare, so the call returns `null`.",
       "fix": "Pass the measure column in `measure` and the grouping column in `by`.",
       "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:category",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "statistics.compare: the category '{value}' is not one of the measure's values, so it returned null rather than count a value the column does not hold.",
+      "meaning": "`statistics.compare` was given a `category` to count, and that value never appears in the measured column over the compared rows. Counting it would report a rate of zero for a value the column never held, so the call returned `null` rather than answer with a number built from nothing.",
+      "fix": "Pass a value the measured column actually holds, or leave `category` off to let the grid count the affirmative of a clear affirmative pair (true/false, yes/no, 1/0).",
+      "snippet": "grid.statistics.compare({ measure: 'converted', by: 'segment', category: 'yes' });",
+      "docs": "api-detail.html#statistics-compare"
     },
     {
       "id": "compare:groups",
@@ -8401,6 +8423,39 @@
       "fix": "Pass `kind: 'mean'` (the default) or `kind: 'proportion'`, or leave `kind` off for the mean.",
       "snippet": "grid.statistics.interval('capacity');  // mean, by default",
       "docs": "api-detail.html#intervals"
+    },
+    {
+      "id": "stat.bayes-binary",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "statistics.bayes: '{colId}' is not a binary measure (two distinct values); it has {n} distinct values, so it returned null rather than treating a non-binary column as a rate.",
+      "meaning": "`statistics.bayes()` estimates the rate of a binary measure — one holding exactly two distinct values — and this column holds a different number, so there is no single rate to estimate. The call returned `null` (the same answer a missing column gives) and fired once, naming the column and the count, rather than silently treating a non-binary column as two-valued.",
+      "fix": "Pass a column that holds exactly two distinct values, or use `compare`/`chiSquare` for a measure with three or more categories.",
+      "snippet": "grid.statistics.bayes('passed');  // a column of true and false",
+      "docs": "api-detail.html#statistics-bayes"
+    },
+    {
+      "id": "stat.bayes-category",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "statistics.bayes: the category '{value}' is not one of '{colId}'s values, so it returned null rather than count a value the column does not hold.",
+      "meaning": "`statistics.bayes()` was given a `category` to count, and that value never appears in the measured column. Counting it would report a posterior on zero successes for a value the column never held, so the call returned `null` rather than answer with a number built from nothing.",
+      "fix": "Pass a value the column actually holds, or leave `category` off to let the grid count the affirmative of a clear affirmative pair (true/false, yes/no, 1/0).",
+      "snippet": "grid.statistics.bayes('passed', { category: 'true' });",
+      "docs": "api-detail.html#statistics-bayes"
+    },
+    {
+      "id": "stat.bayes-prior",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.125.0",
+      "message": "statistics.bayes: the prior must be 'uniform', 'jeffreys', or an object with positive alpha and beta; it returned null rather than guessing one.",
+      "meaning": "`statistics.bayes()` was given a prior that is neither `uniform` nor `jeffreys` nor an object whose `alpha` and `beta` are both positive, so there is no Beta distribution to start from. The call returned `null` rather than guessing a prior and reporting an interval from it.",
+      "fix": "Pass `prior: 'uniform'` (the default), `prior: 'jeffreys'`, or `prior: { alpha, beta }` with both strictly positive.",
+      "snippet": "grid.statistics.bayes('passed', { prior: { alpha: 2, beta: 2 } });",
+      "docs": "api-detail.html#statistics-bayes"
     }
   ]
 }

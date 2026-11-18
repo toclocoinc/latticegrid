@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.124.1</title>
+<title>Types API Reference — Lattice Grid 1.125.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -626,6 +626,63 @@
           <tr><td class="name">align</td><td class="type">'left' | 'center' | 'right'</td><td class="desc">Horizontal alignment within the symbol's width. Default `'center'`. <small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number</td><td class="desc">The gap in SVG user units between the text baseline and the symbol's edge. Default `2`. <small>(optional)</small></td></tr>
           <tr><td class="name">font</td><td class="type">string</td><td class="desc">A CSS `font` shorthand for the text line. Default `'10px sans-serif'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BayesGroup">BayesGroup</h4>
+    <p class="section-note">One group's Beta-Binomial posterior in a {@link StatisticsApi.bayes} result.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The group's value, or null when the rows were not split by a column.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The group's display label.</td></tr>
+          <tr><td class="name">successes</td><td class="type">number</td><td class="desc">How many rows counted as the focal category.</td></tr>
+          <tr><td class="name">trials</td><td class="type">number</td><td class="desc">How many rows the group stood on.</td></tr>
+          <tr><td class="name">alpha</td><td class="type">number</td><td class="desc">The posterior's first Beta shape: prior alpha plus successes.</td></tr>
+          <tr><td class="name">beta</td><td class="type">number</td><td class="desc">The posterior's second Beta shape: prior beta plus failures.</td></tr>
+          <tr><td class="name">mean</td><td class="type">number</td><td class="desc">The posterior mean: alpha over alpha plus beta.</td></tr>
+          <tr><td class="name">lower</td><td class="type">number</td><td class="desc">The lower equal-tailed credible bound.</td></tr>
+          <tr><td class="name">upper</td><td class="type">number</td><td class="desc">The upper equal-tailed credible bound.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BayesPrior">BayesPrior</h4>
+    <p class="section-note">The Beta prior a {@link StatisticsApi.bayes} estimate starts from.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">`uniform`, `jeffreys`, or `custom` for a caller's own shapes.</td></tr>
+          <tr><td class="name">alpha</td><td class="type">number</td><td class="desc">The prior's first Beta shape.</td></tr>
+          <tr><td class="name">beta</td><td class="type">number</td><td class="desc">The prior's second Beta shape.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BayesResult">BayesResult</h4>
+    <p class="section-note">A Bayesian estimate for a proportion, from {@link StatisticsApi.bayes}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">prior</td><td class="type"><a href="#type-BayesPrior">BayesPrior</a></td><td class="desc">The prior the estimate started from.</td></tr>
+          <tr><td class="name">level</td><td class="type">number</td><td class="desc">The level the credible interval was computed at, 0 to 1.</td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The focal category the rate is the share of.</td></tr>
+          <tr><td class="name">groups</td><td class="type"><a href="#type-BayesGroup">BayesGroup</a>[]</td><td class="desc">One posterior per group.</td></tr>
+          <tr><td class="name">probabilityHigher</td><td class="type">number</td><td class="desc">With exactly two groups, P(second group's rate &gt; first's). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BayesSpec">BayesSpec</h4>
+    <p class="section-note">The options for {@link StatisticsApi.bayes}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">A column to split the rows by; one group of every filtered row when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">prior</td><td class="type">'uniform' | 'jeffreys' | { alpha: number; beta: number }</td><td class="desc">The prior: `uniform` (default), `jeffreys`, or a custom positive shape. <small>(optional)</small></td></tr>
+          <tr><td class="name">level</td><td class="type">number</td><td class="desc">The level for the credible interval, 0 to 1. 0.95 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The counted value — the category the rate is the share of. Refused (null) when the column does not hold it. When omitted, the counted value is the affirmative of a clear affirmative pair (true/false, yes/no, 1/0, any letter case) and otherwise the category whose string form sorts first. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1614,6 +1671,7 @@
           <tr><td class="name">difference</td><td class="type">number | null</td><td class="desc">The difference the interval is around (means or proportions), or null.</td></tr>
           <tr><td class="name">method</td><td class="type">string</td><td class="desc">The test's method, named for honesty.</td></tr>
           <tr><td class="name">categorical</td><td class="type">boolean</td><td class="desc">True for a categorical measure.</td></tr>
+          <tr><td class="name">bayesian</td><td class="type"><a href="#type-BayesResult">BayesResult</a></td><td class="desc">The Beta-Binomial estimate, when the measure was binary (two groups). <small>(optional)</small></td></tr>
           <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when any compared group is under the reliability floor.</td></tr>
           <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The one-sentence verdict: groups, direction, magnitude and effect.</td></tr>
         </tbody>
@@ -1633,6 +1691,7 @@
           <tr><td class="name">paired</td><td class="type">string</td><td class="desc">A key column: when set, the two groups are matched and tested as pairs. <small>(optional)</small></td></tr>
           <tr><td class="name">measureName</td><td class="type">string</td><td class="desc">A display name for the measure, used in the verdict. <small>(optional)</small></td></tr>
           <tr><td class="name">unit</td><td class="type">string</td><td class="desc">A unit for the measure, appended to the verdict's magnitude. <small>(optional)</small></td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The counted value for a binary measure — the category whose rate the difference, interval and verdict are about. Refused (null) when the column does not hold it. When omitted, the counted value is the affirmative of a clear affirmative pair (true/false, yes/no, 1/0, any letter case) and otherwise the category whose string form sorts first. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -3070,7 +3129,7 @@
           <tr><td class="name">groups</td><td class="type">[unknown, unknown]</td><td class="desc">The two group values to compare. The two most frequent when omitted. <small>(optional)</small></td></tr>
           <tr><td class="name">test</td><td class="type"><a href="#type-SignificanceTest">SignificanceTest</a> <small class="literals">'auto' | 'welch' | 'mannWhitney' | 'chiSquare'</small></td><td class="desc">Force a test rather than choosing by column family. `auto` (the default) picks Welch or Mann-Whitney for a numeric column and chi-square for a categorical one; the choice is always named in the result. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The confidence level for the interval, 0 to 1. 0.95 by default. <small>(optional)</small></td></tr>
-          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The focal category for a chi-square difference interval, when the column has more than two categories. Without it, a multi-category comparison reports no scalar interval, only the effect size. <small>(optional)</small></td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The counted value for a binary measure — the category whose rate the interval and verdict are about. Refused (null) when the column does not hold it. When omitted, the counted value is the affirmative of a clear affirmative pair (true/false, yes/no, 1/0, any letter case) and otherwise the category whose string form sorts first. For a chi-square difference interval on a measure with more than two categories, this names the focal category; without it a multi-category comparison reports no scalar interval, only the effect size. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
