@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.126.0] - 2026-11-18
+
+### Fixed
+
+- **The map view draws whatever order the page loads MapLibre's stylesheet in** (BACKLOG-0006799). `createMapView`'s own box for the map used to rely on a CSS rule with the same specificity as MapLibre's `.maplibregl-map{ position:relative }`; a page that linked `maplibre-gl.css` after the map view's own styles (for example a `<link>` placed in `<body>`) saw that rule win the cascade, and the map's box collapsed to zero height — no tiles, no points, no attribution, with no warning. The box's position and sizing are now set directly on the element, so the map draws whether the page links `maplibre-gl.css` before or after the Lattice scripts, in `<head>` or `<body>`.
+
+- **A marker, bubble or choropleth map with a shapes pack never wrote its viewport filter** (BACKLOG-0006800). The wheel, the `+`/`-` keys and `Shift`+arrows all moved the map, but `grid.filters.get()` stayed null and the grid kept every row, with no warning. A pack whose projection bends its meridians — the world pack's Equal Earth, the UK pack's transverse Mercator — has no drawing-rail anchor, and the viewport filter gated on that anchor, so it never wrote. The filter now reads the map's numeric viewport anchor instead, so a placed map with a shapes pack writes its viewport condition after a pan or zoom — one `withinBbox` on a geometry column, or one `between` on each of `lon`/`lat` — labelled "Map view", and `0` removes it.
+
+- **The UK geometry pack's default regions layer covers the whole United Kingdom** (BACKLOG-0006812). The `regions` layer held only England's nine regions, so a marker map over UK branches fitted the view to England, left Edinburgh and Glasgow above the plot and Belfast's marker floating in empty space. The layer now also holds Wales, Scotland and Northern Ireland as whole-nation areas (12 areas), taken from the ONS Countries December 2022 UK BGC boundaries under the same Open Government Licence attribution.
+
+- **A zoomed marker map drew its outlines outside its own plot** (BACKLOG-0006813). When a `markermap` used a `shapes` pack, its basemap was projected straight through the fitted projection with no clamp, so wheel zooming or panning could paint region outlines past the map's own top edge — over the chart above it. The basemap's vertices are now held inside the plot, the same way `bubblemap` and `choropleth` already held theirs, so outlines, markers, bubbles, labels and regions stay inside their own plot at any zoom or pan.
+
+- **Right-clicking a cell now selects it, so the cell menu's actions are available** (BACKLOG-0006817). A right-button press never moved the selection, because the range controller returned early for every press whose button was not the left one; the menu's cell items read the selection, so on a grid with nothing selected Copy, Copy with headers, Paste, Clear cell, Fill down, Clear selection and Edit cell were all greyed out and the user could not copy the value they had right-clicked. A right-click now follows the spreadsheet convention: on a cell inside the current selection (a range or a selected row) the selection is left alone so Copy copies all of it, and on a cell outside it that cell becomes the active cell and the whole selection before the menu builds.
+
 ## [1.125.0] - 2026-11-18
 
 ### Added

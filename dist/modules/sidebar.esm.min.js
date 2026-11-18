@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.125.0, sidebar module
+ * Lattice Grid 1.126.0, sidebar module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
