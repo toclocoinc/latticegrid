@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.126.0</title>
+<title>Grid API Reference — Lattice Grid 1.127.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -783,7 +783,7 @@
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> leaves each heading as its label, with no sort, filter or menu control. Those remain reachable through the API, the keyboard and the tool panel.</td></tr>
           <tr><td class="name">headerControls</td><td class="type">'hover' | 'always' | 'hidden' | 'none' <small class="literals"><a href="types.html#type-HeaderControlsVisibility">HeaderControlsVisibility</a></small></td><td class="dflt">'hover'</td><td class="desc">When the per-column header controls &mdash; the sort arrow, the filter funnel and the menu button &mdash; are shown, as a default for every column. <code>'hover'</code> reveals them on hover or keyboard focus (the historical behaviour); <code>'always'</code> keeps them visible; <code>'hidden'</code> draws none of them for a clean read-only heading, leaves them out of the tab order, but still shows a read-only sort badge on a column that is actually sorted; <code>'none'</code> goes further and shows the title only, whatever the grid's state &mdash; not even <code>'hidden'</code>'s sort badge, though <code>aria-sort</code> keeps reporting the truth. A column's own <code>headerControls</code> overrides this default for that column. Distinct from <code>showColumnFunctions: false</code>, which also drops the furniture but keeps the functions reachable from the keyboard; <code>'hidden'</code> and <code>'none'</code> are the read-only choices.</td></tr>
           <tr><td class="name">significantFigures</td><td class="type">number</td><td class="dflt">, </td><td class="desc">On a unit column, render to this many significant figures rather than a fixed number of decimals, so precision is the same on every rung of the ladder. Rounding is applied before the unit is chosen. Set inside the unit configuration a data type is built from. See <a href="../api-detail.html#units">Units</a>.</td></tr>
-          <tr><td class="name">typeOptions</td><td class="type">object</td><td class="dflt">, </td><td class="desc">Per-column options a data type reads. <code>ratio</code> and <code>percentRate</code> use <code>{ weight }</code> to name the column their average is weighted by. See <a href="../api-detail.html#aggregate-safety">Aggregate safety</a>.</td></tr>
+          <tr><td class="name">typeOptions</td><td class="type">object</td><td class="dflt">, </td><td class="desc">Per-column options a data type reads. <code>ratio</code> and <code>percentRate</code> use <code>{ weight }</code> to name the column their average is weighted by; a <code>timestamp</code> column reads <code>{ seconds, timeZone, pattern }</code> to control how its instant is shown. See <a href="../api-detail.html#aggregate-safety">Aggregate safety</a> and <a href="../api-detail.html#timestamp-type">timestamp</a>.</td></tr>
           <tr><td class="name">highlightOnChange</td><td class="type">boolean | string | object</td><td class="desc">Flash a cell when its value changes. <code>{ colour, duration }</code>; <code>duration: 0</code> stays until cleared.</td></tr>
           <tr><td class="name">rowClass</td><td class="type">string | string[] | (p) =&gt; …</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint.</td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | (p) =&gt; CellStyle</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names.</td></tr>
@@ -1931,7 +1931,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.126.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.127.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4752,8 +4752,9 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">capabilities</td><td class="type"><a href="types.html#type-PushdownCapabilities">PushdownCapabilities</a></td><td class="type">{ range:true, total:true, sort:'multi', filter:false, quick:false }</td><td class="desc">What the endpoint can answer, merged over the defaults. Declaring <code>operators</code> is the usual way to turn filtering on; reach for this to switch off paging or sorting an endpoint cannot do.</td></tr>
           <tr><td class="name">operators</td><td class="type">string[]</td><td class="type">— (filtering off)</td><td class="desc">The comparisons the endpoint genuinely applies, e.g. <code>['eq','gt','lt','contains']</code>. Setting it turns filtering on as a <code>tree</code>; a condition using any other operator stays with the grid.</td></tr>
           <tr><td class="name">encodeFilter</td><td class="type">(filters: object) =&gt; string</td><td class="type"><code>JSON.stringify</code></td><td class="desc">How the pushed condition tree becomes the <code>filter</code> parameter's value. Override it to emit whatever query language your service parses instead of JSON.</td></tr>
+          <tr><td class="name">encodeSort</td><td class="type">(sort: <a href="#type-SortEntry">SortEntry</a>[]) =&gt; string</td><td class="type">the <code>sort</code>/<code>order</code> pair</td><td class="desc">How the pushed sort becomes the <code>sort</code> parameter's value, for an API that takes one parameter rather than the <code>sort</code>/<code>order</code> pair. Given the entries, return the whole value — openFDA's <code>sort=field:desc</code> is <code>(sort) =&gt; sort.map((s) =&gt; `${s.col}:${s.dir}`).join(',')</code>. When supplied it replaces both default parameters.</td></tr>
           <tr><td class="name">rows</td><td class="type">(body: unknown) =&gt; unknown[]</td><td class="type">body itself if an array, else <code>body.rows</code> then <code>body.data</code></td><td class="desc">Pulls the row array out of the response body, for an envelope that nests it somewhere else.</td></tr>
-          <tr><td class="name">total</td><td class="type">(body: unknown, rows: unknown[]) =&gt; number</td><td class="type"><code>body.total</code> then <code>body.count</code>, else the page length</td><td class="desc">Reads the count of <em>all</em> matching rows, not the page. The grid sizes its scrollbar from it, so a page-sized total makes a large result look like one page.</td></tr>
+          <tr><td class="name">total</td><td class="type">(body: unknown, rows: unknown[]) =&gt; number</td><td class="type"><code>body.total</code> then <code>body.count</code>, else none</td><td class="desc">Reads the count of <em>all</em> matching rows, not the page. The grid sizes its scrollbar from it, so a page-sized total makes a large result look like one page. When the body carries neither field the total is left absent, and the grid shows an open-ended total as it scrolls rather than claiming the page is the whole.</td></tr>
           <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, append: true, returning }</code>, so a committed cell edit is persisted with <code>PATCH</code>, a row delete with <code>DELETE</code>, and an add-row with <code>POST</code> to the collection URL.</td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'key' | 'none' <small class="literals"><a href="types.html#type-Returning">Returning</a></small></td><td class="type"><code>none</code></td><td class="desc">The reconcile contract for a successful write. <code>none</code> is last-write-wins — the optimistic value stands; <code>row</code> reads the server's authoritative row (via <code>writeRow</code>) back before confirm; <code>key</code> reads only the server-assigned key. An add-row needs <code>row</code> or <code>key</code> so the temp row can be rekeyed.</td></tr>
           <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The property an add-row response carries the server-assigned key in, read back (through <code>writeRow</code>) to rekey the optimistic row. Write-back only.</td></tr>
@@ -4799,6 +4800,52 @@ createGrid(host, { source, columns: [...] });</code></pre>
 
 <span class="kw">const</span> result = <span class="kw">await</span> adapter.mutate({ kind: 'update', key: '42', patch: { status: 'shipped' } });
 <span class="kw">return</span> result.rows[0].status;   <span class="cmt">// 'shipped', read back from the server</span></code></pre>
+
+    <p class="section-note" id="pushdown-sdk-edit">
+      <strong>One switch is enough (BACKLOG-0006841).</strong> <code>restAdapter</code>'s own
+      <code>edit: true</code> (or any adapter declaring <code>mutate: { update: true }</code>) is all a
+      write needs: <code>createPushdownSource</code> picks it up with no <code>edit</code> passed to
+      it at all, and the grid adopts the source's commit the moment a column is editable &mdash; with
+      no <code>edit</code> at the grid's top level either. Only an explicit <code>edit: false</code>
+      (on the source, or <code>{ enabled: false }</code>) opts out of a mutating adapter. An adapter
+      that genuinely cannot persist (no <code>mutate.update</code>) is named once, in a single warning,
+      and the attempted edit reverts rather than being left looking saved &mdash; it is never a silently
+      changed, never-sent cell.
+    </p>
+    <pre data-run="js" data-expect="pending,confirmed; n=5" data-covers="config:edit event:cell:pending event:cell:confirmed"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+<span class="kw">const</span> { restAdapter } = <span class="kw">await</span> import('../packages/core/src/source/adapters/rest.js');
+
+<span class="kw">const</span> { root } = createTestDom({ width: 800, height: 300 });
+<span class="kw">const</span> adapter = restAdapter({
+  url: '/api/rows',
+  edit: <span class="kw">true</span>,   <span class="cmt">// the one switch — nothing else below opts in</span>
+  fetch: <span class="kw">async</span> (url, init) =&gt; (init && init.method
+    ? { ok: <span class="kw">true</span>, status: 204 }                                  <span class="cmt">// the PATCH</span>
+    : { ok: <span class="kw">true</span>, status: 200, json: <span class="kw">async</span> () =&gt; ([{ id: 'r1', n: 1 }]) }),  <span class="cmt">// the GET</span>
+});
+
+<span class="kw">const</span> source = createPushdownSource({ adapter });   <span class="cmt">// no `edit` passed here</span>
+<span class="kw">const</span> grid = createGrid(root, {
+  rowKey: 'id',
+  source,
+  columns: [{ field: 'id' }, { field: 'n', type: 'number', edit: <span class="kw">true</span> }],   <span class="cmt">// only the column opts in</span>
+});
+flushFrames();
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 0));
+flushFrames();
+
+<span class="kw">const</span> fired = [];
+grid.on('cell:pending', () =&gt; fired.push('pending'));
+grid.on('cell:confirmed', () =&gt; fired.push('confirmed'));
+
+grid.edit.setCells([{ key: 'r1', colId: 'n', value: 5 }]);
+flushFrames();
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 0));
+flushFrames();
+
+<span class="kw">return</span> `${fired.join(',')}; n=${grid.rows.byKey('r1').data.n}`;</code></pre>
 
     <h5 id="duckdb-options"><code>duckdbAdapter</code></h5>
     <div class="table-wrap">
@@ -5856,6 +5903,28 @@ app.get('/api/orders', async (req, res) =&gt; {
 
 <span class="kw">return</span> pushed.conditions.length;   <span class="cmt">// all three are supported</span></code></pre>
 
+    <p class="section-note">
+      <strong>A filter or sort the adapter cannot run is finished in the browser with no setup.</strong>
+      <code>createPushdownSource</code> uses the grid's own kernels, <code>evaluateFilters</code> and
+      <code>sortMulti</code>, for whatever the adapter left behind, so the rows and the total are the
+      ones the in-memory grid shows. <code>compute</code> is optional; pass one only to substitute a
+      kernel. The two kernels are also exported, to apply a filter set and an order to rows of your own:
+    </p>
+    <pre data-run="js" data-expect="1,0" data-covers="export:evaluateFilters export:sortMulti"><code><span class="kw">const</span> { evaluateFilters, sortMulti } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> rows = [{ email: 'a@x.biz', n: 1 }, { email: 'b@x.com', n: 5 }, { email: 'c@x.biz', n: 9 }];
+<span class="kw">const</span> handle = (id) =&gt; ({ id, get: (i) =&gt; rows[i][id] });
+
+<span class="cmt">// 1 where a row passes the filter, 0 where it does not</span>
+<span class="kw">const</span> mask = evaluateFilters(
+  { op: 'and', conditions: [{ col: 'email', op: 'contains', value: '.biz' }] },
+  { count: rows.length, handle },
+);
+<span class="kw">const</span> kept = rows.map((r, i) =&gt; i).filter((i) =&gt; mask[i]);
+
+<span class="cmt">// the kept rows, highest n first: row 2, then row 0</span>
+<span class="kw">const</span> order = sortMulti([handle('n')], [{ col: 'n', dir: 'desc' }], Uint32Array.from(kept));
+<span class="kw">return</span> Array.from(order, (i) =&gt; (i === 2 ? 1 : 0)).join(',');</code></pre>
+
     <h4 id="pushdown-sdk">Building an adapter from the parts</h4>
     <p class="section-note">
       <code>createPushdownSource</code> is the whole story for most callers. When an engine needs a
@@ -6350,8 +6419,8 @@ grid.destroy();
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">Required. The grid holding the other side.</td></tr>
           <tr><td class="name">on</td><td class="type">string | { left, right }</td><td class="desc">Required. The shared key: one field name when both sides use it, or one each.</td></tr>
           <tr><td class="name">type</td><td class="type">'inner' | 'left' <small class="literals"><a href="types.html#type-JoinType">JoinType</a></small></td><td class="desc"><code>inner</code> by default, keeping only rows that matched, which is usually what &ldquo;common data&rdquo; means. <code>left</code> keeps every row and leaves the brought-across fields undefined, the shape you want when the unmatched rows <em>are</em> the finding.</td></tr>
-          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across. All of them by default.</td></tr>
-          <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Rename the brought-across fields, for when both sides have a <code>name</code> worth keeping.</td></tr>
+          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across. All of them by default. A brought-across field whose name the left side already has is kept under a predictable <code>&lt;name&gt;_right</code> rather than overwriting the left value.</td></tr>
+          <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Rename every brought-across field, for when both sides have a <code>name</code> worth keeping. With a prefix the clash rule is usually unnecessary — the prefix itself makes each name unique.</td></tr>
           <tr><td class="name">follow</td><td class="type">'all' | 'filtered' <small class="literals"><a href="types.html#type-RowScope">RowScope</a></small></td><td class="desc">Which of the partner's rows to read. <code>all</code> by default: a lookup table is normally the whole table, and a customer list filtered to Europe would otherwise silently drop every other order from a grid the reader takes to be all orders.</td></tr>
         </tbody>
       </table>
@@ -6361,6 +6430,13 @@ grid.destroy();
       first match rather than emitting a row per pair. SQL would multiply them out; here that would
       change the row count of a grid the reader thinks of as &ldquo;the orders&rdquo; and quietly
       double every total taken from it.
+    </p>
+    <p class="section-note">
+      <strong>The left row keeps its own key.</strong> A brought-across field that would overwrite a
+      left-hand one — the partner's <code>id</code> over the left row's <code>id</code>, say — is kept
+      under <code>&lt;name&gt;_right</code> instead (then <code>&lt;name&gt;_right2</code> if that too
+      is taken), so two orders for one customer stay two rows and every total taken over the join
+      stays right.
     </p>
     <p class="section-note">
       <strong>Both sides are live.</strong> The partner is read at derivation time, not captured when
@@ -7414,10 +7490,10 @@ createGrid(el, {
     </div>
     <div class="chips">
       <span class="chip chip--new">time</span><span class="chip chip--new">datetime</span><span class="chip chip--new">timestamp</span><span class="chip chip--new">duration</span>
-      <span class="chip chip--new">ipv4</span><span class="chip chip--new">cidr</span><span class="chip chip--new">ipv6</span>
+      <span class="chip chip--new">ipv4</span><span class="chip chip--new">cidr</span><span class="chip chip--new">ipv6</span><span class="chip chip--new">mac</span><span class="chip chip--new">vlan</span>
       <span class="chip chip--new">json</span><span class="chip chip--new">secret</span>
-      <span class="chip chip--new">hex</span><span class="chip chip--new">hex8</span><span class="chip chip--new">hex16</span><span class="chip chip--new">hex32</span>
-      <span class="chip chip--new">binary</span><span class="chip chip--new">binary8</span><span class="chip chip--new">octal</span><span class="chip chip--new">decibel</span><span class="chip chip--new">decibelAmplitude</span>
+      <span class="chip chip--new">hex</span><span class="chip chip--new">hex8</span><span class="chip chip--new">hex16</span><span class="chip chip--new">hex32</span><span class="chip chip--new">bigint</span>
+      <span class="chip chip--new">binary</span><span class="chip chip--new">binary8</span><span class="chip chip--new">octal</span><span class="chip chip--new">decibel</span><span class="chip chip--new">decibelAmplitude</span><span class="chip chip--new">ratio</span><span class="chip chip--new">percentRate</span>
       <span class="chip chip--new">bytes</span><span class="chip chip--new">megabytes</span><span class="chip chip--new">gigabytes</span>
       <span class="chip chip--new">bitrate</span><span class="chip chip--new">gigabits</span>
       <span class="chip chip--new">metres</span><span class="chip chip--new">millimetres</span><span class="chip chip--new">kilometres</span>
@@ -7564,6 +7640,7 @@ createGrid(el, {
           <tr><td class="name">Blankness</td><td class="desc"><code>blank</code>, <code>notBlank</code></td></tr>
           <tr><td class="name">Multi-value</td><td class="desc"><code>containsAny</code>, <code>containsAll</code>, <code>containsNone</code>, for cells holding an array of ids</td></tr>
           <tr><td class="name">Spatial</td><td class="desc"><code>withinBbox</code>, <code>withinPolygon</code>, <code>intersects</code>, <code>withinDistance</code>, on a <code>geometry</code> column only, with the <a href="geometry.html#geometry">geometry module</a></td></tr>
+          <tr><td class="name">Network</td><td class="desc"><code>inSubnet</code>, on an <code>ipv4</code> or <code>ipv6</code> column, alongside its other operators &mdash; see below</td></tr>
           <tr><td class="name">Grouping</td><td class="desc"><code>and</code>, <code>or</code>, <code>not</code></td></tr>
         </tbody>
       </table>
@@ -7572,6 +7649,20 @@ createGrid(el, {
     <div class="note">
       <p><strong>An operator outside this list is refused, not applied (BACKLOG-0001180).</strong> <code>filters.set()</code> and <code>state.apply()</code> drop a condition whose <code>op</code> is not one of the operators above rather than installing it &mdash; it never reaches <code>filters.get()</code> and the grid is left exactly as filtered as it was before. A <code>[lattice]</code> warning names the operator received and the operators valid for that column's type. In a compound filter only the offending leaf is dropped; every other condition still applies.</p>
     </div>
+
+    <div class="note">
+      <p><strong>An <code>ipv4</code> column's ordering, range and set operators take the address or block as text, not only the packed integer</strong> (BACKLOG-0006852): <code>eq</code>, <code>ne</code>, <code>lt</code>, <code>lte</code>, <code>gt</code>, <code>gte</code>, <code>between</code>, <code>notBetween</code>, <code>in</code> and <code>notIn</code> read <code>'10.0.0.1'</code> exactly as they read <code>167772161</code>, and the same holds for a <code>cidr</code> column given <code>'10.0.0.0/24'</code>. An <code>ipv4</code> or <code>ipv6</code> column also accepts <code>inSubnet</code>, alongside its other operators, true when the address falls inside the operand's CIDR block:</p>
+    </div>
+
+    <pre><code>grid.filters.set({ col: <span class="kw">'ip'</span>, op: <span class="kw">'inSubnet'</span>, value: <span class="kw">'10.1.0.0/16'</span> });
+grid.filters.set({ col: <span class="kw">'address'</span>, op: <span class="kw">'between'</span>, value: [<span class="kw">'10.0.0.2'</span>, <span class="kw">'10.0.0.9'</span>] });</code></pre>
+
+    <p class="section-note">
+      Typing a whole CIDR block (<code>10.1.0.0/16</code>, <code>2001:db8::/32</code>) into an
+      <code>ipv4</code> or <code>ipv6</code> column's filter row picks <code>inSubnet</code>
+      automatically, the way typing a leading <code>&gt;</code> picks <code>greaterThan</code> on
+      a number column; typing a bare address or any other text filters as before.
+    </p>
 
     <div class="note">
       <p><strong>One filter, not two.</strong> A condition set from a header popup, from the tool panel, or through <code>grid.filters.set()</code> all merge into the same tree. Reading <code>grid.filters.get()</code> always gives the whole truth.</p>
@@ -7873,7 +7964,7 @@ grid.destroy();
     <h3 id="core-exports-example">Every core export, executed</h3>
     <p class="section-note">Named and resolved against the barrel on every build. A rename or a removal fails
     here rather than in a consumer&#39;s build.</p>
-    <pre data-run="js" data-expect="40" data-covers="export:DEFAULT_LOCALE export:EN_GB export:MESSAGE_KEYS export:NO_CAPABILITIES export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:graphqlAdapter export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerLocale export:registerModules export:registerUnitSystem export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="45" data-covers="export:DEFAULT_LOCALE export:EN_GB export:MESSAGE_KEYS export:NO_CAPABILITIES export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createTemperatureType export:createUnitType export:convertTemperature export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatTemperature export:formatUnit export:getVersion export:graphqlAdapter export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseTemperature export:parseUnit export:planQuery export:referencesOf export:registerLocale export:registerModules export:registerUnitSystem export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:TEMPERATURE_SCALES export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every declared export of the core package, named and checked. A symbol</span>
 <span class="cmt">// that was renamed or dropped fails here, not in a consumer's build. Locale</span>
@@ -7883,14 +7974,15 @@ grid.destroy();
   'DEFAULT_LOCALE', 'EN_GB', 'MESSAGE_KEYS',
   'NO_CAPABILITIES', 'UNIT_SYSTEMS', 'applyResidual',
   'auditCatalogue', 'compileRules', 'createPushdownSource', 'createRadixType',
-  'createUnitType', 'defineUnit', 'dfqlAdapter', 'duckdbAdapter',
-  'evaluateFormula', 'formatList', 'formatUnit', 'getVersion',
+  'createTemperatureType', 'createUnitType', 'convertTemperature', 'defineUnit',
+  'dfqlAdapter', 'duckdbAdapter',
+  'evaluateFormula', 'formatList', 'formatTemperature', 'formatUnit', 'getVersion',
   'graphqlAdapter', 'ingest', 'ingestSync', 'licenceInfo',
   'licenceState', 'licenseInfo', 'licenseState', 'looksLikeFormula',
-  'odataAdapter', 'parseUnit', 'planQuery', 'referencesOf',
+  'odataAdapter', 'parseTemperature', 'parseUnit', 'planQuery', 'referencesOf',
   'registerLocale', 'registerModules', 'registerUnitSystem', 'resolveLocale',
   'restAdapter', 'restoreState', 'serialiseState', 'setLicence',
-  'setLicense', 'version',
+  'setLicense', 'TEMPERATURE_SCALES', 'version',
 ];
 
 <span class="kw">return</span> declared.filter((name) =&gt; core[name] !== <span class="kw">undefined</span>).length;</code></pre>
@@ -8065,7 +8157,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     profile: 'size', orient: 'metrics', refresh: 'idle', crossFilter: true };
 
 <span class="cmt">// Editing — EditConfig</span>
-<span class="kw">const</span> editConfig = { enabled: true, commit: 'blur', confirm: false, start: 'dblclick',
+<span class="kw">const</span> editConfig = { enabled: true, commit: fetch, confirm: 'manual', start: 'double',
     enterMovesDown: true, undoDepth: 50, pendingTimeout: 2000 };
 
 <span class="cmt">// Selection — SelectionConfig</span>
@@ -8096,7 +8188,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     maxAge: 5 * 60 * 1000, ageBy: 'ts' };
 
 <span class="cmt">// A pushdown source — PushdownSourceConfig</span>
-<span class="kw">const</span> pushdownSourceConfig = { adapter, compute, pageSize: 200 };
+<span class="kw">const</span> pushdownSourceConfig = { adapter, pageSize: 200 };
 
 <span class="cmt">// CSV export — CsvExportOptions</span>
 <span class="kw">const</span> csvExportOptions = { fileName: 'rows.csv', delimiter: ',', lineEnding: '\\n',
@@ -8575,9 +8667,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">get</td><td class="type">&lt;K extends keyof <a href="#type-GridConfig">GridConfig</a>&gt;(key: K): <a href="#type-GridConfig">GridConfig</a>[K]</td><td class="desc"><code>key: K</code></td><td class="type"><code><a href="#type-GridConfig">GridConfig</a>[K]</code></td><td class="desc">One configuration value, as it stands after defaults and validation — not what was passed in. Typed by the key, so `get('rowHeight')` is a number without a cast.</td></tr>
           <tr><td class="name">set</td><td class="type">&lt;K extends keyof <a href="#type-GridConfig">GridConfig</a>&gt;(key: K, value: <a href="#type-GridConfig">GridConfig</a>[K]): void</td><td class="desc"><code>key: K</code><br><code>value: <a href="#type-GridConfig">GridConfig</a>[K]</code></td><td class="type"><code>void</code></td><td class="desc">Write one configuration value, doing only the work that key implies. Every key is settable at runtime — there is no "initial options" versus "live options" distinction to learn — and `config:changed` follows, after the grid has rebuilt.</td></tr>
           <tr><td class="name">setAll</td><td class="type">(values: Partial&lt;<a href="#type-GridConfig">GridConfig</a>&gt;): void</td><td class="desc"><code>values: Partial&lt;<a href="#type-GridConfig">GridConfig</a>&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Apply several configuration changes as one update rather than several.</td></tr>
-          <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-EventName">EventName</a>, handler: <a href="types.html#type-EventHandler">EventHandler</a>): <a href="types.html#type-Unsubscribe">Unsubscribe</a></td><td class="desc"><code>event: <a href="types.html#type-EventName">EventName</a></code><br><code>handler: <a href="types.html#type-EventHandler">EventHandler</a></code></td><td class="type"><code><a href="types.html#type-Unsubscribe">Unsubscribe</a></code></td><td class="desc">Listen. Returns the function that stops listening.</td></tr>
-          <tr><td class="name">once</td><td class="type">(event: <a href="types.html#type-EventName">EventName</a>, handler: <a href="types.html#type-EventHandler">EventHandler</a>): <a href="types.html#type-Unsubscribe">Unsubscribe</a></td><td class="desc"><code>event: <a href="types.html#type-EventName">EventName</a></code><br><code>handler: <a href="types.html#type-EventHandler">EventHandler</a></code></td><td class="type"><code><a href="types.html#type-Unsubscribe">Unsubscribe</a></code></td><td class="desc">Listen until it fires once.</td></tr>
-          <tr><td class="name">off</td><td class="type">(event: <a href="types.html#type-EventName">EventName</a>, handler: <a href="types.html#type-EventHandler">EventHandler</a>): void</td><td class="desc"><code>event: <a href="types.html#type-EventName">EventName</a></code><br><code>handler: <a href="types.html#type-EventHandler">EventHandler</a></code></td><td class="type"><code>void</code></td><td class="desc">Stop listening.</td></tr>
+          <tr><td class="name">on</td><td class="type">&lt;E extends <a href="types.html#type-EventName">EventName</a>&gt;(event: E, handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;): <a href="types.html#type-Unsubscribe">Unsubscribe</a></td><td class="desc"><code>event: E</code><br><code>handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;</code></td><td class="type"><code><a href="types.html#type-Unsubscribe">Unsubscribe</a></code></td><td class="desc">Listen. Returns the function that stops listening.</td></tr>
+          <tr><td class="name">once</td><td class="type">&lt;E extends <a href="types.html#type-EventName">EventName</a>&gt;(event: E, handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;): <a href="types.html#type-Unsubscribe">Unsubscribe</a></td><td class="desc"><code>event: E</code><br><code>handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;</code></td><td class="type"><code><a href="types.html#type-Unsubscribe">Unsubscribe</a></code></td><td class="desc">Listen until it fires once.</td></tr>
+          <tr><td class="name">off</td><td class="type">&lt;E extends <a href="types.html#type-EventName">EventName</a>&gt;(event: E, handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;): void</td><td class="desc"><code>event: E</code><br><code>handler: <a href="types.html#type-EventHandlerFor">EventHandlerFor</a>&lt;E&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Stop listening.</td></tr>
           <tr><td class="name">emit</td><td class="type">(event: string, payload?: Record&lt;string, unknown&gt;): void</td><td class="desc"><code>event: string</code><br><code>payload?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Raise an event of your own on the grid's bus.</td></tr>
           <tr><td class="name">setPinnedRows</td><td class="type">(rows: unknown[], opts?: { edge?: 'top' | 'bottom' }): void</td><td class="desc"><code>rows: unknown[]</code><br><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>void</code></td><td class="desc">Pin rows above or below the scrolling body. The rows render through the ordinary column pipeline but are not part of the data: not counted, sorted, filtered, grouped, selectable or exported. Pass a new array rather than mutating the one you passed before: array identity is how the grid knows the pinned rows have changed.</td></tr>
           <tr><td class="name">getPinnedRows</td><td class="type">(opts?: { edge?: 'top' | 'bottom' }): unknown[]</td><td class="desc"><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>unknown[]</code></td><td class="desc">The objects currently pinned at one edge, as a copy.</td></tr>
@@ -11117,11 +11209,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">of</td><td class="type"><a href="types.html#type-TypeName">TypeName</a> <small class="literals">'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</small></td><td class="desc">A `list` column's item type: any scalar data type name, `'text'` by default. A name that is not a known scalar type warns once by name (`type:of:&lt;name&gt;`) and the items are read as text. <small>(optional)</small></td></tr>
           <tr><td class="name">joiner</td><td class="type">string</td><td class="desc">The text between items when a `list` cell is copied or exported, `', '` by default. Typed and pasted text is split on it and on commas. <small>(optional)</small></td></tr>
           <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fixed fraction digits for a plain `number` column that declares no `format` of its own — the minimum and the maximum both set to this figure, exactly as `format: { decimals }` would (§8.5). Honoured only when the column's data type has no self-formatting `format` function of its own (a `unit`, `currency` or other custom numeric type keeps its own precision setting instead). A group row's or group footer's aggregate cell — `avg`, `sum`, `median`, a `percentile` — reads through the same formatter as the column's own cells, so it rounds to this many places too (BACKLOG-0005305); a `count`/`countValues` total is never affected, since it always displays as a whole number. <small>(optional)</small></td></tr>
+          <tr><td class="name">display</td><td class="type">string</td><td class="desc">The display unit of a `unit` or `temperature` column, read from `typeOptions` (BACKLOG-0006857). A symbol from the column's unit system — `typeOptions: { display: 'psi' }` on a pressure column renders in psi — or a temperature scale — `typeOptions: { display: 'F' }` shows a Celsius column in Fahrenheit. Display only: the stored number never changes, so sort, filter, totals and export are unaffected. An unknown symbol warns and renders in the stored unit. <small>(optional)</small></td></tr>
           <tr><td class="name">grouping</td><td class="type">boolean</td><td class="desc">A `bigint` column's digit grouping. `true` by default (`1,000,000.5` in an `en` grid); `false` shows the digits with no separators. <small>(optional)</small></td></tr>
           <tr><td class="name">vlanSingle</td><td class="type">boolean</td><td class="desc">A `vlan` column that holds one ID only. `true` makes the column refuse a list or a range (`10,20-30`) with a message, so an access-VLAN column cannot silently take one ID of a trunk's allowed list. <small>(optional)</small></td></tr>
           <tr><td class="name">macFormat</td><td class="type">'colon' | 'colon-upper' | 'cisco' | 'hyphen'</td><td class="desc">The display spelling of a `mac` column: `'colon'` (the default, lowercase `00:1a:2b:3c:4d:5e`), `'colon-upper'` (`00:1A:2B:3C:4D:5E`), `'cisco'` (`001a.2b3c.4d5e`) or `'hyphen'` (`00-1a-2b-3c-4d-5e`). Affects only the display and the clipboard/Excel text — never the stored value. <small>(optional)</small></td></tr>
           <tr><td class="name">cidrNetwork</td><td class="type">boolean</td><td class="desc">A `cidr` column that stores the network address rather than the address as typed: `10.1.2.3/24` is stored and shown as `10.1.2.0/24`, its host bits cleared. `false` by default, which keeps `10.1.2.3/24` as typed — the right reading for an interface address, where a `true` column is right for a subnet field. Applies on every write (typed edit, paste, fill, `setCells`) and on a bare address once the type's default prefix fills it in. <small>(optional)</small></td></tr>
           <tr><td class="name">storeNumber</td><td class="type">boolean</td><td class="desc">An `ipv4` or `cidr` column that keeps the packed number in the row object a committed edit writes to, rather than the canonical text the record was loaded in (BACKLOG-0005934). `false` by default: a typed edit, a paste, a fill and `setCells` all write `10.0.0.2`/`10.1.2.0/24` into the row the way the column was loaded, and a bound form (`modules/form`) follows the same option. `rows.value()` keeps answering the packed number either way — this option changes only what lands in the row object, never the ColumnStore's own logical value. <small>(optional)</small></td></tr>
+          <tr><td class="name">seconds</td><td class="type">boolean</td><td class="desc">A `timestamp` column that shows its time to the second. `false` by default, so the time reads to the minute; `true` shows `HH:mm:ss`. Read from `typeOptions`; a `datetime` column reads the same option (BACKLOG-0006858). <small>(optional)</small></td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">The IANA zone a `timestamp` column renders and reads in, from `typeOptions`. The stored instant never changes — only the wall clock shown for it does. Falls back to the grid's `config.timeZone`, then the viewer's zone (BACKLOG-0006858). <small>(optional)</small></td></tr>
+          <tr><td class="name">pattern</td><td class="type">string</td><td class="desc">A date pattern a `timestamp` column renders with, from `typeOptions`, taking the same tokens as a `date` pattern — `'yyyy-MM-dd HH:mm:ss'`, `'dd MMM yyyy HH:mm'`. Overrides the default date-plus-time styling and shows exactly the fields the pattern names (BACKLOG-0006858). <small>(optional)</small></td></tr>
           <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Any other option a data type reads from its column: a weighted average's `weight` column, a unit's `significantFigures`.</td></tr>
         </tbody>
       </table>

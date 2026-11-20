@@ -1,14 +1,16 @@
 /*!
- * Lattice Grid 1.126.0, svelte module type declarations
+ * Lattice Grid 1.127.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   EventName,
+  EventPayload,
+  FilterSet,
   Grid,
   GridConfig,
-  GridEvent,
   Row,
+  SortEntry,
   ViewerKind,
   createGrid,
 } from '../lattice-grid.js';
@@ -67,6 +69,16 @@ export type LatticeSvelteCallbacks<Events extends string, Payload> = {
   [E in Events as `on${CamelJoin<E>}`]?: (payload: Payload) => void;
 };
 
+/**
+ * Every grid event as a Svelte callback prop, each handed that event's own
+ * payload: `onCellClicked` receives a `CellPointerEvent`, `onSortChanged` a
+ * `SortChangedEvent`, and an event that carries nothing of its own receives
+ * the `GridEvent` envelope.
+ */
+export type LatticeSvelteGridEventProps = {
+  [E in EventName as `on${CamelJoin<E>}`]?: (payload: EventPayload<E>) => void;
+};
+
 /** Host-element bindings every component here puts on its wrapper `div`. */
 export type LatticeSvelteHostProps = {
   /** Applied to the host element rather than to the viewer. */
@@ -96,9 +108,17 @@ export type LatticeSvelteHostProps = {
  */
 export type LatticeSvelteGridProps<Row = unknown> =
   Omit<GridConfig, 'rows'> & LatticeSvelteHostProps
-  & LatticeSvelteCallbacks<EventName, GridEvent> & {
+  & LatticeSvelteGridEventProps & {
     /** The rows the grid holds. A new array replaces them; the same array is a no-op. */
     rows?: Row[];
+    /** Applied through `grid.sort.set`, not as configuration. */
+    sort?: SortEntry[];
+    /** Applied through `grid.filters.set` — replaces the whole tree; see `predicates`. */
+    filters?: FilterSet | null;
+    /** Applied through `grid.filters.quick`. */
+    quickFilter?: string | { text: string; mode?: string };
+    /** Applied through `grid.selection.set`. */
+    selectedKeys?: string[];
     /** The name this grid publishes itself under in the registry. Mount-time. */
     name?: string;
     /** A keyed diff applied through `rows.apply()` whenever the object's identity changes. */

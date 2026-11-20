@@ -1,10 +1,11 @@
 /*!
- * Lattice Grid 1.126.0, vue module type declarations
+ * Lattice Grid 1.127.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   EventName,
+  EventPayload,
   FilterSet,
   Grid,
   GridConfig,
@@ -56,6 +57,16 @@ export type LatticeVueListeners<Events extends string, Payload> = {
 };
 
 /**
+ * Every grid event as a Vue listener prop, each handed that event's own
+ * payload: `onCell-clicked` receives a `CellPointerEvent`, `onSort-changed` a
+ * `SortChangedEvent`, and an event that carries nothing of its own receives
+ * the `GridEvent` envelope.
+ */
+export type LatticeVueGridEventProps = {
+  [E in EventName as ListenerProp<DashJoin<E>>]?: (payload: EventPayload<E>) => void;
+};
+
+/**
  * A Vue component, in the shape `defineComponent` produces.
  *
  * Declared here rather than imported from `vue` because the package ships no
@@ -102,7 +113,7 @@ export type LatticeVueHostProps = {
  */
 export type LatticeVueGridProps<Row = unknown> =
   Omit<GridConfig, 'rows'> & LatticeVueHostProps
-  & LatticeVueListeners<DashJoin<EventName>, GridEvent> & {
+  & LatticeVueGridEventProps & {
     /** The rows, copied on ingest so two grids may share one array. */
     rows?: Row[];
     /** Applied through `grid.sort.set`, not as configuration. */

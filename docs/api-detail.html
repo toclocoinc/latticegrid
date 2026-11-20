@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.126.0</p>
+    <p class="rail__sub">Developer guide · v1.127.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.126.0</span>
+        <span class="chip">Version 1.127.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.126.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.127.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2649,7 +2649,16 @@ return (`figures ${formatUnit(999999, { ...spec, significantFigures: 3 })}`
       anything, so no factor converts it. <code>celsius</code>, <code>fahrenheit</code> and
       <code>kelvin</code> convert on input: type <code>72 F</code> into a Celsius column and it
       stores 22.2, and <strong>refuse to be summed</strong>: twenty degrees plus twenty degrees is
-      not forty degrees, and a footer saying so would be believed.</p>
+      not forty degrees, and a footer saying so would be believed. A scale of your own — a Rankine
+      column, a Celsius column shown in Fahrenheit — comes from
+      <code>createTemperatureType({ scale: 'C', display: 'F' })</code>, registered under a name in
+      <code>dataTypes</code> exactly like a unit type.</p>
+      <p><strong>A unit or temperature column can display in any unit of its system.</strong>
+      <code>typeOptions: { display: 'psi' }</code> on a <code>pressure</code> column (stored in
+      pascals) renders <code>1 psi</code>, and <code>typeOptions: { display: 'F' }</code> on a
+      <code>celsius</code> column renders <code>212 °F</code>. It is display only: the stored
+      number never changes, so sort, filter, totals and export are untouched, and an unknown
+      symbol warns and falls back to the stored unit.</p>
       <p><strong>Currency is its own type, not a unit either.</strong> A currency's
       &ldquo;factor&rdquo; is an exchange rate that moves, so a value carries an amount
       <em>and</em> a code and never a fixed factor. The grid ships and fetches no rates: pass a
@@ -2745,6 +2754,37 @@ return (`figures ${formatUnit(999999, { ...spec, significantFigures: 3 })}`
       as a plain numeric datetime serial (<code>yyyy-mm-dd hh:mm</code>) — what you saw on screen,
       with the zone named in the docs and column header, never shifted silently to UTC.</p>
     </div>
+
+    <div class="example">
+      <p class="example__label">Options the type reads from <code>typeOptions</code></p>
+      <pre data-run="js" data-expect="15 Jan 2024, 22:03 | 15 Jan 2024, 17:03 | 15 Jan 2024, 22:03:00 | 2024-01-15 22:03:00" data-covers="config:ColumnTypeOptions.timeZone config:ColumnTypeOptions.seconds config:ColumnTypeOptions.pattern"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const ms = Date.UTC(2024, 0, 15, 22, 3, 0);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'utc', type: 'timestamp', typeOptions: { timeZone: 'UTC' } },
+    { field: 'ny', type: 'timestamp', typeOptions: { timeZone: 'America/New_York' } },
+    { field: 'secs', type: 'timestamp', typeOptions: { seconds: true, timeZone: 'UTC' } },
+    { field: 'pat', type: 'timestamp', typeOptions: { pattern: 'yyyy-MM-dd HH:mm:ss', timeZone: 'UTC' } },
+  ],
+  rows: [{ id: 'a', utc: ms, ny: ms, secs: ms, pat: ms }],
+  source: { mode: 'memory', columnarBelow: 0 },
+  locale: 'en-GB',
+});
+const out = `${grid.rows.text('a', 'utc')} | ${grid.rows.text('a', 'ny')} | ${grid.rows.text('a', 'secs')} | ${grid.rows.text('a', 'pat')}`;
+grid.destroy();
+return out;
+</code></pre>
+    </div>
+    <p class="lead-in">
+      Three <code>typeOptions</code> keys shape a <code>timestamp</code> cell's display.
+      <code>timeZone</code> names the IANA zone the cell renders and reads in (see the precedence
+      above); the stored instant never changes, only the wall clock shown for it does.
+      <code>seconds</code> shows the time to the second when <code>true</code>, or to the minute
+      when <code>false</code> (the default, which is why the default display hides seconds).
+      <code>pattern</code> is a date pattern using the same tokens as <code>date</code> — it
+      replaces the default date-plus-time styling and shows exactly the fields it names.
+    </p>
 
     <h3>Formats</h3>
     <div class="example">
@@ -6491,7 +6531,7 @@ detail.destroy();
   crossFilter: <span class="kw">true</span>,       <span class="cmt">// or a source column name</span>
 }
 
-summary.events.on('rowClick', (e) =&gt; summary.crossFilter.toggle(e.key));</code></pre>
+summary.on('row:clicked', (e) =&gt; summary.crossFilter.toggle(e.key));</code></pre>
     </div>
     <p>
       <code>crossFilter.set</code>, <code>toggle</code>, <code>clear</code>, <code>get</code> and
@@ -6533,8 +6573,8 @@ summary.events.on('rowClick', (e) =&gt; summary.crossFilter.toggle(e.key));</cod
         <tbody>
           <tr><td class="name">on</td><td class="desc">One field name when both sides use it, or <code>{ left, right }</code> when they differ.</td></tr>
           <tr><td class="name">type</td><td class="desc"><code>inner</code> keeps only rows that matched; <code>left</code> keeps them all.</td></tr>
-          <tr><td class="name">select</td><td class="desc">Which of the partner's fields to bring across. All of them by default.</td></tr>
-          <tr><td class="name">prefix</td><td class="desc">Renames the brought-across fields, for when both sides have a <code>name</code> worth keeping.</td></tr>
+          <tr><td class="name">select</td><td class="desc">Which of the partner's fields to bring across. All of them by default. A brought-across field whose name the left side already has is kept under a predictable <code>&lt;name&gt;_right</code> rather than overwriting the left value.</td></tr>
+          <tr><td class="name">prefix</td><td class="desc">Renames every brought-across field, for when both sides have a <code>name</code> worth keeping. With a prefix the clash rule is usually unnecessary — the prefix itself makes each name unique.</td></tr>
           <tr><td class="name">follow</td><td class="desc">Which of the partner's rows to read: <code>all</code> by default, or <code>filtered</code>.</td></tr>
         </tbody>
       </table>
@@ -6548,6 +6588,10 @@ summary.events.on('rowClick', (e) =&gt; summary.crossFilter.toggle(e.key));</cod
       <p><strong>First match wins.</strong> The join is a lookup, not a cross product: a row on the
       left produces exactly one row out, so a grid of ten thousand rows stays a grid of ten thousand
       rows and cannot silently multiply.</p>
+      <p><strong>The left row keeps its own key.</strong> A brought-across field that would overwrite
+      a left-hand one — the partner's <code>id</code> over the left row's <code>id</code>, say — is
+      kept under <code>&lt;name&gt;_right</code> instead, so two orders for one customer stay two
+      rows and every total taken over the join stays right.</p>
       <p><strong>Both sides are live.</strong> A change on either grid updates the join, and it is
       patched from whichever side changed rather than rebuilt.</p>
     </div>
@@ -12051,6 +12095,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">createLatticeRouterElement</td><td class="desc">The <code>&amp;lt;lattice-router&amp;gt;</code> class on its own. It is a grouping element: it owns one Data Router, built by the first <code>&amp;lt;lattice-grid route="&#8230;"&amp;gt;</code> beneath it and destroyed on disconnect, and the name registry its descendants resolve <code>grid-name</code> through.</td></tr>
           <tr><td class="name">adoptLatticeStyles</td><td class="desc">Make a host's shadow root see Lattice's styles, and keep it seeing them. The theme, each module's injected stylesheet and the grid's <em>growing</em> generated one are mirrored into the root as constructable stylesheets and kept level with their sources, so a class compiled later still arrives; a sheet that cannot be read as text (cross-origin, or carrying <code>@import</code>) is cloned into the root as a link instead. Every Lattice element calls it for its own root on connect, so this is for a host that mounts Lattice inside a shadow root by other means. Returns the undo.</td></tr>
           <tr><td class="name">defineUnit</td><td class="desc">Add one unit to a system, or override one of ours under the same name.</td></tr>
+          <tr><td class="name">createTemperatureType</td><td class="desc">Build a temperature data type: <code>scale</code> is the scale readings are stored in (<code>'C'</code> by default), <code>display</code> the scale to render in, and <code>decimals</code>/<code>minDecimals</code>/<code>maxDecimals</code> the precision. <code>convertTemperature</code>, <code>parseTemperature</code>, <code>formatTemperature</code> and <code>TEMPERATURE_SCALES</code> are the same family, exported beside it.</td></tr>
           <tr><td class="name">chartSelectionSupport</td><td class="desc">Charts. How a chart type follows the grid's selection when its <code>selection</code> option is on, stated for every type so none ignores it silently (BACKLOG-0004773): <code>'rows'</code> draws only the selected rows and restores every row when the selection clears (<code>chart-fan</code>, <code>chart-decomposition</code>); <code>'zoom'</code> turns a globe to them (<code>fitTo: 'selection'</code>, <code>geomap</code>); <code>'emphasis'</code> draws every row and dims the marks the selection leaves out. The same value is the <code>selection</code> field of <code>chartEditorModel(type)</code>.</td></tr>
           <tr><td class="name">registerChartType</td><td class="desc">Register an extension chart type so <code>createChart({ type })</code> can draw it (BACKLOG-0000886). Extension types ship as their own opt-in modules (e.g. <code>modules/chart-ridgeline</code>), so the base charts bundle does not grow for a type a caller never imports — you pay only for the charts you use. <code>registeredChartTypes()</code> lists what is registered.</td></tr>
           <tr><td class="name">createFrameClock</td><td class="desc">Make the clock the animated chart types run on (BACKLOG-0001663): a time, a play state and a speed. Pass the same clock as <code>clock</code> to a <code>barRace</code> and a <code>motion</code> chart (<code>modules/chart-barrace</code>, <code>modules/chart-motion</code>) and they play, pause and scrub together; <code>clock.subscribe</code> lets a host move its own filter with it.</td></tr>
@@ -15901,7 +15946,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.126.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.127.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

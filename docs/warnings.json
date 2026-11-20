@@ -1,5 +1,5 @@
 {
-  "version": "1.126.0",
+  "version": "1.127.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 798,
+  "count": 810,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -332,7 +332,7 @@
       "since": "1.86.0",
       "message": "{notice}",
       "computed": true,
-      "meaning": "A shape or timeline chart (`pictorial`, `serpentine`, `spiral`) noticed something about its input while binding and drew what it could rather than guess. The id after `notice:` says what: `shape-rejected` (a pictorial `shape` was neither a registered icon name nor SVG path data, so the built-in figure was drawn), `undated` (rows with no readable date are left off a timeline rather than placed at an invented moment) or `period` (a spiral `period` could not be read, so one turn per week was drawn).",
+      "meaning": "A shape or timeline chart (`pictorial`, `serpentine`, `spiral`) noticed something about its input while binding and drew what it could rather than guess. The id after `notice:` says what: `shape-rejected` (a pictorial `shape` was neither a registered icon name nor SVG path data, so the built-in figure was drawn), `undated` (rows with no readable date are left off a timeline rather than placed at an invented moment), `period` (a spiral `period` could not be read, so one turn per week was drawn) or `secret` (a funnel-family stage or measure column is `secret`, whose values are never readable, so the chart refused to bind it rather than draw the hidden value).",
       "fix": "Give the option a value it names: a registered icon name or a path string of commands and numbers only; a date column of dates, ISO strings or epoch milliseconds; a spiral period of 'day', 'week', 'year' or a duration such as '28d'.",
       "snippet": "createChart({ grid, container, type: 'spiral', x: 'at', spiral: { period: '28d' } });",
       "docs": "API.html#chart-flow-funnel-time"
@@ -1406,9 +1406,9 @@
       "module": "core",
       "severity": "warn",
       "since": "1.24.0",
-      "message": "edit: true was set over a remote source but nothing can persist the write: no edit.commit hook and the source synthesised none (a read-only adapter, or one that does not declare mutate.update). Cells would change on screen",
-      "meaning": "Editing was switched on over a source that cannot save anything. Optimistic tracking is off, so edits are not queued for a confirmation that will never come — but nothing persists them either, and a cell that changes on screen and reverts on the next fetch is the worst shape this can take.",
-      "fix": "Supply an `edit.commit` hook that sends the write, or use an adapter that declares `mutate: { update: true }`.",
+      "message": "editing is enabled over a remote source but nothing can persist the write: the adapter does not declare `mutate.update` (or no commit was supplied), so the source synthesised none for `edit` to adopt. Every edit reverts immediately rather than standing as an unsaved local change. Declare `mutate: { update: true }` on the adapter, or supply your own `edit: { commit }` hook, to enable optimistic write-back.",
+      "meaning": "Editing was switched on (explicitly, or inferred from an editable column) over a source that cannot save anything. A stand-in `commit` is wired instead that always rejects, so every edit still goes through the ordinary pending/reverted cycle and rolls back — a cell never stands changed having never actually reached anything.",
+      "fix": "Declare `mutate: { update: true }` on the adapter, or supply an `edit.commit` hook that sends the write.",
       "snippet": "createGrid(el, { edit: { commit: (changes) => api.patch(changes) } });",
       "docs": "api/grid.html#change-contract"
     },
@@ -1492,6 +1492,17 @@
       "meaning": "A `relative` date condition carries no token, or one the grid does not know. The condition is refused — dropped from the filter set — rather than admitted as a condition that matches everything, because a filter that silently stops narrowing shows more data than the user asked to see. The message lists the tokens that are valid.",
       "fix": "Use one of the relative tokens listed in the message.",
       "snippet": "grid.filters.set({ colId: 'due', op: 'relative', value: 'last7Days' });",
+      "docs": "api/grid.html#operators"
+    },
+    {
+      "id": "filter:value2:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "filter condition on column \"{col}\" uses op \"{op}\" with a `value2` operand; filters take the range as `value: [low, high]`. The condition is refused rather than matching nothing.",
+      "meaning": "A range filter (`between` or `notBetween`) was written with `value2` — the spelling formatting rules (§11) use for their upper bound — instead of `value: [low, high]`. The kernel read `value` alone, found no upper bound, and matched nothing, with no word about why. The condition is now refused up front (dropped from the filter set) and the warning names the shape it should have taken (BACKLOG-0006858).",
+      "fix": "Write the range as `value: [low, high]` and drop `value2`; `value2` is a formatting-rule operand, not a filter operand.",
+      "snippet": "grid.filters.set({ col: 'due', op: 'between', value: [start, end] });",
       "docs": "api/grid.html#operators"
     },
     {
@@ -2773,7 +2784,7 @@
       "module": "core",
       "severity": "warn",
       "since": "1.51.0",
-      "message": "source.mode \"derived\": `crossFilter` is not supported when `from` is a union of several grids (BACKLOG-0001045) — it has no single target once there is more than one parent. Push a filter onto the individual source grid you mean instead.",
+      "message": "source.mode \"derived\": `crossFilter` is not supported when `from` is a union of several grids — it has no single target once there is more than one parent. Push a filter onto the individual source grid you mean instead.",
       "meaning": "Cross-filtering pushes a filter back onto the parent, and a union has several. The option does nothing. It is reported at construction rather than when `crossFilter` is first used, so that a host that configures it and never calls it still learns that the line has no effect.",
       "fix": "Push the filter onto the individual source grid you mean.",
       "docs": "api/grid.html#derived-union"
@@ -2803,7 +2814,7 @@
       "module": "core",
       "severity": "warn",
       "since": "1.51.0",
-      "message": "source.mode \"derived\": `follow` is ignored when `from` is a union of several grids (BACKLOG-0001045) — each entry carries its own `follow` instead.",
+      "message": "source.mode \"derived\": `follow` is ignored when `from` is a union of several grids — each entry carries its own `follow` instead.",
       "meaning": "In a union each parent decides for itself how much of its grid to contribute, so a single top-level `follow` has nothing to apply to. It is ignored and each entry's own `follow` is used.",
       "fix": "Put `follow` on each entry of the `from` array.",
       "snippet": "from: [{ grid: a, label: 'A', follow: 'filtered' }, { grid: b, label: 'B', follow: 'all' }]",
@@ -2834,7 +2845,7 @@
       "module": "core",
       "severity": "warn",
       "since": "1.51.0",
-      "message": "source.mode \"derived\": `profile` is not supported when `from` is a union of several grids (BACKLOG-0001045); profile a single grid instead.",
+      "message": "source.mode \"derived\": `profile` is not supported when `from` is a union of several grids; profile a single grid instead.",
       "meaning": "As with `statistics`: a profile describes one grid's own columns. Over a union it is refused rather than guessed at, and no rows are produced by it.",
       "fix": "Profile a single grid.",
       "docs": "api/grid.html#derived-union"
@@ -2844,7 +2855,7 @@
       "module": "core",
       "severity": "warn",
       "since": "1.52.0",
-      "message": "source.mode \"derived\": `statistics` is not supported when `from` is a union of several grids (BACKLOG-0001046) — a relational statistic reduces one grid's own columns, and a union has no single set of them. Derive the statistics of a single grid instead.",
+      "message": "source.mode \"derived\": `statistics` is not supported when `from` is a union of several grids — a relational statistic reduces one grid's own columns, and a union has no single set of them. Derive the statistics of a single grid instead.",
       "meaning": "A relational statistic is computed over one grid's columns, and a union has as many column sets as it has parents. The option does nothing and the union produces its ordinary unioned rows.",
       "fix": "Derive the statistics of a single grid, and union the results if you need several.",
       "docs": "api/grid.html#derived-union"
@@ -3353,6 +3364,16 @@
       "meaning": "A `hostFilter` is application logic the grid cannot serialise, so it cannot be sent to a server. Applying it locally would filter only the rows already fetched, which makes the count, the totals and the scroll length all describe a different set from the one on screen — so it is not applied at all.",
       "fix": "Express the narrowing as a declarative filter condition the source can send, or pass whatever the server needs through `config.context`.",
       "docs": "api/grid.html#sources"
+    },
+    {
+      "id": "source.rest.nototal",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "{url} answered without a total (no `total` or `count` in the body), so the grid has no total for this query and will scroll open-ended rather than present the page size as the whole. If the endpoint reports the total under another name, pass a `total` hook that reads it; if it reports none, the open-ended total is the honest answer.",
+      "meaning": "The adapter asked for a total and the response carries neither `total` nor `count`. Treating the page length as the whole set would be a confident, wrong number, so the total is left absent and the grid scrolls open-ended instead.",
+      "fix": "Pass a `total` hook that reads whatever your endpoint calls the count, or leave it absent — the grid discovers the length as it scrolls.",
+      "docs": "api/grid.html#rest-options"
     },
     {
       "id": "source.rowKey.missing",
@@ -4450,8 +4471,8 @@
       "module": "dom",
       "severity": "warn",
       "since": "1.0.1",
-      "message": "cannot edit a row that is not rendered; scroll to it first.",
-      "meaning": "`edit.start()` named a row that is outside the rendered window, so there is no cell element to put an editor into and no editing session was started. The grid renders only the rows in view, so a key that is valid in the data may still have no element.",
+      "message": "cannot edit row \"{key}\" because it is not rendered; scroll to it first.",
+      "meaning": "An interactive `edit.start()` named a row that is outside the rendered window, so there is no cell element to put an editor into. The grid renders only the rows in view, so a key that is valid in the data may still have no element; the editing session opened but no editor could be mounted. Model-only writes (`grid.edit.setCells` from a form, the calendar or a host) commit without an editor and do not raise this warning.",
       "fix": "Scroll the row into view first and start the edit afterwards.",
       "snippet": "grid.scroll.toRow(key);\nrequestAnimationFrame(() => grid.edit.start(key, 'name'));",
       "docs": "api/grid.html#edit"
@@ -5428,6 +5449,17 @@
       "docs": "api/gantt.html#plan"
     },
     {
+      "id": "gantt-databand-no-creategrid",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "gantt: dataBands need createGrid to render — pass mountSplit({ createGrid, dataBands }); without it the band is skipped entirely.",
+      "meaning": "`mountSplit` was given one or more `dataBands` but no `createGrid`. A data band has no plain-DOM fallback (unlike the `workload`/`histogram` bands, which draw lightweight rows without one), so without a grid factory none of its bands build and `getDataBandTable` returns null.",
+      "fix": "Inject the grid factory: `mountSplit(el, { createGrid, dataBands })`.",
+      "snippet": "import { createGrid } from '@toclocoinc/lattice-grid';\ngantt.mountSplit(el, { createGrid, dataBands: [...] });",
+      "docs": "api/gantt.html#ganttmodule"
+    },
+    {
       "id": "gantt-delete-unknown-*",
       "module": "gantt",
       "severity": "warn",
@@ -5931,9 +5963,21 @@
       "severity": "warn",
       "since": "1.35.0",
       "message": "an inline edit to \"{field}\" did not persist through the bound grid (a read-only, non-editable, permission-blocked or unresolvable column).",
-      "meaning": "A card edit — or a card move, which writes the grouping property — was written to the bound grid and the grid wrote no cells at all. The board re-reads the grid, so the card visibly stays where it was, and a move additionally fires `card:reverted` rather than a phantom `card:move`. The column is read-only, not editable, blocked by permissions, or not resolvable from the property path at all.",
+      "meaning": "An inline card edit — or a required-field write — was written to the bound grid and the grid wrote no cells at all. The board re-reads the grid, so the card visibly keeps its old value. The column is read-only, not editable, blocked by permissions, or not resolvable from the property path at all. A card *move* that cannot persist raises `kanban:move-writeback:*` instead.",
       "fix": "Check that the column behind the property is editable and permitted for this user, and that the property path resolves to a real column id. A board over a read-only grid should be given `readonly` so the interaction is refused before the write is attempted.",
       "snippet": "columns: [{ id: 'status', edit: { enabled: true } }]",
+      "docs": "api/kanban.html#kanban-move-example"
+    },
+    {
+      "id": "kanban:move-writeback:*",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "a card move did not persist through the bound grid: column {column} {reason}",
+      "computed": true,
+      "meaning": "A grid-bound card move wrote the grouping column through `grid.edit.setCells` and the grid wrote no cells at all, so the card snapped back to its source column. The `*` in the id is the grid column id the move wrote through, and the message names that column and the setting to change: a column that does not resolve to a grid column, a column that is not writable under the current permissions, a column that is not editable (`edit: true` on the column, or the grid-level edit switch), or — when the column is editable and writable — a write refused for another reason. The board also shows a visible refusal notice on the board.",
+      "fix": "Make the bound grouping column editable and writable: declare the column on the grid, give it `edit: true` (or `edit: { enabled: true }`), or grant `write` permission to it. A board over a read-only grid should be given `readonly` so the drop is refused before the write is attempted.",
+      "snippet": "columns: [{ id: 'status', edit: true }]",
       "docs": "api/kanban.html#kanban-move-example"
     },
     {
@@ -6033,6 +6077,17 @@
       "meaning": "A tile named an aggregation the panel does not implement. Rather than refusing the tile, the panel falls back to `count`, so the tile still renders — with the number of rows, not the number you asked for. The key carries the unknown name, so one typo produces one line however many tiles share it.",
       "fix": "Use one of the aggregations listed in the message, or pass a function (or `aggregation: 'custom'` with one) to compute the value yourself.",
       "snippet": "tiles: [{ id: 'revenue', label: 'Revenue', aggregation: 'sum', field: 'amount' }]",
+      "docs": "api/kpi.html#kpi"
+    },
+    {
+      "id": "kpi:format:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "KPI tile format \"{type}\" is not understood; values are shown unformatted. Use \"number\", \"currency\", \"percent\" or \"compact\".",
+      "meaning": "A tile named a `format` type the panel does not implement (for example `format: 'integer'`). The tile still renders its value, as a plain number, but the requested format was dropped rather than applied, so the digits may not read the way the tile intended.",
+      "fix": "Use one of the supported types — `number`, `currency`, `percent` or `compact` — or an object form such as `{ type: 'number', decimals: 1 }`.",
+      "snippet": "tiles: [{ id: 'avg', label: 'Average', aggregation: 'avg', field: 'amount', format: 'number' }]",
       "docs": "api/kpi.html#kpi"
     },
     {
@@ -6203,8 +6258,8 @@
       "module": "kpi",
       "severity": "warn",
       "since": "1.54.0",
-      "message": "the \"{label}\" tile's filter read `{field}`, which is a column on the bound grid but is not projected — add it to `fields`: createKPI({ grid, fields: ['{field}'], … }).",
-      "meaning": "A tile read a column that the bound grid really has, but that the panel does not project onto its own rows. A grid-bound panel projects only the fields its tiles declare, so reading anything else costs a lookup per row; the value was fetched anyway (so the number is right) and the omission is reported once per tile and field, never per row.",
+      "message": "the \"{label}\" tile's {concept} `{field}`, which is a column on the bound grid but is not projected — add it to `fields`: createKPI({ grid, fields: ['{field}'], … }).",
+      "meaning": "A tile read a column that the bound grid really has, but that the panel does not project onto its own rows. The read is named by what did it — a `compute` reducer's \"compute read\" or a `filter` predicate's \"filter read\". A grid-bound panel projects only the fields its tiles declare, so reading anything else costs a lookup per row; the value was fetched anyway (so the number is right) and the omission is reported once per tile and field, never per row.",
       "fix": "Declare the column in `fields` so it is projected once per row rather than read per access.",
       "snippet": "createKPI(el, { grid, fields: ['region'], tiles });",
       "docs": "api/kpi.html#kpi-follows-grid"
@@ -6399,6 +6454,17 @@
       "meaning": "A React viewer component (kanban, gantt, KPI, chart, layout) was re-rendered with a prop the underlying viewer only reads at construction. The component applies every prop the viewer has a setter for, hands the rest to the viewer's bulk `set`-style method where there is one, and names what is left over. The component neither drops the change without saying so nor rebuilds behind your back — the key lists exactly which props were left unapplied, so two different stale props produce two different lines.",
       "fix": "Give the component a `key` that changes when the new value must take effect, which makes the rebuild explicit and lets you keep the cost in view; or take the ref and drive the live instance's own API instead of re-rendering.",
       "snippet": "<LatticeKanban key={boardId} ref={ref} columns={columns} />",
+      "docs": "api/adapters.html#react-v2"
+    },
+    {
+      "id": "react.onGridDestroy.deprecated",
+      "module": "react",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "<LatticeGrid onGridDestroy> is deprecated and will be removed: rename it to onGridDestroyed, which is what Vue (@grid-destroyed) and Svelte (onGridDestroyed) have always called this hook.",
+      "meaning": "The React grid component was handed an `onGridDestroy` prop, the pre-1.127 name for the hook told just before the grid is destroyed. Every other wrapper spells this hook's second half in the past tense — Vue's `@grid-destroyed`, Svelte's `onGridDestroyed` — and React's own `onGridReady` already does, so `onGridDestroy` was the one inconsistent name. It still fires, alongside `onGridDestroyed` if both are bound.",
+      "fix": "Rename the prop to `onGridDestroyed`. Both fire during the deprecation window, so the rename is safe to do at any time.",
+      "snippet": "<LatticeGrid onGridDestroyed={() => cleanup()} />",
       "docs": "api/adapters.html#react-v2"
     },
     {
@@ -8456,6 +8522,72 @@
       "fix": "Pass `prior: 'uniform'` (the default), `prior: 'jeffreys'`, or `prior: { alpha, beta }` with both strictly positive.",
       "snippet": "grid.statistics.bayes('passed', { prior: { alpha: 2, beta: 2 } });",
       "docs": "api-detail.html#statistics-bayes"
+    },
+    {
+      "id": "filter:secret:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.126.0",
+      "message": "filter operator \"{op}\" is refused for column \"{col}\": a secret column may only be filtered by whether it has a value. Valid operators here: {list}.",
+      "meaning": "A value filter was set on a `secret` column — anything except `blank`/`notBlank`. Every value operator probes the hidden value (a `contains` walked a character at a time reveals it), so the condition is dropped from the filter set rather than installed. A secret column can only be filtered by whether it has a value, which the mask already shows.",
+      "fix": "Filter the column only by `blank`/`notBlank`, or filter on a different column.",
+      "snippet": "grid.filters.set({ col: 'apiKey', op: 'blank' });",
+      "docs": "api/grid.html#operators"
+    },
+    {
+      "id": "group.secret:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.126.0",
+      "message": "column \"{id}\" cannot be grouped: a secret column's values are never readable, and grouping by one would expose them.",
+      "meaning": "A `secret` column was named in `columns.group()`. The group header is masked, but the group key and the distinct-group count are the raw values, so the column is left out of the grouping rather than grouped by its hidden value.",
+      "fix": "Group by a different column, or do not group this column.",
+      "snippet": "grid.columns.group('region');  // not the secret column",
+      "docs": "api/grid.html#columns"
+    },
+    {
+      "id": "pivot.secret:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.126.0",
+      "message": "column \"{id}\" cannot be pivoted: a secret column's values are never readable, and pivoting on one would expose them.",
+      "meaning": "A `secret` column was named in `columns.pivot()`. Each distinct value becomes a pivot heading — the raw value, not the mask — so the column is left out of the pivot rather than expose its hidden values.",
+      "fix": "Pivot on a different column, or do not pivot this column.",
+      "snippet": "grid.columns.pivot('category');  // not the secret column",
+      "docs": "api/grid.html#type-PivotViewApi"
+    },
+    {
+      "id": "stat.secret:profile:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.126.0",
+      "message": "the profile of column \"{colId}\" is refused: a secret column's values are never readable, and a profile would expose them.",
+      "meaning": "`statistics.profile()` was called on a `secret` column. A profile reads the values themselves — its commonest-values pass over a categorical column is the raw list — so `null` is returned rather than expose the hidden values.",
+      "fix": "Profile a different column; for a secret column use `statistics.reduce()` with `count` or `countValues`.",
+      "snippet": "grid.statistics.reduce('apiKey', 'countValues');",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "chart:secret:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.126.0",
+      "message": "a chart cannot bind column \"{col}\": its type is secret and its values are never readable.",
+      "meaning": "A chart binding named a `secret` column in a role that reads it by value — a dimension, series, measure, size, a flow's source or target, or a hierarchy's level, path, parent, id, label or radius. The bound categories, series keys, measures, node labels and link ends all carry the raw value back out whatever the label shows, so the binding is refused and the chart is empty.",
+      "fix": "Chart a different column, or do not chart this column.",
+      "snippet": "grid.charts.line({ x: 'date', y: 'revenue' });  // not the secret column",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "stylesheet.missing",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "the grid's stylesheet is not applied, so the grid has no bounded viewport height and would paint every row of the source. Painting is capped at {max} rows until it is loaded. Link the stylesheet (lattice-grid.css) before the script that builds the grid.",
+      "meaning": "The page built a grid without loading `lattice-grid.css`, so the structural rules that bound the body viewport were missing: the viewport grew to fit the whole source, and the renderer would otherwise paint every row, freezing the tab over a large remote source with nothing to say why. The grid detected the missing sheet, warned, and capped the rows it paints until the sheet is loaded.",
+      "fix": "Load the stylesheet before the script that builds the grid. The cap is a guardrail, not a working viewport: without the sheet the grid still has no scrolling and no column geometry.",
+      "snippet": "<link rel=\"stylesheet\" href=\"lattice-grid.css\">",
+      "docs": "api/grid.html#styling"
     }
   ]
 }

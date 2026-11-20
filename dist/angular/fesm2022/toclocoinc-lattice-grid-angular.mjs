@@ -158,6 +158,15 @@ function aliasConfigKey(key) {
     return Object.hasOwn(CONFIG_KEY_ALIASES, key) ? CONFIG_KEY_ALIASES[key] : key;
 }
 
+function camelConfigKey(key) {
+    const aliased = aliasConfigKey(key);
+    if (aliased !== key)
+        return aliased;
+    if (!key.includes('-') || key.startsWith('aria-') || key.startsWith('data-'))
+        return key;
+    return key.replace(/-([a-z0-9])/g, (_, ch) => ch.toUpperCase());
+}
+
 const BY_HANDLER$1 = Object.freeze(Object.fromEntries(EVENT_NAMES$1.map((name) => [handlerName$1(name), name])));
 
 function isHandlerProp(key) {
@@ -400,6 +409,13 @@ function isCtor(v) {
     if (/^class[\s{]/.test(Function.prototype.toString.call(v)))
         return true;
     return !!(v.prototype && Object.getOwnPropertyNames(v.prototype).length > 1);
+}
+
+function isSecretColumn(column) {
+    if (!column)
+        return false;
+    return column.type === 'secret'
+        || !!(column.dataType && column.dataType.name === 'secret');
 }
 
 const pathCache = new Map();

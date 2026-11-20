@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.126.0</title>
+<title>Adapters API Reference — Lattice Grid 1.127.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -562,7 +562,7 @@
       <table>
         <thead><tr><th>Export</th><th>Signature</th><th>What it is</th></tr></thead>
         <tbody>
-          <tr><td class="name">createLatticeGrid</td><td class="sig">({ React, createGrid })</td><td class="desc">The grid component. Extended in 1.63 with <code>rowUpdates</code>, <code>predicates</code>, <code>onGridReady</code>, <code>onGridDestroy</code>, <code>name</code> and <code>route</code>.</td></tr>
+          <tr><td class="name">createLatticeGrid</td><td class="sig">({ React, createGrid })</td><td class="desc">The grid component. Extended in 1.63 with <code>rowUpdates</code>, <code>predicates</code>, <code>onGridReady</code>, <code>onGridDestroyed</code>, <code>name</code> and <code>route</code>. <code>onGridDestroyed</code> is the one name every wrapper now uses for this hook (Vue's <code>@grid-destroyed</code>, Svelte's <code>onGridDestroyed</code>); the pre-1.127 <code>onGridDestroy</code> still works and warns once that it is deprecated.</td></tr>
           <tr><td class="name">createLatticeKPI</td><td class="sig">({ React, createKPI })</td><td class="desc">The KPI panel. Grid-bound through context by default; pass <code>rows</code> instead for a panel with no grid.</td></tr>
           <tr><td class="name">createLatticeChart</td><td class="sig">({ React, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
           <tr><td class="name">createLatticeKanban</td><td class="sig">({ React, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
@@ -1863,7 +1863,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     <p class="section-note">A <code>data-lattice-gantt</code> element wraps the server-rendered task table — no JS needed to make the markup read as a table, and one <code>htmx:load</code> turns it into the split view. Because the Gantt engine is not inlined, the page loads the Gantt module itself, which publishes <code>globalThis.LatticeGridGantt.createGantt</code> that the adapter resolves. The <code>lattice:gantt-change</code> event re-raised for every edit carries the task id and the field-level changes (dates already ISO), so an <code>hx-trigger</code> posts exactly what changed.</p>
     <pre><code><span class="cmt">&lt;!-- The table names the task table&#39;s columns; the rows are the tasks. --&gt;</span>
 &lt;div data-lattice-gantt hx-trigger="lattice:gantt-change from:body"
-     hx-post="/tasks/{id}" hx-vals='js:{ id: event.detail.id, kind: event.detail.kind, changes: JSON.stringify(event.detail.changes) }'&gt;
+     hx-post="/tasks" hx-vals='js:{ id: event.detail.id, kind: event.detail.kind, changes: JSON.stringify(event.detail.changes) }'&gt;
   &lt;table&gt;
     &lt;thead&gt;&lt;tr&gt;&lt;th data-field="name"&gt;Task&lt;/th&gt;&lt;th data-field="start"&gt;Start&lt;/th&gt;&lt;th data-field="end"&gt;End&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
     &lt;tbody&gt;
@@ -1925,10 +1925,10 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
     <h3 id="grid-hx-vals">Posting a declarative grid&#39;s edits</h3>
-    <p class="section-note">A <code>data-lattice-grid</code> element is the grid&#39;s own declarative host: <code>autoInit</code> builds it, and <code>GRID_CHANGE_EVENT</code> re-raises each committed cell edit as a bubbling <code>lattice:grid-change</code> on that host. <code>detail</code> carries the row <code>key</code>, the edited column&#39;s <code>field</code> and the <code>oldValue</code>/<code>newValue</code>, so an <code>hx-trigger</code> posts exactly what changed. A programmatic <code>rows.apply</code>/<code>rows.load</code> posts nothing — it announces <code>rows:changed</code> on the grid&#39;s own bus, not <code>cell:changed</code>.</p>
+    <p class="section-note">A <code>data-lattice-grid</code> element is the grid&#39;s own declarative host: <code>autoInit</code> builds it, and <code>GRID_CHANGE_EVENT</code> re-raises each committed cell edit as a bubbling <code>lattice:grid-change</code> on that host. <code>detail</code> carries the row <code>key</code>, the edited column&#39;s <code>field</code> and the <code>oldValue</code>/<code>newValue</code>, so an <code>hx-trigger</code> posts exactly what changed. A programmatic <code>rows.apply</code>/<code>rows.load</code> posts nothing — it announces <code>rows:changed</code> on the grid&#39;s own bus, not <code>cell:changed</code>. htmx does not fill a <code>{key}</code> placeholder in an <code>hx-post</code> URL — the request would go literally to <code>/rows/%7Bkey%7D</code> — so the edit posts to the collection URL and the row key rides in the request body through <code>hx-vals</code>, the mechanism htmx actually fills.</p>
     <pre><code><span class="cmt">&lt;!-- The grid, built declaratively; hx-trigger posts each committed edit. --&gt;</span>
 &lt;div data-lattice-grid hx-trigger="lattice:grid-change from:body"
-     hx-post="/rows/{key}" hx-vals='js:{ key: event.detail.key, field: event.detail.field, oldValue: event.detail.oldValue, newValue: event.detail.newValue }'&gt;
+     hx-post="/rows" hx-vals='js:{ key: event.detail.key, field: event.detail.field, oldValue: event.detail.oldValue, newValue: event.detail.newValue }'&gt;
   &lt;script type="application/json" data-lattice-config&gt;{
     "columns": [{ "field": "name" }, { "field": "status" }],
     "rows": [{ "id": 1, "name": "Design", "status": "open" }],
@@ -1964,7 +1964,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 &lt;div id="cal-source" data-lattice-grid&gt;&lt;/div&gt;
 &lt;script type="application/json" data-lattice-config&gt;{"columns":[{"field":"start"}],"rows":[{"id":"a","start":"2026-09-28 10:00"}],"rowKey":"id"}&lt;/script&gt;
 &lt;div data-lattice-calendar data-lattice-bind="cal-source" hx-trigger="lattice:calendar-change from:body"
-     hx-post="/events/{id}" hx-vals='js:{ id: event.detail.id, start: event.detail.start, end: event.detail.end }'&gt;&lt;/div&gt;
+     hx-post="/events" hx-vals='js:{ id: event.detail.id, start: event.detail.start, end: event.detail.end }'&gt;&lt;/div&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
     <h3 id="calendar-view-of-a-data-grid">Declaring a calendar view of a data grid</h3>
@@ -2043,7 +2043,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     <p class="section-note">A card drag re-raises a bubbling <code>lattice:kanban-change</code> on the host — one event per moved card, with <code>detail</code> <code>{ id, from, to, index, lane }</code> — so an <code>hx-trigger</code> posts exactly the move the user made.</p>
     <pre><code><span class="cmt">&lt;!-- The board: a drag posts the card key, its old column and its new column. --&gt;</span>
 &lt;div data-lattice-kanban hx-trigger="lattice:kanban-change from:body"
-     hx-post="/cards/{id}" hx-vals='js:{ id: event.detail.id, from: event.detail.from, to: event.detail.to }'&gt;
+     hx-post="/cards" hx-vals='js:{ id: event.detail.id, from: event.detail.from, to: event.detail.to }'&gt;
   &lt;table&gt;
     &lt;thead&gt;&lt;tr&gt;&lt;th data-field="title"&gt;Title&lt;/th&gt;&lt;th data-field="status"&gt;Status&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
     &lt;tbody&gt;

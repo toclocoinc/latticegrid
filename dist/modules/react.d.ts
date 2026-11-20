@@ -1,14 +1,14 @@
 /*!
- * Lattice Grid 1.126.0, react module type declarations
+ * Lattice Grid 1.127.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   EventName,
+  EventPayload,
   FilterSet,
   Grid,
   GridConfig,
-  GridEvent,
   Row,
   RowChange,
   SortEntry,
@@ -52,9 +52,14 @@ export type PascalJoin<E extends string> =
  */
 export type HandlerProp<E extends string> = `on${PascalJoin<E>}`;
 
-/** Every grid event as a React callback prop, each receiving the `GridEvent`. */
+/**
+ * Every grid event as a React callback prop, each handed that event's own
+ * payload: `onCellClicked` receives a `CellPointerEvent`, `onSortChanged` a
+ * `SortChangedEvent`, and an event that carries nothing of its own receives
+ * the `GridEvent` envelope.
+ */
 export type LatticeGridEventProps = {
-  [E in EventName as HandlerProp<E>]?: (event: GridEvent) => void;
+  [E in EventName as HandlerProp<E>]?: (event: EventPayload<E>) => void;
 };
 
 /** The live instance a `<LatticeGrid>` ref exposes; `null` before mount. */
@@ -103,7 +108,15 @@ export type LatticeGridProps<Row = unknown> =
     rowUpdates?: RowChange;
     /** Told when the grid exists, for a parent that cannot use a ref. */
     onGridReady?: (grid: Grid) => void;
-    /** Told just before the grid is destroyed. */
+    /**
+     * Told just before the grid is destroyed — the canonical name, matching
+     * Vue's `@grid-destroyed` and Svelte's `onGridDestroyed`.
+     */
+    onGridDestroyed?: () => void;
+    /**
+     * Deprecated pre-1.127 name for {@link onGridDestroyed}; still fires,
+     * with a one-time deprecation warning, and is removed in a later release.
+     */
     onGridDestroy?: () => void;
     /** The name this grid publishes itself under in a `LatticeGridProvider`. */
     name?: string;

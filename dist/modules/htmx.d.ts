@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.126.0, htmx module type declarations
+ * Lattice Grid 1.127.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -16,6 +16,7 @@ import type {
   Registry,
   StateApplyReport,
   StateSection,
+  TEMPERATURE_SCALES,
   UNIT_SYSTEMS,
   WINDOW_KINDS,
   Window,
@@ -24,6 +25,7 @@ import type {
   capabilitiesOf,
   compileRules,
   convertMoney,
+  convertTemperature,
   createCurrencyType,
   createHeadlessGrid,
   createMessages,
@@ -31,6 +33,7 @@ import type {
   createPushdownSource,
   createRadixType,
   createStat,
+  createTemperatureType,
   createUnitType,
   defineUnit,
   deltaOf,
@@ -39,6 +42,7 @@ import type {
   evaluateFormula,
   formatList,
   formatMoney,
+  formatTemperature,
   formatUnit,
   getVersion,
   ingest,
@@ -51,6 +55,7 @@ import type {
   odataAdapter,
   openWindow,
   parseMoney,
+  parseTemperature,
   parseUnit,
   planQuery,
   rateFunction,
@@ -418,6 +423,7 @@ export const HTML_ROW_WARNING_THRESHOLD: number;
 export {
   createHeadlessGrid, version, getVersion, Grid, Registry, registerModules,
   createRadixType, createUnitType, registerUnitSystem, defineUnit, UNIT_SYSTEMS, parseUnit, formatUnit,
+  createTemperatureType, convertTemperature, parseTemperature, formatTemperature, TEMPERATURE_SCALES,
   createCurrencyType, parseMoney, formatMoney, convertMoney, rateFunction, MISSING_RATE,
   Messages, createMessages, auditCatalogue, registerLocale,
   EN_GB, MESSAGE_KEYS, DEFAULT_LOCALE, formatList, resolveLocale,

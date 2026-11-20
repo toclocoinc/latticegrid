@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.126.0, type declarations
+ * Lattice Grid 1.127.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2283,6 +2283,16 @@ export interface ColumnTypeOptions extends BigIntTypeOptions {
    */
   decimals?: number;
   /**
+   * The display unit of a `unit` or `temperature` column, read from
+   * `typeOptions`. A symbol from the column's unit system —
+   * `typeOptions: { display: 'psi' }` on a pressure column renders in psi — or
+   * a temperature scale — `typeOptions: { display: 'F' }` shows a Celsius
+   * column in Fahrenheit. Display only: the stored number never changes, so
+   * sort, filter, totals and export are unaffected. An unknown symbol warns
+   * and renders in the stored unit.
+   */
+  display?: string;
+  /**
    * A `bigint` column's digit grouping. `true` by default (`1,000,000.5` in an
    * `en` grid); `false` shows the digits with no separators.
    */
@@ -2321,6 +2331,25 @@ export interface ColumnTypeOptions extends BigIntTypeOptions {
    * own logical value.
    */
   storeNumber?: boolean;
+  /**
+   * A `timestamp` column that shows its time to the second. `false` by default,
+   * so the time reads to the minute; `true` shows `HH:mm:ss`. Read from
+   * `typeOptions`; a `datetime` column reads the same option.
+   */
+  seconds?: boolean;
+  /**
+   * The IANA zone a `timestamp` column renders and reads in, from `typeOptions`.
+   * The stored instant never changes — only the wall clock shown for it does.
+   * Falls back to the grid's `config.timeZone`, then the viewer's zone.
+   */
+  timeZone?: string;
+  /**
+   * A date pattern a `timestamp` column renders with, from `typeOptions`, taking
+   * the same tokens as a `date` pattern — `'yyyy-MM-dd HH:mm:ss'`, `'dd MMM yyyy
+   * HH:mm'`. Overrides the default date-plus-time styling and shows exactly the
+   * fields the pattern names.
+   */
+  pattern?: string;
   /**
    * Any other option a data type reads from its column: a weighted average's
    * `weight` column, a unit's `significantFigures`.
@@ -2990,7 +3019,8 @@ export type Operator =
   | 'containsAny' | 'containsAll' | 'containsNone'
   | SpatialOperator
   | ListOperator
-  | MacOperator;
+  | MacOperator
+  | NetworkOperator;
 
 /**
  * The four operators of a `list` column (declared by the type the opt-in
@@ -3049,6 +3079,18 @@ export type SpatialOperator = 'withinBbox' | 'withinPolygon' | 'intersects' | 'w
  *   separators stripped from both sides and case ignored.
  */
 export type MacOperator = 'macEquals' | 'macInRange' | 'macContains';
+
+/**
+ * The one operator the built-in `ipv4` and `ipv6` data types bring beyond the
+ * §9.3 set, evaluated in memory: `inSubnet` — the address
+ * falls inside the operand's CIDR block, given as text (`10.1.0.0/16`,
+ * `2001:db8::/32`). Unlike {@link MacOperator} or {@link SpatialOperator},
+ * which are all their column accepts, `ipv4` and `ipv6` columns accept this
+ * *alongside* their other operators — `eq`, `contains`, `between` and the
+ * rest keep working, and `ipv4`'s ordering and range operators also accept
+ * dotted-quad text wherever they already accepted the packed integer.
+ */
+export type NetworkOperator = 'inSubnet';
 
 /** A box in degrees, `[minLon, minLat, maxLon, maxLat]`: the operand of `withinBbox`. */
 export type SpatialBbox = [number, number, number, number];
@@ -3989,7 +4031,7 @@ export interface CrossFilter {
 
 /**
  * Where a grid's rows come from: an array held in memory, a paged endpoint, a
- * remote query, a live stream, or rows derived from another grid. The `type`
+ * remote query, a live stream, or rows derived from another grid. The `mode`
  * field picks which, and the rest of the object is that source's own options.
  */
 export type SourceConfig =
@@ -6799,7 +6841,11 @@ export interface PushdownSourceConfig {
    * declares what it can do and executes it.
    */
   adapter: PushdownAdapter;
-  /** The compute barrel, for applying whatever the engine could not. */
+  /**
+   * The compute barrel, for applying whatever the engine could not. Optional:
+   * absent, the grid's own filter and sort kernels finish in the browser every
+   * filter and sort the adapter cannot run, with the in-memory grid's results.
+   */
   compute?: object;
   /** How many rows are fetched per block. 100 by default. */
   pageSize?: number;
@@ -9249,6 +9295,28 @@ export type EventHandler = (e: GridEvent) => void;
  * keep hold of the handler for an `off()`.
  */
 export type Unsubscribe = () => void;
+
+/**
+ * The payload one grid event delivers to a handler.
+ *
+ * The event's own interface when it has one — `cell:clicked` carries a
+ * {@link CellPointerEvent}, `sort:changed` a {@link SortChangedEvent} — or the
+ * bare {@link GridEvent} envelope when the event carries nothing of its own
+ * (an {@link EventPayloads} entry of `void`, for which the bus still hands the
+ * handler the `type`/`origin`/`grid` envelope).
+ */
+export type EventPayload<E extends EventName> =
+  EventPayloads[E] extends void ? GridEvent : EventPayloads[E];
+
+/**
+ * A function subscribed to one grid event, handed that event's specific
+ * payload.
+ *
+ * {@link Grid.on} takes an `E` and gives the handler its {@link EventPayload}
+ * rather than the generic {@link GridEvent}, so `grid.on('cell:clicked', e =>
+ * e.row…)` autocompletes `row` and types it.
+ */
+export type EventHandlerFor<E extends EventName> = (event: EventPayload<E>) => void;
 
 // ---------------------------------------------------------------------------
 // Modules and licensing (spec 2, 3.3)
@@ -12938,11 +13006,11 @@ export interface Grid {
   setAll(values: Partial<GridConfig>): void;
 
   /** Listen. Returns the function that stops listening. */
-  on(event: EventName, handler: EventHandler): Unsubscribe;
+  on<E extends EventName>(event: E, handler: EventHandlerFor<E>): Unsubscribe;
   /** Listen until it fires once. */
-  once(event: EventName, handler: EventHandler): Unsubscribe;
+  once<E extends EventName>(event: E, handler: EventHandlerFor<E>): Unsubscribe;
   /** Stop listening. */
-  off(event: EventName, handler: EventHandler): void;
+  off<E extends EventName>(event: E, handler: EventHandlerFor<E>): void;
   /** Raise an event of your own on the grid's bus. */
   emit(event: string, payload?: Record<string, unknown>): void;
 
@@ -13219,6 +13287,55 @@ export function createUnitType(config?: UnitConfig): DataType;
 export function parseUnit(text: string | number, opts?: UnitConfig): number | null;
 export function formatUnit(value: number | null | undefined, opts?: UnitConfig): string;
 export const UNIT_SYSTEMS: Record<string, readonly UnitDescriptor[]>;
+
+/**
+ * One temperature scale: a symbol, its spellings, and the affine conversions
+ * into and out of kelvin, which is the pivot every pair of scales goes through.
+ */
+export interface TemperatureScale {
+  /** The canonical symbol, e.g. `'°C'` or `'°F'`. */
+  symbol: string;
+  /** Lowercase spellings that unambiguously mean this scale. */
+  aliases: string[];
+  /** Convert a reading in this scale into kelvin. */
+  toKelvin: (value: number) => number;
+  /** Convert a kelvin reading into this scale. */
+  fromKelvin: (kelvin: number) => number;
+}
+
+/**
+ * Options for a temperature column's storage and display. A Celsius column
+ * stores Celsius throughout; `display` changes only what the cell shows, so a
+ * column loaded in `'C'` can render in `'F'` without the stored reading moving.
+ */
+export interface TemperatureConfig {
+  /** The scale readings are stored in: `'C'`, `'F'`, `'K'` or `'R'`. `'C'` by default. */
+  scale?: string;
+  /**
+   * The scale to render in, e.g. `'F'` for a Celsius column shown in
+   * Fahrenheit. Unset renders in the stored scale. Display only: the stored
+   * reading never changes, so sort, filter and totals are unaffected.
+   */
+  display?: string;
+  /** A fixed number of decimal places: the minimum and the maximum both set. */
+  decimals?: number;
+  /** The fewest decimal places to show, padding with zeros. 0 by default. */
+  minDecimals?: number;
+  /** The most decimal places to show. One by default. */
+  maxDecimals?: number;
+  /** What sits between the number and the symbol. A single space by default. */
+  space?: string;
+  /** What to show for a value that is not a finite number. Empty by default. */
+  nullDisplay?: string;
+  /** The BCP-47 locale the number is formatted in. The grid's by default. */
+  locale?: string;
+}
+
+export function convertTemperature(value: number, from: string, to: string): number | null;
+export function parseTemperature(text: string | number, cfg?: TemperatureConfig): number | null;
+export function formatTemperature(value: unknown, cfg?: TemperatureConfig): string;
+export function createTemperatureType(config?: TemperatureConfig): DataType;
+export const TEMPERATURE_SCALES: Readonly<Record<string, TemperatureScale>>;
 
 /**
  * A stored currency value: an amount in a named currency. `{amount:10,code:'USD'}`
@@ -13800,6 +13917,33 @@ export function applyResidual(
   compute: object,
 ): unknown[];
 
+/**
+ * Evaluate a filter set over a set of rows into a mask, one entry per row:
+ * 1 where the row passes, 0 where it does not. The same kernel the in-memory
+ * grid filters with; the root is an `and` group, and `null` passes every row.
+ * The mask may be longer than `ctx.count`: read only `[0, ctx.count)`.
+ */
+export function evaluateFilters(
+  filters: object | null,
+  ctx: {
+    count: number;
+    handle(colId: string): { id: string; get(i: number): unknown } | undefined;
+    locale?: string;
+  },
+): Uint8Array;
+
+/**
+ * Sort row indices by several columns at once, most significant entry first.
+ * Each pass is stable, so ties keep their earlier order. Returns the indices in
+ * their new order. `order` holds the indices to sort, such as every row's index.
+ */
+export function sortMulti(
+  handles: { id: string; get(i: number): unknown }[],
+  entries: { col: string; dir?: 'asc' | 'desc'; descending?: boolean; nullsFirst?: boolean; locale?: string }[],
+  order: Uint32Array,
+  opts?: { locale?: string; count?: number },
+): Uint32Array;
+
 /** An adapter for any OData v4 endpoint. */
 export function odataAdapter(options: {
   url: string; fetch?: typeof fetch; headers?: Record<string, string>;
@@ -13829,6 +13973,14 @@ export function restAdapter(options: {
   params?: Partial<Record<'offset' | 'limit' | 'sort' | 'order' | 'filter' | 'search', string>>;
   capabilities?: PushdownCapabilities; operators?: string[];
   encodeFilter?: (filters: object) => string;
+  /**
+   * Map the pushed sort to the one-parameter shape the endpoint wants, instead
+   * of the default `sort`/`order` pair. Given the {@link SortEntry} list, return
+   * the whole `sort` parameter value. An API that takes one parameter per entry
+   * with a direction separator — openFDA's `sort=field:desc` — is described by
+   * `(sort) => sort.map((s) => \`${s.col}:${s.dir}\`).join(',')`.
+   */
+  encodeSort?: (sort: SortEntry[]) => string;
   rows?: (body: unknown) => unknown[]; total?: (body: unknown, rows: unknown[]) => number;
   /**
    * Opt the adapter into write-back. `false` (the default) declares the source
@@ -14212,8 +14364,10 @@ export function splunkAdapter(options: {
   latest?: string | number | Date;
   /**
    * The fields Splunk should return, emitted as `| fields`. Fewer fields is
-   * less work for the search head and less JSON on the wire; include the time
-   * column if the grid sorts on it.
+   * less work for the search head and less JSON on the wire. `_time` is always
+   * added, and Splunk's internal fields (`_raw`, `_bkt`, `_cd`, `_si` and their
+   * kin) are stripped unless they are named here — so a row is the requested
+   * fields plus `_time`, and never the whole event riding along inside `_raw`.
    */
   fields?: string[];
   /**
@@ -14613,6 +14767,11 @@ export const LatticeGrid: {
   parseUnit: typeof parseUnit;
   formatUnit: typeof formatUnit;
   UNIT_SYSTEMS: typeof UNIT_SYSTEMS;
+  createTemperatureType: typeof createTemperatureType;
+  convertTemperature: typeof convertTemperature;
+  parseTemperature: typeof parseTemperature;
+  formatTemperature: typeof formatTemperature;
+  TEMPERATURE_SCALES: typeof TEMPERATURE_SCALES;
   createCurrencyType: typeof createCurrencyType;
   parseMoney: typeof parseMoney;
   formatMoney: typeof formatMoney;
@@ -16613,11 +16772,13 @@ export interface ChartSpec {
   tooltipHost?: HTMLElement;
   /**
    * Draw the grid's selected rows emphasised, and follow the selection. A click
-   * on a mark that stands for rows selects them: a marker on a marker map, a
-   * network's node or link, an extension's items, a `pie`, `donut` or
+   * on a mark that stands for rows selects them — a bar, column, line, area,
+   * scatter or bubble point (every row behind the mark), a marker on a marker
+   * map, a network's node or link, an extension's items, a `pie`, `donut` or
    * `sunburst` slice, a `treemap` tile (every row at or beneath it), and a
-   * `chord` ribbon or arc. Marks the selection leaves out are
-   * dimmed.
+   * `chord` ribbon or arc. A second click on the same mark
+   * clears the selection again. Marks the selection leaves
+   * out are dimmed.
    */
   selection?: boolean;
   /** Clicking a group drills into it. */

@@ -1,5 +1,6 @@
 import * as i0 from '@angular/core';
 import { InjectionToken, EnvironmentProviders, Signal, OnChanges, OnDestroy, ElementRef, EventEmitter, NgZone, TemplateRef, QueryList, Provider } from '@angular/core';
+import * as _toclocoinc_lattice_grid from '@toclocoinc/lattice-grid';
 import { createGrid, Grid, GridConfig, SortEntry, FilterSet, RowChange, GridEvent } from '@toclocoinc/lattice-grid';
 import { createCalendar } from '@toclocoinc/lattice-grid/modules/calendar';
 import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
@@ -376,345 +377,345 @@ declare abstract class LatticeGridBase<TRow = unknown> implements OnChanges, OnD
     /** The grid's `render:first` event. */
     readonly renderFirst: EventEmitter<GridEvent>;
     /** The grid's `render:done` event. */
-    readonly renderDone: EventEmitter<GridEvent>;
+    readonly renderDone: EventEmitter<_toclocoinc_lattice_grid.RenderDoneEvent>;
     /** The grid's `config:changed` event. */
-    readonly configChanged: EventEmitter<GridEvent>;
+    readonly configChanged: EventEmitter<_toclocoinc_lattice_grid.ConfigChangedEvent>;
     /** The grid's `licence:changed` event. */
-    readonly licenceChanged: EventEmitter<GridEvent>;
+    readonly licenceChanged: EventEmitter<_toclocoinc_lattice_grid.LicenceChangedEvent>;
     /** The grid's `model:changed` event. */
-    readonly modelChanged: EventEmitter<GridEvent>;
+    readonly modelChanged: EventEmitter<_toclocoinc_lattice_grid.ModelChangedEvent>;
     /** The grid's `rows:changed` event. */
-    readonly rowsChanged: EventEmitter<GridEvent>;
+    readonly rowsChanged: EventEmitter<_toclocoinc_lattice_grid.RowsChangedEvent>;
     /** The grid's `rows:queued` event. */
-    readonly rowsQueued: EventEmitter<GridEvent>;
+    readonly rowsQueued: EventEmitter<_toclocoinc_lattice_grid.RowsQueuedEvent>;
     /** The grid's `rows:deferred` event. */
-    readonly rowsDeferred: EventEmitter<GridEvent>;
+    readonly rowsDeferred: EventEmitter<_toclocoinc_lattice_grid.RowsDeferredEvent>;
     /** The grid's `rows:paused` event. */
-    readonly rowsPaused: EventEmitter<GridEvent>;
+    readonly rowsPaused: EventEmitter<_toclocoinc_lattice_grid.RowsFlowEvent>;
     /** The grid's `rows:resumed` event. */
-    readonly rowsResumed: EventEmitter<GridEvent>;
+    readonly rowsResumed: EventEmitter<_toclocoinc_lattice_grid.RowsFlowEvent>;
     /** The grid's `row:received` event. */
-    readonly rowReceived: EventEmitter<GridEvent>;
+    readonly rowReceived: EventEmitter<_toclocoinc_lattice_grid.RowReceivedEvent>;
     /** The grid's `row:sent` event. */
-    readonly rowSent: EventEmitter<GridEvent>;
+    readonly rowSent: EventEmitter<_toclocoinc_lattice_grid.RowTransferEvent>;
     /** The grid's `row:copied` event. */
-    readonly rowCopied: EventEmitter<GridEvent>;
+    readonly rowCopied: EventEmitter<_toclocoinc_lattice_grid.RowTransferEvent>;
     /** The grid's `row:moved` event. */
-    readonly rowMoved: EventEmitter<GridEvent>;
+    readonly rowMoved: EventEmitter<_toclocoinc_lattice_grid.RowMovedEvent>;
     /** The grid's `source:error` event. */
-    readonly sourceError: EventEmitter<GridEvent>;
+    readonly sourceError: EventEmitter<_toclocoinc_lattice_grid.SourceErrorEvent>;
     /** The grid's `source:total` event. */
-    readonly sourceTotal: EventEmitter<GridEvent>;
+    readonly sourceTotal: EventEmitter<_toclocoinc_lattice_grid.SourceTotalEvent>;
     /** The grid's `stream:chunk` event. */
-    readonly streamChunk: EventEmitter<GridEvent>;
+    readonly streamChunk: EventEmitter<_toclocoinc_lattice_grid.StreamChunkEvent>;
     /** The grid's `stream:end` event. */
-    readonly streamEnd: EventEmitter<GridEvent>;
+    readonly streamEnd: EventEmitter<_toclocoinc_lattice_grid.StreamEndEvent>;
     /** The grid's `stream:evicted` event. */
-    readonly streamEvicted: EventEmitter<GridEvent>;
+    readonly streamEvicted: EventEmitter<_toclocoinc_lattice_grid.StreamEvictedEvent>;
     /** The grid's `rowDrag:started` event. */
-    readonly rowDragStarted: EventEmitter<GridEvent>;
+    readonly rowDragStarted: EventEmitter<_toclocoinc_lattice_grid.RowDragEvent>;
     /** The grid's `rowDrag:moved` event. */
-    readonly rowDragMoved: EventEmitter<GridEvent>;
+    readonly rowDragMoved: EventEmitter<_toclocoinc_lattice_grid.RowDragEvent>;
     /** The grid's `rowDrag:left` event. */
-    readonly rowDragLeft: EventEmitter<GridEvent>;
+    readonly rowDragLeft: EventEmitter<_toclocoinc_lattice_grid.RowDragEvent>;
     /** The grid's `rowDrag:ended` event. */
-    readonly rowDragEnded: EventEmitter<GridEvent>;
+    readonly rowDragEnded: EventEmitter<_toclocoinc_lattice_grid.RowDragEvent>;
     /** The grid's `beforeRowDrop` event. */
-    readonly beforeRowDrop: EventEmitter<GridEvent>;
+    readonly beforeRowDrop: EventEmitter<_toclocoinc_lattice_grid.BeforeRowDropEvent>;
     /** The grid's `rowDrop:cancelled` event. */
-    readonly rowDropCancelled: EventEmitter<GridEvent>;
+    readonly rowDropCancelled: EventEmitter<_toclocoinc_lattice_grid.RowDropCancelledEvent>;
     /** The grid's `rowDrop` event. */
-    readonly rowDrop: EventEmitter<GridEvent>;
+    readonly rowDrop: EventEmitter<_toclocoinc_lattice_grid.RowDropEvent>;
     /** The grid's `cell:changed` event. */
-    readonly cellChanged: EventEmitter<GridEvent>;
+    readonly cellChanged: EventEmitter<_toclocoinc_lattice_grid.CellChangedEvent>;
     /** The grid's `cell:pending` event. */
-    readonly cellPending: EventEmitter<GridEvent>;
+    readonly cellPending: EventEmitter<_toclocoinc_lattice_grid.CellPendingEvent>;
     /** The grid's `cell:confirmed` event. */
-    readonly cellConfirmed: EventEmitter<GridEvent>;
+    readonly cellConfirmed: EventEmitter<_toclocoinc_lattice_grid.CellConfirmedEvent>;
     /** The grid's `cell:reverted` event. */
-    readonly cellReverted: EventEmitter<GridEvent>;
+    readonly cellReverted: EventEmitter<_toclocoinc_lattice_grid.CellRevertedEvent>;
     /** The grid's `cell:conflict` event. */
-    readonly cellConflict: EventEmitter<GridEvent>;
+    readonly cellConflict: EventEmitter<_toclocoinc_lattice_grid.CellConflictEvent>;
     /** The grid's `cell:clicked` event. */
-    readonly cellClicked: EventEmitter<GridEvent>;
+    readonly cellClicked: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:dblclicked` event. */
-    readonly cellDblclicked: EventEmitter<GridEvent>;
+    readonly cellDblclicked: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:contextmenu` event. */
-    readonly cellContextmenu: EventEmitter<GridEvent>;
+    readonly cellContextmenu: EventEmitter<_toclocoinc_lattice_grid.CellContextMenuEvent>;
     /** The grid's `cell:mouseover` event. */
-    readonly cellMouseover: EventEmitter<GridEvent>;
+    readonly cellMouseover: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:mouseout` event. */
-    readonly cellMouseout: EventEmitter<GridEvent>;
+    readonly cellMouseout: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:mousedown` event. */
-    readonly cellMousedown: EventEmitter<GridEvent>;
+    readonly cellMousedown: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:mouseup` event. */
-    readonly cellMouseup: EventEmitter<GridEvent>;
+    readonly cellMouseup: EventEmitter<_toclocoinc_lattice_grid.CellPointerEvent>;
     /** The grid's `cell:edit:start` event. */
-    readonly cellEditStart: EventEmitter<GridEvent>;
+    readonly cellEditStart: EventEmitter<_toclocoinc_lattice_grid.EditStartEvent>;
     /** The grid's `cell:edit:end` event. */
-    readonly cellEditEnd: EventEmitter<GridEvent>;
+    readonly cellEditEnd: EventEmitter<_toclocoinc_lattice_grid.EditEndEvent>;
     /** The grid's `row:edit:start` event. */
-    readonly rowEditStart: EventEmitter<GridEvent>;
+    readonly rowEditStart: EventEmitter<_toclocoinc_lattice_grid.EditStartEvent>;
     /** The grid's `row:edit:end` event. */
-    readonly rowEditEnd: EventEmitter<GridEvent>;
+    readonly rowEditEnd: EventEmitter<_toclocoinc_lattice_grid.EditEndEvent>;
     /** The grid's `row:clicked` event. */
-    readonly rowClicked: EventEmitter<GridEvent>;
+    readonly rowClicked: EventEmitter<_toclocoinc_lattice_grid.RowPointerEvent>;
     /** The grid's `row:dblclicked` event. */
-    readonly rowDblclicked: EventEmitter<GridEvent>;
+    readonly rowDblclicked: EventEmitter<_toclocoinc_lattice_grid.RowPointerEvent>;
     /** The grid's `row:pending` event. */
-    readonly rowPending: EventEmitter<GridEvent>;
+    readonly rowPending: EventEmitter<_toclocoinc_lattice_grid.RowPendingEvent>;
     /** The grid's `row:confirmed` event. */
-    readonly rowConfirmed: EventEmitter<GridEvent>;
+    readonly rowConfirmed: EventEmitter<_toclocoinc_lattice_grid.RowConfirmedEvent>;
     /** The grid's `row:reverted` event. */
-    readonly rowReverted: EventEmitter<GridEvent>;
+    readonly rowReverted: EventEmitter<_toclocoinc_lattice_grid.RowRevertedEvent>;
     /** The grid's `row:conflict` event. */
-    readonly rowConflict: EventEmitter<GridEvent>;
+    readonly rowConflict: EventEmitter<_toclocoinc_lattice_grid.RowConflictEvent>;
     /** The grid's `form:opened` event. */
-    readonly formOpened: EventEmitter<GridEvent>;
+    readonly formOpened: EventEmitter<_toclocoinc_lattice_grid.FormOpenedEvent>;
     /** The grid's `form:closed` event. */
-    readonly formClosed: EventEmitter<GridEvent>;
+    readonly formClosed: EventEmitter<_toclocoinc_lattice_grid.FormClosedEvent>;
     /** The grid's `form:saved` event. */
-    readonly formSaved: EventEmitter<GridEvent>;
+    readonly formSaved: EventEmitter<_toclocoinc_lattice_grid.FormSavedEvent>;
     /** The grid's `form:error` event. */
-    readonly formError: EventEmitter<GridEvent>;
+    readonly formError: EventEmitter<_toclocoinc_lattice_grid.FormErrorEvent>;
     /** The grid's `sort:changed` event. */
-    readonly sortChanged: EventEmitter<GridEvent>;
+    readonly sortChanged: EventEmitter<_toclocoinc_lattice_grid.SortChangedEvent>;
     /** The grid's `filter:changed` event. */
-    readonly filterChanged: EventEmitter<GridEvent>;
+    readonly filterChanged: EventEmitter<_toclocoinc_lattice_grid.FilterChangedEvent>;
     /** The grid's `group:toggled` event. */
-    readonly groupToggled: EventEmitter<GridEvent>;
+    readonly groupToggled: EventEmitter<_toclocoinc_lattice_grid.GroupToggledEvent>;
     /** The grid's `facet:computed` event. */
-    readonly facetComputed: EventEmitter<GridEvent>;
+    readonly facetComputed: EventEmitter<_toclocoinc_lattice_grid.FacetComputedEvent>;
     /** The grid's `facet:filtered` event. */
-    readonly facetFiltered: EventEmitter<GridEvent>;
+    readonly facetFiltered: EventEmitter<_toclocoinc_lattice_grid.FacetFilteredEvent>;
     /** The grid's `facet:expanded` event. */
-    readonly facetExpanded: EventEmitter<GridEvent>;
+    readonly facetExpanded: EventEmitter<_toclocoinc_lattice_grid.FacetExpandedEvent>;
     /** The grid's `facet:failed` event. */
-    readonly facetFailed: EventEmitter<GridEvent>;
+    readonly facetFailed: EventEmitter<_toclocoinc_lattice_grid.FacetFailedEvent>;
     /** The grid's `column:moved` event. */
-    readonly columnMoved: EventEmitter<GridEvent>;
+    readonly columnMoved: EventEmitter<_toclocoinc_lattice_grid.ColumnMovedEvent>;
     /** The grid's `column:resized` event. */
-    readonly columnResized: EventEmitter<GridEvent>;
+    readonly columnResized: EventEmitter<_toclocoinc_lattice_grid.ColumnResizedEvent>;
     /** The grid's `column:visible` event. */
-    readonly columnVisible: EventEmitter<GridEvent>;
+    readonly columnVisible: EventEmitter<_toclocoinc_lattice_grid.ColumnVisibleEvent>;
     /** The grid's `column:pinned` event. */
-    readonly columnPinned: EventEmitter<GridEvent>;
+    readonly columnPinned: EventEmitter<_toclocoinc_lattice_grid.ColumnPinnedEvent>;
     /** The grid's `column:grouped` event. */
-    readonly columnGrouped: EventEmitter<GridEvent>;
+    readonly columnGrouped: EventEmitter<_toclocoinc_lattice_grid.ColumnGroupedEvent>;
     /** The grid's `column:pivoted` event. */
-    readonly columnPivoted: EventEmitter<GridEvent>;
+    readonly columnPivoted: EventEmitter<_toclocoinc_lattice_grid.ColumnPivotedEvent>;
     /** The grid's `column:filter:open` event. */
-    readonly columnFilterOpen: EventEmitter<GridEvent>;
+    readonly columnFilterOpen: EventEmitter<_toclocoinc_lattice_grid.ColumnMenuEvent>;
     /** The grid's `column:profile:open` event. */
-    readonly columnProfileOpen: EventEmitter<GridEvent>;
+    readonly columnProfileOpen: EventEmitter<_toclocoinc_lattice_grid.ColumnMenuEvent>;
     /** The grid's `column:compareGroups:open` event. */
-    readonly columnCompareGroupsOpen: EventEmitter<GridEvent>;
+    readonly columnCompareGroupsOpen: EventEmitter<_toclocoinc_lattice_grid.ColumnMenuEvent>;
     /** The grid's `explain:open` event. */
-    readonly explainOpen: EventEmitter<GridEvent>;
+    readonly explainOpen: EventEmitter<_toclocoinc_lattice_grid.ExplainOpenEvent>;
     /** The grid's `column:menu:open` event. */
-    readonly columnMenuOpen: EventEmitter<GridEvent>;
+    readonly columnMenuOpen: EventEmitter<_toclocoinc_lattice_grid.ColumnMenuEvent>;
     /** The grid's `columns:changed` event. */
-    readonly columnsChanged: EventEmitter<GridEvent>;
+    readonly columnsChanged: EventEmitter<_toclocoinc_lattice_grid.ColumnsChangedEvent>;
     /** The grid's `columns:tagged` event. */
-    readonly columnsTagged: EventEmitter<GridEvent>;
+    readonly columnsTagged: EventEmitter<_toclocoinc_lattice_grid.ColumnsTaggedEvent>;
     /** The grid's `columngroup:changed` event. */
-    readonly columngroupChanged: EventEmitter<GridEvent>;
+    readonly columngroupChanged: EventEmitter<_toclocoinc_lattice_grid.ColumnGroupChangedEvent>;
     /** The grid's `header:contextmenu` event. */
-    readonly headerContextmenu: EventEmitter<GridEvent>;
+    readonly headerContextmenu: EventEmitter<_toclocoinc_lattice_grid.HeaderContextMenuEvent>;
     /** The grid's `totals:contextmenu` event. */
-    readonly totalsContextmenu: EventEmitter<GridEvent>;
+    readonly totalsContextmenu: EventEmitter<_toclocoinc_lattice_grid.TotalsContextMenuEvent>;
     /** The grid's `pivot:drill` event. */
-    readonly pivotDrill: EventEmitter<GridEvent>;
+    readonly pivotDrill: EventEmitter<_toclocoinc_lattice_grid.PivotDrillEvent>;
     /** The grid's `selection:changed` event. */
-    readonly selectionChanged: EventEmitter<GridEvent>;
+    readonly selectionChanged: EventEmitter<_toclocoinc_lattice_grid.SelectionChangedEvent>;
     /** The grid's `range:changed` event. */
-    readonly rangeChanged: EventEmitter<GridEvent>;
+    readonly rangeChanged: EventEmitter<_toclocoinc_lattice_grid.RangeChangedEvent>;
     /** The grid's `clipboard:copy` event. */
-    readonly clipboardCopy: EventEmitter<GridEvent>;
+    readonly clipboardCopy: EventEmitter<_toclocoinc_lattice_grid.ClipboardCopyEvent>;
     /** The grid's `page:changed` event. */
-    readonly pageChanged: EventEmitter<GridEvent>;
+    readonly pageChanged: EventEmitter<_toclocoinc_lattice_grid.PageChangedEvent>;
     /** The grid's `scroll` event. */
-    readonly scroll: EventEmitter<GridEvent>;
+    readonly scroll: EventEmitter<_toclocoinc_lattice_grid.ScrollEvent>;
     /** The grid's `scroll:end` event. */
-    readonly scrollEnd: EventEmitter<GridEvent>;
+    readonly scrollEnd: EventEmitter<_toclocoinc_lattice_grid.ScrollEvent>;
     /** The grid's `size:changed` event. */
     readonly sizeChanged: EventEmitter<GridEvent>;
     /** The grid's `detail:toggled` event. */
-    readonly detailToggled: EventEmitter<GridEvent>;
+    readonly detailToggled: EventEmitter<_toclocoinc_lattice_grid.DetailToggledEvent>;
     /** The grid's `detail:cell:edit:start` event. */
-    readonly detailCellEditStart: EventEmitter<GridEvent>;
+    readonly detailCellEditStart: EventEmitter<_toclocoinc_lattice_grid.DetailCellEditStartEvent>;
     /** The grid's `detail:cell:edit:end` event. */
-    readonly detailCellEditEnd: EventEmitter<GridEvent>;
+    readonly detailCellEditEnd: EventEmitter<_toclocoinc_lattice_grid.DetailCellEditEndEvent>;
     /** The grid's `detail:row:edit:start` event. */
-    readonly detailRowEditStart: EventEmitter<GridEvent>;
+    readonly detailRowEditStart: EventEmitter<_toclocoinc_lattice_grid.DetailRowEditStartEvent>;
     /** The grid's `detail:row:edit:end` event. */
-    readonly detailRowEditEnd: EventEmitter<GridEvent>;
+    readonly detailRowEditEnd: EventEmitter<_toclocoinc_lattice_grid.DetailRowEditEndEvent>;
     /** The grid's `detail:cell:changed` event. */
-    readonly detailCellChanged: EventEmitter<GridEvent>;
+    readonly detailCellChanged: EventEmitter<_toclocoinc_lattice_grid.DetailCellChangedEvent>;
     /** The grid's `toolpanel:focus` event. */
     readonly toolpanelFocus: EventEmitter<GridEvent>;
     /** The grid's `highlight:changed` event. */
-    readonly highlightChanged: EventEmitter<GridEvent>;
+    readonly highlightChanged: EventEmitter<_toclocoinc_lattice_grid.HighlightChangedEvent>;
     /** The grid's `find:changed` event. */
-    readonly findChanged: EventEmitter<GridEvent>;
+    readonly findChanged: EventEmitter<_toclocoinc_lattice_grid.FindChangedEvent>;
     /** The grid's `tree:loading` event. */
-    readonly treeLoading: EventEmitter<GridEvent>;
+    readonly treeLoading: EventEmitter<_toclocoinc_lattice_grid.TreeLoadingEvent>;
     /** The grid's `tree:loaded` event. */
-    readonly treeLoaded: EventEmitter<GridEvent>;
+    readonly treeLoaded: EventEmitter<_toclocoinc_lattice_grid.TreeLoadedEvent>;
     /** The grid's `tree:loadFailed` event. */
-    readonly treeLoadFailed: EventEmitter<GridEvent>;
+    readonly treeLoadFailed: EventEmitter<_toclocoinc_lattice_grid.TreeLoadFailedEvent>;
     /** The grid's `tree:loadAborted` event. */
-    readonly treeLoadAborted: EventEmitter<GridEvent>;
+    readonly treeLoadAborted: EventEmitter<_toclocoinc_lattice_grid.TreeLoadAbortedEvent>;
     /** The grid's `state:changed` event. */
-    readonly stateChanged: EventEmitter<GridEvent>;
+    readonly stateChanged: EventEmitter<_toclocoinc_lattice_grid.StateChangedEvent>;
     /** The grid's `state:reset` event. */
-    readonly stateReset: EventEmitter<GridEvent>;
+    readonly stateReset: EventEmitter<_toclocoinc_lattice_grid.StateResetEvent>;
     /** The grid's `history:changed` event. */
-    readonly historyChanged: EventEmitter<GridEvent>;
+    readonly historyChanged: EventEmitter<_toclocoinc_lattice_grid.HistoryChangedEvent>;
     /** The grid's `history:applied` event. */
-    readonly historyApplied: EventEmitter<GridEvent>;
+    readonly historyApplied: EventEmitter<_toclocoinc_lattice_grid.HistoryAppliedEvent>;
     /** The grid's `views:changed` event. */
-    readonly viewsChanged: EventEmitter<GridEvent>;
+    readonly viewsChanged: EventEmitter<_toclocoinc_lattice_grid.ViewsChangedEvent>;
     /** The grid's `view:applied` event. */
-    readonly viewApplied: EventEmitter<GridEvent>;
+    readonly viewApplied: EventEmitter<_toclocoinc_lattice_grid.ViewAppliedEvent>;
     /** The grid's `view:saved` event. */
-    readonly viewSaved: EventEmitter<GridEvent>;
+    readonly viewSaved: EventEmitter<_toclocoinc_lattice_grid.ViewChangedEvent>;
     /** The grid's `view:removed` event. */
-    readonly viewRemoved: EventEmitter<GridEvent>;
+    readonly viewRemoved: EventEmitter<_toclocoinc_lattice_grid.ViewChangedEvent>;
     /** The grid's `view:renamed` event. */
-    readonly viewRenamed: EventEmitter<GridEvent>;
+    readonly viewRenamed: EventEmitter<_toclocoinc_lattice_grid.ViewChangedEvent>;
     /** The grid's `view:default` event. */
-    readonly viewDefault: EventEmitter<GridEvent>;
+    readonly viewDefault: EventEmitter<_toclocoinc_lattice_grid.ViewChangedEvent>;
     /** The grid's `formatting:changed` event. */
-    readonly formattingChanged: EventEmitter<GridEvent>;
+    readonly formattingChanged: EventEmitter<_toclocoinc_lattice_grid.FormattingChangedEvent>;
     /** The grid's `redaction:changed` event. */
-    readonly redactionChanged: EventEmitter<GridEvent>;
+    readonly redactionChanged: EventEmitter<_toclocoinc_lattice_grid.RedactionChangedEvent>;
     /** The grid's `permissions:changed` event. */
-    readonly permissionsChanged: EventEmitter<GridEvent>;
+    readonly permissionsChanged: EventEmitter<_toclocoinc_lattice_grid.PermissionsChangedEvent>;
     /** The grid's `presentation:changed` event. */
-    readonly presentationChanged: EventEmitter<GridEvent>;
+    readonly presentationChanged: EventEmitter<_toclocoinc_lattice_grid.PresentationChangedEvent>;
     /** The grid's `presentation:started` event. */
-    readonly presentationStarted: EventEmitter<GridEvent>;
+    readonly presentationStarted: EventEmitter<_toclocoinc_lattice_grid.PresentationStartedEvent>;
     /** The grid's `presentation:ended` event. */
     readonly presentationEnded: EventEmitter<GridEvent>;
     /** The grid's `presentation:view` event. */
-    readonly presentationView: EventEmitter<GridEvent>;
+    readonly presentationView: EventEmitter<_toclocoinc_lattice_grid.PresentationViewEvent>;
     /** The grid's `presentation:scale` event. */
-    readonly presentationScale: EventEmitter<GridEvent>;
+    readonly presentationScale: EventEmitter<_toclocoinc_lattice_grid.PresentationScaleEvent>;
     /** The grid's `presentation:spotlight` event. */
-    readonly presentationSpotlight: EventEmitter<GridEvent>;
+    readonly presentationSpotlight: EventEmitter<_toclocoinc_lattice_grid.PresentationSpotlightEvent>;
     /** The grid's `presentation:captured` event. */
-    readonly presentationCaptured: EventEmitter<GridEvent>;
+    readonly presentationCaptured: EventEmitter<_toclocoinc_lattice_grid.PresentationCapturedEvent>;
     /** The grid's `comment:added` event. */
-    readonly commentAdded: EventEmitter<GridEvent>;
+    readonly commentAdded: EventEmitter<_toclocoinc_lattice_grid.CommentAddedEvent>;
     /** The grid's `comment:edited` event. */
-    readonly commentEdited: EventEmitter<GridEvent>;
+    readonly commentEdited: EventEmitter<_toclocoinc_lattice_grid.CommentEvent>;
     /** The grid's `comment:deleted` event. */
-    readonly commentDeleted: EventEmitter<GridEvent>;
+    readonly commentDeleted: EventEmitter<_toclocoinc_lattice_grid.CommentEvent>;
     /** The grid's `comment:failed` event. */
-    readonly commentFailed: EventEmitter<GridEvent>;
+    readonly commentFailed: EventEmitter<_toclocoinc_lattice_grid.CommentFailedEvent>;
     /** The grid's `comment:resolved` event. */
-    readonly commentResolved: EventEmitter<GridEvent>;
+    readonly commentResolved: EventEmitter<_toclocoinc_lattice_grid.CommentResolvedEvent>;
     /** The grid's `comment:unresolved` event. */
-    readonly commentUnresolved: EventEmitter<GridEvent>;
+    readonly commentUnresolved: EventEmitter<_toclocoinc_lattice_grid.CommentResolvedEvent>;
     /** The grid's `comment:threadOpened` event. */
-    readonly commentThreadOpened: EventEmitter<GridEvent>;
+    readonly commentThreadOpened: EventEmitter<_toclocoinc_lattice_grid.CommentThreadOpenedEvent>;
     /** The grid's `comment:threadClosed` event. */
-    readonly commentThreadClosed: EventEmitter<GridEvent>;
+    readonly commentThreadClosed: EventEmitter<_toclocoinc_lattice_grid.CommentThreadClosedEvent>;
     /** The grid's `comment:indexLoaded` event. */
-    readonly commentIndexLoaded: EventEmitter<GridEvent>;
+    readonly commentIndexLoaded: EventEmitter<_toclocoinc_lattice_grid.CommentIndexLoadedEvent>;
     /** The grid's `presence:published` event. */
-    readonly presencePublished: EventEmitter<GridEvent>;
+    readonly presencePublished: EventEmitter<_toclocoinc_lattice_grid.PresencePublishedEvent>;
     /** The grid's `presence:joined` event. */
-    readonly presenceJoined: EventEmitter<GridEvent>;
+    readonly presenceJoined: EventEmitter<_toclocoinc_lattice_grid.PresencePeerEvent>;
     /** The grid's `presence:updated` event. */
-    readonly presenceUpdated: EventEmitter<GridEvent>;
+    readonly presenceUpdated: EventEmitter<_toclocoinc_lattice_grid.PresencePeerEvent>;
     /** The grid's `presence:left` event. */
-    readonly presenceLeft: EventEmitter<GridEvent>;
+    readonly presenceLeft: EventEmitter<_toclocoinc_lattice_grid.PresenceLeftEvent>;
     /** The grid's `presence:failed` event. */
-    readonly presenceFailed: EventEmitter<GridEvent>;
+    readonly presenceFailed: EventEmitter<_toclocoinc_lattice_grid.PresenceFailedEvent>;
     /** The grid's `presence:lockRefused` event. */
-    readonly presenceLockRefused: EventEmitter<GridEvent>;
+    readonly presenceLockRefused: EventEmitter<_toclocoinc_lattice_grid.PresenceLockRefusedEvent>;
     /** The grid's `diff:changed` event. */
-    readonly diffChanged: EventEmitter<GridEvent>;
+    readonly diffChanged: EventEmitter<_toclocoinc_lattice_grid.DiffChangedEvent>;
     /** The grid's `diff:swapped` event. */
-    readonly diffSwapped: EventEmitter<GridEvent>;
+    readonly diffSwapped: EventEmitter<_toclocoinc_lattice_grid.DiffSwappedEvent>;
     /** The grid's `timeline:attached` event. */
-    readonly timelineAttached: EventEmitter<GridEvent>;
+    readonly timelineAttached: EventEmitter<_toclocoinc_lattice_grid.TimelineAttachedEvent>;
     /** The grid's `timeline:detached` event. */
     readonly timelineDetached: EventEmitter<GridEvent>;
     /** The grid's `timeline:seek` event. */
-    readonly timelineSeek: EventEmitter<GridEvent>;
+    readonly timelineSeek: EventEmitter<_toclocoinc_lattice_grid.TimelineSeekEvent>;
     /** The grid's `timeline:seeking` event. */
-    readonly timelineSeeking: EventEmitter<GridEvent>;
+    readonly timelineSeeking: EventEmitter<_toclocoinc_lattice_grid.TimelineSeekingEvent>;
     /** The grid's `annotation:changed` event. */
-    readonly annotationChanged: EventEmitter<GridEvent>;
+    readonly annotationChanged: EventEmitter<_toclocoinc_lattice_grid.AnnotationChangedEvent>;
     /** The grid's `validation:failed` event. */
-    readonly validationFailed: EventEmitter<GridEvent>;
+    readonly validationFailed: EventEmitter<_toclocoinc_lattice_grid.ValidationFailedEvent>;
     /** The grid's `validation:cleared` event. */
-    readonly validationCleared: EventEmitter<GridEvent>;
+    readonly validationCleared: EventEmitter<_toclocoinc_lattice_grid.ValidationClearedEvent>;
     /** The grid's `export:progress` event. */
-    readonly exportProgress: EventEmitter<GridEvent>;
+    readonly exportProgress: EventEmitter<_toclocoinc_lattice_grid.ExportProgressEvent>;
     /** The grid's `export:request` event. */
-    readonly exportRequest: EventEmitter<GridEvent>;
+    readonly exportRequest: EventEmitter<_toclocoinc_lattice_grid.ExportRequestEvent>;
     /** The grid's `export:done` event. */
-    readonly exportDone: EventEmitter<GridEvent>;
+    readonly exportDone: EventEmitter<_toclocoinc_lattice_grid.ExportDoneEvent>;
     /** The grid's `shortcuts:opened` event. */
     readonly shortcutsOpened: EventEmitter<GridEvent>;
     /** The grid's `shortcuts:closed` event. */
     readonly shortcutsClosed: EventEmitter<GridEvent>;
     /** The grid's `print:before` event. */
-    readonly printBefore: EventEmitter<GridEvent>;
+    readonly printBefore: EventEmitter<_toclocoinc_lattice_grid.PrintEvent>;
     /** The grid's `print:after` event. */
-    readonly printAfter: EventEmitter<GridEvent>;
+    readonly printAfter: EventEmitter<_toclocoinc_lattice_grid.PrintEvent>;
     /** The grid's `beforeEdit` event. */
-    readonly beforeEdit: EventEmitter<GridEvent>;
+    readonly beforeEdit: EventEmitter<_toclocoinc_lattice_grid.BeforeEditEvent>;
     /** The grid's `beforeSort` event. */
-    readonly beforeSort: EventEmitter<GridEvent>;
+    readonly beforeSort: EventEmitter<_toclocoinc_lattice_grid.BeforeSortEvent>;
     /** The grid's `beforeFilter` event. */
-    readonly beforeFilter: EventEmitter<GridEvent>;
+    readonly beforeFilter: EventEmitter<_toclocoinc_lattice_grid.BeforeFilterEvent>;
     /** The grid's `beforeColumnMove` event. */
-    readonly beforeColumnMove: EventEmitter<GridEvent>;
+    readonly beforeColumnMove: EventEmitter<_toclocoinc_lattice_grid.BeforeColumnMoveEvent>;
     /** The grid's `beforeColumnResize` event. */
-    readonly beforeColumnResize: EventEmitter<GridEvent>;
+    readonly beforeColumnResize: EventEmitter<_toclocoinc_lattice_grid.BeforeColumnResizeEvent>;
     /** The grid's `beforeColumnHide` event. */
-    readonly beforeColumnHide: EventEmitter<GridEvent>;
+    readonly beforeColumnHide: EventEmitter<_toclocoinc_lattice_grid.BeforeColumnHideEvent>;
     /** The grid's `beforeSelect` event. */
-    readonly beforeSelect: EventEmitter<GridEvent>;
+    readonly beforeSelect: EventEmitter<_toclocoinc_lattice_grid.BeforeSelectEvent>;
     /** The grid's `beforeRowAdd` event. */
-    readonly beforeRowAdd: EventEmitter<GridEvent>;
+    readonly beforeRowAdd: EventEmitter<_toclocoinc_lattice_grid.BeforeRowAddEvent>;
     /** The grid's `beforeDelete` event. */
-    readonly beforeDelete: EventEmitter<GridEvent>;
+    readonly beforeDelete: EventEmitter<_toclocoinc_lattice_grid.BeforeDeleteEvent>;
     /** The grid's `beforeRowMove` event. */
-    readonly beforeRowMove: EventEmitter<GridEvent>;
+    readonly beforeRowMove: EventEmitter<_toclocoinc_lattice_grid.BeforeRowMoveEvent>;
     /** The grid's `beforeGroup` event. */
-    readonly beforeGroup: EventEmitter<GridEvent>;
+    readonly beforeGroup: EventEmitter<_toclocoinc_lattice_grid.BeforeGroupEvent>;
     /** The grid's `beforeRowReceive` event. */
-    readonly beforeRowReceive: EventEmitter<GridEvent>;
+    readonly beforeRowReceive: EventEmitter<_toclocoinc_lattice_grid.BeforeRowReceiveEvent>;
     /** The grid's `edit:cancelled` event. */
-    readonly editCancelled: EventEmitter<GridEvent>;
+    readonly editCancelled: EventEmitter<_toclocoinc_lattice_grid.EditCancelledEvent>;
     /** The grid's `sort:cancelled` event. */
-    readonly sortCancelled: EventEmitter<GridEvent>;
+    readonly sortCancelled: EventEmitter<_toclocoinc_lattice_grid.SortCancelledEvent>;
     /** The grid's `filter:cancelled` event. */
-    readonly filterCancelled: EventEmitter<GridEvent>;
+    readonly filterCancelled: EventEmitter<_toclocoinc_lattice_grid.FilterCancelledEvent>;
     /** The grid's `columnMove:cancelled` event. */
-    readonly columnMoveCancelled: EventEmitter<GridEvent>;
+    readonly columnMoveCancelled: EventEmitter<_toclocoinc_lattice_grid.ColumnMoveCancelledEvent>;
     /** The grid's `columnResize:cancelled` event. */
-    readonly columnResizeCancelled: EventEmitter<GridEvent>;
+    readonly columnResizeCancelled: EventEmitter<_toclocoinc_lattice_grid.ColumnResizeCancelledEvent>;
     /** The grid's `columnHide:cancelled` event. */
-    readonly columnHideCancelled: EventEmitter<GridEvent>;
+    readonly columnHideCancelled: EventEmitter<_toclocoinc_lattice_grid.ColumnHideCancelledEvent>;
     /** The grid's `selection:cancelled` event. */
-    readonly selectionCancelled: EventEmitter<GridEvent>;
+    readonly selectionCancelled: EventEmitter<_toclocoinc_lattice_grid.SelectionCancelledEvent>;
     /** The grid's `rowAdd:cancelled` event. */
-    readonly rowAddCancelled: EventEmitter<GridEvent>;
+    readonly rowAddCancelled: EventEmitter<_toclocoinc_lattice_grid.RowAddCancelledEvent>;
     /** The grid's `delete:cancelled` event. */
-    readonly deleteCancelled: EventEmitter<GridEvent>;
+    readonly deleteCancelled: EventEmitter<_toclocoinc_lattice_grid.DeleteCancelledEvent>;
     /** The grid's `rowMove:cancelled` event. */
-    readonly rowMoveCancelled: EventEmitter<GridEvent>;
+    readonly rowMoveCancelled: EventEmitter<_toclocoinc_lattice_grid.RowMoveCancelledEvent>;
     /** The grid's `group:cancelled` event. */
-    readonly groupCancelled: EventEmitter<GridEvent>;
+    readonly groupCancelled: EventEmitter<_toclocoinc_lattice_grid.GroupCancelledEvent>;
     /** The grid's `rowReceive:cancelled` event. */
-    readonly rowReceiveCancelled: EventEmitter<GridEvent>;
+    readonly rowReceiveCancelled: EventEmitter<_toclocoinc_lattice_grid.RowReceiveCancelledEvent>;
     /** Wire one forwarder per grid event and arm the build for the next render. */
     constructor();
     /** The live grid, or null before the first render and after destroy. */

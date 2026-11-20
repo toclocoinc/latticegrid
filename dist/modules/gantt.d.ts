@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.126.0, gantt module type declarations
+ * Lattice Grid 1.127.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -605,6 +605,13 @@ export interface GanttScheduledTask {
    * calendar is in use). Null on an unscheduled task.
    */
   ef: number | null;
+  /**
+   * The last working day of the task: the day a person reads as its
+   * Finish, one working day before the exclusive `ef` and never before `es`. A summary's is
+   * its latest child's. The Finish column, the bar tooltip and the exports show this, not
+   * `ef`. Absent on an unscheduled or inactive task.
+   */
+  lastDay?: number;
   /**
    * The id of the calendar the task was scheduled under: its own
    * calendar's id, `'plan'` when it follows the plan calendar. Present only on a plan
@@ -1789,8 +1796,9 @@ export interface GanttDataBandThreshold {
  * One linked data band under the split view: a measure per
  * row per timeline bucket — forecast cost per task per week, say — laid out
  * like the workload band and scroll- and zoom-locked to the timeline. The
- * bucket cells carry no header controls under any configuration; the
- * left-hand columns are a real grid when `createGrid` is injected.
+ * bucket cells carry no header controls under any configuration. Unlike the
+ * workload/histogram bands, there is no plain-DOM fallback: the band draws
+ * nothing at all unless `mountSplit`'s `createGrid` is injected.
  */
 export interface GanttDataBand {
   /** The band's id: names it in events, state and `getDataBandTable`. */
@@ -4788,6 +4796,9 @@ export interface Gantt {
      * Linked data bands under the gantt and the resource bands: each a measure per task (or summary, resource or
      * host group) per timeline bucket, with totals, formats, thresholds,
      * optional editing and a series that follows its task when it moves.
+     * Unlike `workload`/`histogram`, a data band has no plain-DOM fallback —
+     * it NEEDS `createGrid` to draw anything; named without one, a
+     * `[lattice]` warning fires and the band is skipped entirely.
      * See {@link GanttDataBand}.
      */
     dataBands?: GanttDataBand[];
