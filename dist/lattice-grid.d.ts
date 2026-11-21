@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, type declarations
+ * Lattice Grid 1.128.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -204,6 +204,14 @@ export interface Row {
    * renderer marks the row by name instead of shimmering forever.
    */
   loadError?: boolean;
+  /**
+   * True on an optimistically-appended row whose write-back is still in flight: the window between `edit.addRow` and the append's
+   * `row:confirmed` / `row:reverted`. While true the row paints the pending
+   * treatment and its key column is blank. Clears on the next paint once the
+   * op settles (the rekey to the server key on confirm, the row's removal on a
+   * refusal). Absent — not false — on every ordinary row.
+   */
+  pendingAppend?: boolean;
 }
 
 export interface RowChange {
@@ -325,7 +333,16 @@ export interface ApplyParams { value: unknown; oldValue: unknown; data: unknown;
 export interface KeyParams extends ValueParams {}
 export interface ValidateParams extends ApplyParams {}
 export interface SpanParams extends CellParams {}
-export interface ValueContext { data: unknown; row: Row; column: Column; grid: Grid; context: unknown }
+/**
+ * Context handed to `value.compute` alongside its resolved {@link DepValues}.
+ *
+ * `row` is the row wrapper, when there is one. A pure computed column's
+ * first value is evaluated at ingest, before the row is wrapped, so `row` is
+ * `null` there and on every other path that computes ahead of a row object
+ * existing; read `data` for the underlying record instead of `row.data`, and
+ * never assume `row` is set.
+ */
+export interface ValueContext { data: unknown; row: Row | null; column: Column; grid: Grid; context: unknown }
 /**
  * The values a computed column's dependencies hold for the row being
  * computed, keyed by column id, so a formula reads what it declared it needs
@@ -1471,9 +1488,11 @@ export interface FilterParams {
  * The built-in aggregations, used for group totals, the footer row and pivot
  * values. `countValues` counts the non-blank ones; `first` and `last` take the
  * value at the ends of the group in its current order. Anything registered as
- * a custom total is also valid here.
+ * a custom total is also valid here. `'none'` switches the total off: the
+ * totals row and group footers show an empty cell for this column, whatever
+ * its type.
  */
-export type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string & {});
+export type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | 'none' | (string & {});
 /**
  * A parameterised aggregation: `{ fn: 'percentile', p: 0.9 }` is the 90th
  * percentile, `p` running from 0 to 1 and interpolated linearly between
@@ -1872,6 +1891,21 @@ export interface TextEditorOptions {
 
 /** An input mask pattern: `9` digit, `A` letter, `*` letter or digit, anything else a literal. */
 export type InputMaskPattern = string;
+
+/**
+ * The validator a masked column's `edit.validate` takes: `true` to accept the
+ * value, otherwise the message to show and refuse with.
+ */
+export type MaskValidator = (p: { value: unknown }) => true | string;
+
+/**
+ * The text cell editor's constructor. It is an {@link EditorCtor} like every
+ * other built-in editor, and additionally carries the mask validator as a
+ * static so the mask docs can write `editors.text.maskValidator(pattern)`.
+ */
+export type TextEditorCtor = EditorCtor & {
+  maskValidator(mask: InputMaskPattern): MaskValidator;
+};
 
 export interface ColumnEditSpec {
   /**
@@ -2444,7 +2478,10 @@ export interface Column {
   } | boolean;
   /** Use this column as a pivot dimension, and where it sits among several. */
   pivot?: { enabled?: boolean; index?: number } | boolean;
-  /** The reduction shown in the totals row and in group footers. */
+  /**
+   * The reduction shown in the totals row and in group footers. `'none'` shows
+   * no total at all — an empty cell — for this column.
+   */
   total?: TotalName | TotalSpec | TotalFn;
   /**
    * The reduction for group subtotals — group footers, tree-node rollups and
@@ -4137,7 +4174,10 @@ export interface DetailConfig {
   /**
    * Render the detail into this element instead of into a row beneath its
    * master. A selector or an element. Exactly one detail is open at a time in
-   * this placement.
+   * this placement. When the open master leaves the view (a filter hides it, or
+   * it is deleted) the detail closes, so the element is blanked,
+   * `detail.active()` returns null and `detail:toggled` fires; clearing the
+   * filter does not reopen it.
    */
   target?: string | HTMLElement;
   /** Handed the nested grid as it is created, for whatever the forwarded events do not cover. */
@@ -5431,6 +5471,10 @@ export interface GridConfig {
    * on a keystroke is destructive and opt-in. Every deletion flows through the
    * cancellable `beforeDelete` event, so a handler can confirm or veto it, on a
    * memory-source grid as well as a remote one.
+   *
+   * Delete/Backspace deletes the selected **rows**; a cell range that reaches
+   * cells outside the selected rows — a drag, or Shift+Arrow — is still the
+   * spreadsheet clear gesture, and `edit.clearOnDelete` governs that one.
    */
   rowDelete?: boolean;
   /**
@@ -9642,14 +9686,17 @@ export interface RowsApi {
    * already loaded, synchronously, and return what it touched. Rows the grid
    * could not place come back under `rejected` rather than throwing. Needs a
    * `rowKey`: without one, updates and removals cannot be matched to a row,
-   * and it says so.
+   * and it says so. A data feed is not on the undo timeline; `opts.history`
+   * records the `add` as one undoable step (a string names it), which is what
+   * the row form's Save does.
    */
-  apply(change: RowChange): ChangeResult;
+  apply(change: RowChange, opts?: { history?: boolean | string }): ChangeResult;
   /**
    * The same change, coalesced with everything else arriving inside the batch
-   * window (50 ms by default) into one pipeline run and one repaint. The
-   * promise resolves with the flushed result. This is the call for a live
-   * feed; an over-deep queue flushes early rather than growing.
+   * window — one frame by default (about 16 ms at 60 Hz), so a live feed
+   * flushes once per paint, not on a fixed timer — into one pipeline run and
+   * one repaint. The promise resolves with the flushed result. This is the
+   * call for a live feed; an over-deep queue flushes early rather than growing.
    */
   queue(change: RowChange): Promise<ChangeResult>;
   /**
@@ -10603,8 +10650,9 @@ export interface EditApi {
    *
    * `reconcile` carries server truth on a successful settle: `value` is a
    * server-authoritative value written back before `cell:confirmed`
-   * (`returning: 'row'`); `conflict.serverRow` surfaces a last-write-wins
-   * conflict via `cell:conflict`. Omit both to keep the optimistic value.
+   * (`returning: 'row'`); `conflict.serverRow` is applied over the grid's own
+   * row — last-write-wins — and surfaced via `cell:conflict`. Omit both to keep
+   * the optimistic value.
    */
   settle(
     id: string,
@@ -14631,6 +14679,16 @@ export function renderBarcode(el: HTMLElement, options: BarcodeOptions): { updat
 export function createEditor(params: EditorParams, registry?: { editors?: Record<string, unknown> }): Editor | null;
 
 /**
+ * The built-in cell editors by name, the same map §11.2 catalogues them
+ * under. `text` is the {@link TextEditorCtor}, so a masked column's
+ * `edit.validate` is `editors.text.maskValidator(pattern)`.
+ */
+export const editors: Readonly<{
+  text: TextEditorCtor;
+  [name: string]: EditorCtor;
+}>;
+
+/**
  * House-wide defaults, merged beneath every grid built afterwards.
  *
  * For an application with many grids that should agree on theme, density or
@@ -14756,6 +14814,7 @@ export function version(): string;
 export const LatticeGrid: {
   createGrid: typeof createGrid;
   createHeadlessGrid: typeof createHeadlessGrid;
+  editors: typeof editors;
   defaults: typeof defaults;
   registerModules: typeof registerModules;
   setLicence: typeof setLicence;
@@ -18011,7 +18070,7 @@ export interface RowsFlowEvent extends GridEvent {
   coalescedTotal: number;
   /** Rows that have arrived over the grid's life. */
   rows: number;
-  /** Rows dropped because the buffer was full. */
+  /** Change-log entries trimmed to stay inside `heldLimit` — the scrubber losing depth on the oldest history, never a row the grid failed to apply. */
   dropped: number;
   /** Rows the change log is holding right now. */
   held: number;

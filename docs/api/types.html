@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.127.0</title>
+<title>Types API Reference — Lattice Grid 1.128.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1250,7 +1250,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">col</td><td class="type">string</td><td class="desc">The column reduced for this measure.</td></tr>
-          <tr><td class="name">fn</td><td class="type"><a href="#type-TotalName">TotalName</a> <small class="literals">'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string &amp; {})</small></td><td class="desc">A reduction name, as the totals row uses. <small>(optional)</small></td></tr>
+          <tr><td class="name">fn</td><td class="type"><a href="#type-TotalName">TotalName</a></td><td class="desc">A reduction name, as the totals row uses. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-ChartMeasureType">ChartMeasureType</a> <small class="literals">'bar' | 'line' | 'area'</small></td><td class="desc">The mark this measure draws with, on a combo chart. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type"><a href="#type-Side">Side</a> <small class="literals">'left' | 'right'</small></td><td class="desc">Which axis it belongs to, on a combo chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The series label a combo's legend and axis titles use (BACKLOG-0001672). `label` is read too, as an undeclared alias, for a caller already using it; `title` wins when both are given. Falls back to the measure column's own `title`, then to `col`, when neither is set. <small>(optional)</small></td></tr>
@@ -4375,6 +4375,9 @@
     <p class="section-note">The layer kinds a map view draws a row with.</p>
     <p class="type-def"><code>type MapViewLayer = 'point' | 'column' | 'polygon' | 'path'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MaskValidator">MaskValidator</h4>
+    <p class="section-note">The validator a masked column's `edit.validate` takes: `true` to accept the value, otherwise the message to show and refuse with.</p>
+    <p class="type-def"><code>type MaskValidator = (p: { value: unknown }) =&gt; true | string</code></p>
     <h4 id="type-MeterTone">MeterTone</h4>
     <p class="section-note">A theme colour a meter fill, band or segment may take.</p>
     <p class="type-def"><code>type MeterTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</code></p>
@@ -4693,6 +4696,9 @@
     <h4 id="type-TestSelection">TestSelection</h4>
     <p class="section-note">Whether a two-sample test was chosen automatically, or forced by the caller.</p>
     <p class="type-def"><code>type TestSelection = 'auto' | 'override'</code></p>
+    <h4 id="type-TextEditorCtor">TextEditorCtor</h4>
+    <p class="section-note">The text cell editor's constructor. It is an {@link EditorCtor} like every other built-in editor, and additionally carries the mask validator as a static so the mask docs can write `editors.text.maskValidator(pattern)`.</p>
+    <p class="type-def"><code>type TextEditorCtor = <a href="#type-EditorCtor">EditorCtor</a> &amp; { maskValidator(mask: <a href="#type-InputMaskPattern">InputMaskPattern</a>): <a href="#type-MaskValidator">MaskValidator</a>; }</code></p>
     <h4 id="type-TextTransform">TextTransform</h4>
     <p class="section-note">A locale-aware case change for text display: upper, lower, title, or none.</p>
     <p class="type-def"><code>type TextTransform = 'none' | 'upper' | 'lower' | 'title'</code></p>
@@ -4736,8 +4742,8 @@
     <p class="section-note">Your own aggregation: handed every value in the group, plus the row the total is being computed for and the grid it belongs to, and returning the value to show.</p>
     <p class="type-def"><code>type TotalFn = (values: unknown[], ctx: { row: <a href="grid.html#type-Row">Row</a>; column: <a href="grid.html#type-Column">Column</a>; grid: <a href="grid.html#type-Grid">Grid</a>; context: unknown }) =&gt; unknown</code></p>
     <h4 id="type-TotalName">TotalName</h4>
-    <p class="section-note">The built-in aggregations, used for group totals, the footer row and pivot values. `countValues` counts the non-blank ones; `first` and `last` take the value at the ends of the group in its current order. Anything registered as a custom total is also valid here.</p>
-    <p class="type-def"><code>type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string &amp; {})</code></p>
+    <p class="section-note">The built-in aggregations, used for group totals, the footer row and pivot values. `countValues` counts the non-blank ones; `first` and `last` take the value at the ends of the group in its current order. Anything registered as a custom total is also valid here. `'none'` switches the total off: the totals row and group footers show an empty cell for this column, whatever its type (BACKLOG-0007031).</p>
+    <p class="type-def"><code>type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | 'none' | (string &amp; {})</code></p>
     <h4 id="type-TotalSpec">TotalSpec</h4>
     <p class="section-note">A parameterised aggregation: `{ fn: 'percentile', p: 0.9 }` is the 90th percentile, `p` running from 0 to 1 and interpolated linearly between neighbours (what DuckDB's `quantile_cont` returns). Accepted wherever a `TotalName` is: `total`, `groupTotal`, `grandTotal` and pivot values. Nulls are ignored. Over the DuckDB adapter it is pushed as `quantile_cont(col, ?)` with `p` bound; `median` is pushed as `median(col)`.</p>
     <p class="type-def"><code>type TotalSpec = { fn: <a href="#type-TotalName">TotalName</a>; p?: number; }</code></p>

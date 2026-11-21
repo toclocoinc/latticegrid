@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, scheduler module type declarations
+ * Lattice Grid 1.128.0, scheduler module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

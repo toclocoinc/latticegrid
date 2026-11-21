@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, kpi module type declarations
+ * Lattice Grid 1.128.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -646,7 +646,7 @@ export interface KPIRows {
 /**
  * A KPI / stat-tile panel: a grid of aggregate tiles over a dataset. It
  * consumes data through the same keyed-diff `rows.apply` contract a grid
- * exposes, so `dataRouter.attach(value, kpi)` drives it like any other viewer,
+ * exposes, so `dataRouter.attach(kpi, value)` drives it like any other viewer,
  * updating each tile incrementally from the routed delta.
  */
 export interface KPI {

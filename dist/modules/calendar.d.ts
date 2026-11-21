@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, calendar module type declarations
+ * Lattice Grid 1.128.0, calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -206,7 +206,7 @@ export interface CalendarRows {
 /**
  * A calendar instance: a view of grid rows as cards on a month grid or a week
  * day-grid. It consumes data through the same keyed-diff `rows.apply` contract
- * a grid exposes, so `dataRouter.attach(value, calendar)` drives it like any
+ * a grid exposes, so `dataRouter.attach(calendar, value)` drives it like any
  * other viewer.
  */
 export interface Calendar {

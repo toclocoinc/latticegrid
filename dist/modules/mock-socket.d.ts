@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, mock-socket module type declarations
+ * Lattice Grid 1.128.0, mock-socket module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -57,10 +57,12 @@ export class MockWebSocket {
   onerror: ((event: { type: string; error: unknown }) => void) | null;
   /**
    * @param init the feed and its timing: `feed` (snapshot first, then deltas);
-   *   `rate` ms between deltas (default 1000); `jitter` random plus-or-minus ms
-   *   per gap (default 0); `seed` for that jitter (default 1); `snapshotDelay`
-   *   ms before opening (default 60); `pauseWhenHidden` stops while the tab is
-   *   hidden (default true); `url` a cosmetic address.
+   *   `rate` ms between deltas (default 1000; the browser's timer clamp puts a
+   *   floor of about 5 ms on each gap, so a smaller rate does not go faster);
+   *   `jitter` random plus-or-minus ms per gap (default 0); `seed` for that
+   *   jitter (default 1); `snapshotDelay` ms before opening (default 60);
+   *   `pauseWhenHidden` stops while the tab is hidden (default true); `url` a
+   *   cosmetic address.
    */
   constructor(init: {
     feed: Feed;
@@ -94,7 +96,10 @@ export function rng(seed: number): () => number;
  * A mixed operations feed — orders, shipments and incidents across three
  * regions plus a throughput rollup — the Data Router tutorial partitions
  * across several grids and a chart from one source. Yields a snapshot, then
- * deltas forever. Seedable for a repeatable stream.
+ * deltas forever. Seedable for a repeatable stream. `batch` is an upper
+ * bound, not an exact count: each delta carries between one and `batch` new
+ * records (uniform), plus the tick's rollup row and the occasional resolved
+ * incident.
  */
 export function opsFeed(options?: {
   seed?: number;
@@ -108,7 +113,9 @@ export function opsFeed(options?: {
  * A market-data feed: instruments whose prices random-walk each tick, each
  * record carrying `type: 'price'`, `symbol`, `last`, `chg` and a bid/ask. The
  * price/random-walk feed behind the trading-terminal tutorial. Yields a
- * snapshot, then deltas forever. Seedable for a repeatable stream.
+ * snapshot, then deltas forever. Seedable for a repeatable stream. `batch` is
+ * an upper bound, not an exact count: each delta reprices between one and
+ * `batch` symbols (uniform, then deduplicated to distinct symbols).
  */
 export function priceFeed(options?: {
   seed?: number;

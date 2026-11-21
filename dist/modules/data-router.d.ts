@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, data-router module type declarations
+ * Lattice Grid 1.128.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -37,10 +37,16 @@ export type RouteSort = ((a: RouterRecord, b: RouterRecord) => number) | { key: 
 
 /**
  * One incremental change: `upsert` adds or updates the row by `rowKey`,
- * `delete` removes it. `seq` versions the delta when the row itself carries
- * no version field (the router's `seq` option names one that does).
+ * `delete` removes it. An `upsert` for a row the router already holds is
+ * merged field by field into the stored row (shallow — a field sent as
+ * `undefined` leaves the stored value, a field sent as `null` is set to null,
+ * and a field the patch omits is kept), so a partial patch preserves every
+ * field it did not send; set `replace: true` to store the row wholesale
+ * instead. An upsert for a new row is stored as given. `seq` versions the
+ * delta when the row itself carries no version field (the router's `seq`
+ * option names one that does).
  */
-export interface RouterDelta { op: 'upsert' | 'delete'; row: RouterRecord; seq?: number }
+export interface RouterDelta { op: 'upsert' | 'delete'; row: RouterRecord; seq?: number; replace?: boolean }
 
 /** The change a `subscribe` handler receives: the same keyed diff a grid gets. */
 export interface RouterChange { add: RouterRecord[]; update: RouterRecord[]; remove: string[] }

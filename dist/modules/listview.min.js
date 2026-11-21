@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, listview module
+ * Lattice Grid 1.128.0, listview module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -84,7 +84,7 @@ ${t} .lat-group-collapsed .lat-group-chevron{ transform:rotate(-45deg); }
 .lattice.${l} .lat-rowdrag{ color:var(--lattice-listview-drag-grip); }
 .lattice.${l} .lat-rowdrag-marker{ background:var(--lattice-listview-drop-indicator); }
 .lattice.${l}[data-grid-lines="none"] .lat-body-viewport .lat-row{
-  border-bottom-color:var(--lattice-listview-divider);
+  border-bottom:var(--lattice-border-width) solid var(--lattice-listview-divider);
 }
 .lattice.${l} .lat-overlay-empty .lat-overlay-message{
   color:var(--lattice-listview-empty-fg);

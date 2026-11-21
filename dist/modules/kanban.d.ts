@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.127.0, kanban module type declarations
+ * Lattice Grid 1.128.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1572,7 +1572,7 @@ export interface KanbanFilters {
 /**
  * A board instance: a kanban view of grid rows as cards grouped into columns.
  * It consumes data through the same keyed-diff `rows.apply` contract a grid
- * exposes, so `dataRouter.attach(value, board)` drives it like any other
+ * exposes, so `dataRouter.attach(board, value)` drives it like any other
  * viewer.
  */
 export interface Kanban {

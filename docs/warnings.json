@@ -1,5 +1,5 @@
 {
-  "version": "1.127.0",
+  "version": "1.128.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 810,
+  "count": 815,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1362,6 +1362,16 @@
       "docs": "api/grid.html#change-contract"
     },
     {
+      "id": "edit.enabled.grid-level-non-boolean",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.128.0",
+      "message": "grid-level edit.enabled is typed boolean, so the function given there is never run; columns inheriting it under columns: true stay read-only rather than silently editable. Use columnDefaults.edit.enabled for a predicate every column inherits, evaluated per cell.",
+      "meaning": "The grid-level `edit` switch decides whether the editing engine is on and, with `columns: true`, which columns inherit `edit.enabled: true`. A function given as that `enabled` is not a column-shaped predicate the grid can run — the key is typed boolean — so a column inheriting it used to be made editable outright, regardless of row.",
+      "fix": "Use `columnDefaults.edit.enabled` for a predicate inherited by every column and evaluated per cell with the row's own data, exactly as a column's own `edit.enabled` would be.",
+      "docs": "api/grid.html#edit"
+    },
+    {
       "id": "edit.enabled.throw:*",
       "module": "core",
       "severity": "warn",
@@ -1713,6 +1723,16 @@
       "docs": "api/grid.html#edit"
     },
     {
+      "id": "grid.edit.deleteRows.unavailable",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.128.0",
+      "message": "edit.deleteRows was called but this remote source cannot delete rows: its adapter does not declare mutate.delete (or the source config says edit: false). Nothing was deleted rather than reporting rows removed that the server still has. Use a createPushdownSource over an adapter with mutate: { delete: true }.",
+      "meaning": "On a remote source a local removal cannot delete anything, so the call deleted nothing and returned an empty list instead of claiming the keys.",
+      "fix": "Use a pushdown source over an adapter that declares `mutate: { delete: true }`, and do not set `edit: false` on the source.",
+      "docs": "api/grid.html#edit"
+    },
+    {
       "id": "grid.edit.deleteRows.disabled",
       "module": "core",
       "severity": "warn",
@@ -1837,6 +1857,16 @@
       "message": "history capture threw; the action was not recorded.",
       "meaning": "The history model captures a snapshot before an action so it can be undone, and the capture function threw. The action still happens; it simply has no undo entry, so undo will step past it to the previous one.",
       "fix": "The error is attached to the console line. The captured value is cloned, so it must be structured-cloneable.",
+      "docs": "api/grid.html#history"
+    },
+    {
+      "id": "history.steps.throw",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.127.0",
+      "message": "the {direction} of '{label}' threw; the entry was dropped.",
+      "meaning": "A row add or delete is recorded on the undo timeline with a function that reverses it and one that repeats it, and that function threw while undoing or redoing. The entry is dropped from the history rather than retried, so the stack stays consistent and that one step cannot be undone.",
+      "fix": "The error is attached to the console line. A remote source undoes through its adapter's mutate, so check that the adapter accepts the append or delete the undo sends.",
       "docs": "api/grid.html#history"
     },
     {
@@ -4230,6 +4260,17 @@
       "docs": "api/data-router.html#datarouter-integrity"
     },
     {
+      "id": "data-router:link-endpoint-unresolved",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.128.0",
+      "message": "link()/relate() got an endpoint the router cannot act on: it is neither a local selectable viewer (a grid or a Kanban board attached in this window) nor a broadcast ref (a route ref whose grid lives in another window). The link has no effect until the endpoint is attached or named by ref.",
+      "meaning": "A link or relate edge named a source or target the router cannot read a selection from: not an attached grid or Kanban board in this window, and not a route ref (partition value or label) whose grid lives in another window and feeds its selection over broadcast. The router treats it as a remote endpoint and imposes no constraint, so without this warning the link silently does nothing.",
+      "fix": "Attach the grid or board to the router first (`router.attach(viewer, value)`), or pass the partition value or label the route was attached under so the router can resolve it — including, over `broadcast`, a ref whose grid is in another window.",
+      "snippet": "router.attach(engineers, 'engineer').attach(board, 'job'); router.link(engineers, board, { from: 'id', to: 'engineerId' });",
+      "docs": "api/data-router.html#datarouter-example"
+    },
+    {
       "id": "data-router:link-predicate-unsupported",
       "module": "data-router",
       "severity": "warn",
@@ -5056,6 +5097,16 @@
       "meaning": "The row form was saving a new row (grid.form.openNew) and the record it would add resolves to no row key: either there is no rowForm.create and the form's values do not carry the key, or rowForm.create answered with a row that does not. The grid never adds a row it cannot identify, so nothing is added and the form stays open with the user's values.",
       "fix": "Give rowForm.create a function that persists the values and returns the row as stored, key included. Or, where the key is known on the client, make it one of the form's fields or pass it in the defaults to openNew.",
       "snippet": "rowForm: { create: (values) => api.post('/products', values) }   // answers { ...values, sku: 'P-123' }",
+      "docs": "api-detail.html#row-form"
+    },
+    {
+      "id": "rowform:mode",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.128.0",
+      "message": "rowForm.mode '{value}' is not one of 'drawer', 'dialog'; the form opens as a drawer instead.",
+      "meaning": "rowForm.mode was given a value other than 'drawer' or 'dialog' — 'modal', for instance, or a typo. An unknown mode behaves exactly like a drawer, so it could never be discovered from the behaviour; the grid names it and opens the form as a drawer, which is the default.",
+      "fix": "Use 'drawer' to keep the grid visible beside the form, or 'dialog' to centre the form over it.",
       "docs": "api-detail.html#row-form"
     },
     {

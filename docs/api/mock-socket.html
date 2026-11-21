@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Mock socket API Reference — Lattice Grid 1.127.0</title>
+<title>Mock socket API Reference — Lattice Grid 1.128.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -461,14 +461,14 @@ const socket = new WebSocket('wss://example.com/ops');</code></pre>
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">new MockWebSocket({ feed, rate?, jitter?, seed?, snapshotDelay?, pauseWhenHidden?, url? })</td><td class="desc">Open a mock socket driven by <code>feed</code> (a generator: snapshot first, then deltas). <code>rate</code> is the ms between deltas (default 1000); <code>jitter</code> a random plus-or-minus ms per gap (default 0); <code>seed</code> seeds that jitter (default 1); <code>snapshotDelay</code> the ms before it opens (default 60); <code>pauseWhenHidden</code> stops the feed while the tab is in the background (default true); <code>url</code> a cosmetic address so <code>socket.url</code> reads like the real thing.</td></tr>
+          <tr><td class="sig">new MockWebSocket({ feed, rate?, jitter?, seed?, snapshotDelay?, pauseWhenHidden?, url? })</td><td class="desc">Open a mock socket driven by <code>feed</code> (a generator: snapshot first, then deltas). <code>rate</code> is the ms between deltas (default 1000); the browser&rsquo;s timer clamp puts a floor of about 5 ms on each gap, so a smaller rate does not actually go faster. <code>jitter</code> a random plus-or-minus ms per gap (default 0); <code>seed</code> seeds that jitter (default 1); <code>snapshotDelay</code> the ms before it opens (default 60); <code>pauseWhenHidden</code> stops the feed while the tab is in the background (default true); <code>url</code> a cosmetic address so <code>socket.url</code> reads like the real thing.</td></tr>
           <tr><td class="sig">onopen / onmessage / onclose / onerror</td><td class="desc">The <code>WebSocket</code> handlers. <code>onmessage</code> receives an event whose <code>data</code> is the JSON-framed <code>FeedMessage</code>; a feed that ends closes the socket cleanly; a feed that throws surfaces as an <code>error</code> event, not an uncaught throw.</td></tr>
           <tr><td class="sig">addEventListener / removeEventListener</td><td class="desc">The <code>EventTarget</code> surface, alongside the <code>on*</code> handlers &mdash; both receive every event.</td></tr>
           <tr><td class="sig">send(data?)</td><td class="desc">Accepted and ignored: there is nothing upstream, so a page that calls <code>send</code> runs unchanged.</td></tr>
           <tr><td class="sig">close()</td><td class="desc">Close the socket and stop the feed, emitting a clean <code>close</code>.</td></tr>
           <tr><td class="sig">pause() / resume()</td><td class="desc">Hold the feed and continue it while the socket stays open &mdash; a demo and test affordance beyond the <code>WebSocket</code> surface.</td></tr>
-          <tr><td class="sig">opsFeed({ seed?, orders?, shipments?, incidents?, batch? })</td><td class="desc">A mixed operations feed &mdash; orders, shipments and incidents across three regions plus a throughput rollup &mdash; the kind the data router partitions across several grids and a chart from one source. Yields a snapshot, then deltas forever.</td></tr>
-          <tr><td class="sig">priceFeed({ seed?, symbols?, move?, batch?, spread? })</td><td class="desc">A market-data feed: instruments whose prices random-walk each tick, each record carrying <code>type: 'price'</code>, <code>symbol</code>, <code>last</code>, <code>chg</code> and a bid/ask straddling the last. Yields a snapshot, then deltas forever.</td></tr>
+          <tr><td class="sig">opsFeed({ seed?, orders?, shipments?, incidents?, batch? })</td><td class="desc">A mixed operations feed &mdash; orders, shipments and incidents across three regions plus a throughput rollup &mdash; the kind the data router partitions across several grids and a chart from one source. Yields a snapshot, then deltas forever. <code>batch</code> is an upper bound, not an exact count: each delta carries between one and <code>batch</code> records, uniformly.</td></tr>
+          <tr><td class="sig">priceFeed({ seed?, symbols?, move?, batch?, spread? })</td><td class="desc">A market-data feed: instruments whose prices random-walk each tick, each record carrying <code>type: 'price'</code>, <code>symbol</code>, <code>last</code>, <code>chg</code> and a bid/ask straddling the last. Yields a snapshot, then deltas forever. <code>batch</code> is an upper bound, not an exact count: each delta reprices between one and <code>batch</code> symbols, then deduplicates.</td></tr>
           <tr><td class="sig">rng(seed)</td><td class="desc">A small seeded pseudo-random generator (mulberry32), so a custom feed can be seeded the same way the shipped ones are: the same seed yields the same sequence.</td></tr>
         </tbody>
       </table>
