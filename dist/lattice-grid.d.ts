@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.128.0, type declarations
+ * Lattice Grid 1.129.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3731,7 +3731,10 @@ export interface StreamSourceConfig {
 
 /** One reduced column of a derived grid. */
 export interface DerivedSelect {
-  /** The column to reduce, as a field name or a dotted path. Omit for `count`. */
+  /**
+   * The column to reduce: a field name, a dotted path, or a source column —
+   * including a computed column, whose value is evaluated per row. Omit for `count`.
+   */
   of?: string;
   /** A key of `TOTAL_FNS`: `sum`, `avg`, `median`, `p95`, `distinct` and the rest. */
   fn?: TotalName;

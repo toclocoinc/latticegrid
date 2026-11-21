@@ -9,6 +9,25 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.129.0] - 2026-11-21
+
+### Fixed
+
+- **A partial upsert fed through a source handle now merges into the source's stored row before any join, rollup, partition or link re-evaluates it** (BACKLOG-0007040). `source.apply([{ op: 'upsert', row }])` for a row the source already holds used to store the half-empty patch verbatim, so a patch that omitted a join's foreign key — a loss-only update on a loan, say — made the child leave its parent and drained a rollup's `sum`/`count` toward zero (the CDO replay's deal pool balance read 32m instead of 373m). A partial upsert is now merged field by field into the stored base row first (the same merge `router.apply` already did, BACKLOG-0007030), so a `many: true` aggregate, a lookup or collect join, partition re-evaluation, late-attach backfill and a patch that changes the foreign key all see the merged row — the child stays on its parent, and a moved child leaves its old parent and joins the new one. `replace: true` still stores wholesale.
+
+- **A derived grid misread a source keyed by any field other than `id`** (BACKLOG-0007041). Grouping a source with `rowKey: 'tid'` (or `key`, `code`, `loanId`, …) collapsed every group onto its last row — X reported v=4 n=1 instead of v=10 n=4 — with no warning, and a pass-through derivation numbered its `__key` by row position instead of the source row's own key.
+  - **Unchanged.** A source keyed on `id` derives exactly as before; the fix only brings every other `rowKey` name (and a derived source's `__key`) to that same behaviour.
+
+- **A derived grid's `select.of` could not read a computed column, so a group reduced over one was a silent 0** (BACKLOG-0007042). `select: { vw: { of: 'vw', fn: 'sum' } }` over a source column `{ id: 'vw', value: { deps: ['v','w'], compute: (d) => d.v * d.w } }` read the raw row's `vw` field — which does not exist, because a computed column's value is never stored on the row — so every group summed to 0 with no warning. The same happened when the computed column sat on a derived grid feeding another derived grid, and after edits. `select.of` now resolves through the source grid's column model, so a computed column reduces the values it computes (and recomputes when its dependencies change), and a name that matches neither a field nor a column warns by name instead of a silent 0.
+
+- **A lookup join that matched nothing enriched every row with `null` and said nothing about it** (BACKLOG-0007043). `foreignKey` defaults to `localKey`'s name, so the common shape — a parent row keyed `id`, joined from a child whose `localKey` names the foreign-key field by a different name — matched zero rows with no sign beyond `explain()`'s `matched: 0`. A lookup join that has rows on both sides and has matched none now warns once (`router:lookup-no-match:*:*:*`), naming the join, its `localKey` and `foreignKey`, and suggesting `foreignKey` be set explicitly; a join that matches at least once never warns, and the warning never repeats per row.
+
+- **A router delta into a routed grid now costs the size of the delta, not the partition** (BACKLOG-0007044). A single-row upsert into a 1M-row partition took 592–972 ms because every delta re-materialized the whole partition before diffing it against the grid; it now reconciles only the batch's changed keys (O(k) plus the grid's own apply) and lands in under 5 ms, while 5,000-row deltas land in under 150 ms. Routes with a `filter`, `sort`, `rollup`, cross-grid link/graph or spread field keep the full scan, so their ordering, duplicate drop, partition moves, overlap, transforms and late attach behave exactly as before.
+
+### Internal
+
+- **The tree browser test waited two fixed animation frames after `focusItem` before asserting the row order and focus, so under gate load — when the re-open of a collapsed ancestor and the focus can land late on a box near the end of a 70-minute suite — it occasionally read the pre-`focusItem` state and failed even though the focus had worked** (BACKLOG-0007047). The test now re-checks the same condition every frame until it holds or 3 s pass, and a timed-out assertion names the row order and the focused row it actually saw, so it passes under load and still fails when `focusItem` or an arrow key really leaves focus behind.
+
 ## [1.128.0] - 2026-11-21
 
 ### Added

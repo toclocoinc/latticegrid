@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.128.0, uk-UA locale type declarations
+ * Lattice Grid 1.129.0, uk-UA locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -1,5 +1,5 @@
 {
-  "version": "1.128.0",
+  "version": "1.129.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 815,
+  "count": 817,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2749,6 +2749,16 @@
       "docs": "api/grid.html#derived-source"
     },
     {
+      "id": "source.derived.select.of.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.129.0",
+      "message": "source.mode \"derived\": `select.{id}.of` names \"{of}\", which is neither a field of the source rows nor a column of the source grid, so it reduces as though every value were absent. Name a source field or column — a computed column qualifies, e.g. `select: { total: { of: 'amount', fn: 'sum' } }`.",
+      "meaning": "`select[id].of` names the column a derived group is reduced over. The name given is not a field of the source rows and not a column of the source grid (a computed column is a column), so the reduction reads no values at all and the output column is a kernel's empty answer — a `sum` is a silent 0. The derivation still runs; only this output column is wrong.",
+      "fix": "Name a source field or column. A computed column qualifies and is evaluated per row, so a non-linear step (a waterfall, a test, a rating map) can sit between derived layers.",
+      "docs": "api/grid.html#derived-source"
+    },
+    {
       "id": "source.derived.statistics.columns",
       "module": "core",
       "severity": "warn",
@@ -4137,6 +4147,17 @@
       "meaning": "A join graph is a DAG: a source joins or collects from another, which may in turn join from a third. A declaration that would point the graph back at itself — a source collecting from a source that transitively collects from it — has no stable evaluation order, so the closing join is refused and that source's rows pass through unjoined rather than the router recursing forever.",
       "fix": "Break the cycle: point the join at a source that does not (transitively) depend on this one.",
       "docs": "api/data-router.html#datarouter-collect-example"
+    },
+    {
+      "id": "router:lookup-no-match:*:*:*",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.129.0",
+      "message": "the lookup join from \"{source}\" to \"{from}\" (localKey: \"{localKey}\", foreignKey: \"{foreignKey}\") has rows on both sides but has matched none; foreignKey defaults to localKey's name, so set it explicitly when \"{from}\" keys its rows differently (e.g. foreignKey: 'id').",
+      "meaning": "A lookup join's `foreignKey` defaults to `localKey`'s name, so a left row keyed `deal` against a lookup source keyed `id` (the common parent-keyed-by-id shape) matches nothing, every pulled field comes back null, and nothing prints to say why — only `explain()`'s `matched: 0` shows it. This fires once a join has processed at least one row on each side and never matched, not per unmatched row, and stops firing for that join the moment it matches once.",
+      "fix": "Set `foreignKey` explicitly to the field the lookup source actually uses as its key (often `id`), rather than relying on the default.",
+      "snippet": "join: { from: 'deal', localKey: 'deal', foreignKey: 'id', fields: ['name'] }",
+      "docs": "api/data-router.html#datarouter-v11-example"
     },
     {
       "id": "data-router:spread-no-name",
