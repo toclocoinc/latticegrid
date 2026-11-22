@@ -9,6 +9,32 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.130.0] - 2026-11-22
+
+### Added
+
+- **A `treeSelect` form control, matching the grid's tree-select editor** (BACKLOG-0007048). A `type: 'treeSelect'` item takes the same hierarchical option shapes — nested `children` or a `path` of ancestor labels, with the intermediate levels synthesised — and stores the chosen node's id, showing its label (or full ancestry with `showPath`) in the closed control. It filters keeping every match's ancestors, honours `selectLeavesOnly` (default true), cancels a superseded remote `search` with an `AbortSignal`, and opens on click, Enter or Alt+Down with the grid editor's arrow/Enter/Escape keyboard model, in a virtualised tree that shares its resolution with the grid editor so the two cannot drift apart.
+
+### Fixed
+
+- **A treeSelect branch that only groups options is announced as expandable, not disabled** (BACKLOG-0007064). In both the form control and the grid cell editor, a branch that is a container — because `selectLeavesOnly` makes it a grouping level, or because it is a synthesised `path` level with no id — keeps `aria-expanded`/`aria-level` and is marked `data-selectable="false"` instead of `aria-disabled="true"`. `aria-disabled` now belongs only to an option the developer marked `disabled: true`, which stays unchoosable; a container expands on click and on Right/Enter and never reports `aria-selected="true"`.
+
+- `router.apply()` and `router.load()` now reach sources: a delta whose partition value names a source registered with `addSource` is ingested exactly as that source's `apply`/`load` would, so its joins, rollups and dependent sources update without calling `source.apply`.
+
+- **A derived join stays correct when its left source and its joined grid change in the same tick** (BACKLOG-0007066). An idle-refresh derivation coalesces several changes that land before it has a chance to re-derive into one re-derivation, but it was always re-deriving as if none of them had named the join's partner grid — so when a change to the left source and a change to the partner coalesced together, the join's lookup stayed unrebuilt and the brought-across fields were stuck at their old values permanently, rather than only until a later change to the partner happened to land on its own. Any interleaving of the two sides within one tick now converges to the same values a tick-apart application would produce.
+
+- **A derived join's `select` could not read a computed column of the joined grid, so the brought-across field was a silent missing value** (BACKLOG-0007067). `join: { with: rates, on: { left: 'code', right: 'code' }, select: ['vw'] }` where `vw` is a computed column of the joined grid read the raw row's `vw` field — which does not exist, because a computed column's value is never stored on the row — so every matched row carried `undefined` with no warning, and a downstream total over it reduced to a silent 0. `join.select` now resolves through the joined grid's column model, the same path `select.of` took (BACKLOG-0007042), so a computed column brings across the value it computes (and recomputes when its dependencies change), and a name that is neither a field nor a column warns by name instead of a silent missing value.
+
+- **`statistics.profile` reflects the current filter as soon as the filter change resolves** (BACKLOG-0007068). Over a large `where` predicate or mid a quick-filter warm-up, the memory source's re-filter chunks across frames rather than block (BACKLOG-0006943/BACKLOG-0006944); `filters.set()` installed the new condition tree and fired `filter:changed` before that chunked pass had even started, so `statistics.profile()`/`profileAsync()` read straight after answered with the pre-filter rows until the pass landed, with no signal to wait on besides polling the row count. `filters.set()` now starts the re-filter immediately and returns a Promise exactly when one needs to chunk, resolving once the filtered rows are actually in hand; the common case (nothing to chunk, or a veto) still returns `undefined`, synchronously, as before.
+
+- **Patching a rollup-onto-parent join's own row keeps its aggregate live** (BACKLOG-0007074). When a router is configured with a `seq`, patching a join source's own non-aggregate field (a CDO deal's monthly excess-spread patch) left the row carrying that `seq`, so the re-enrichment the next child change produced rode the same seq and the seq/dedupe gate dropped it as stale — the routed deal grid froze at the old sum while a downstream lookup that reads the deal's enriched row kept advancing, and the two layers disagreed (70 in one, 120/30 in the other). A re-enrichment is a recomputation, not a stream event, so it bypasses the seq gate (it is always fresh and never advances the row's seq); the deal grid, its stored row and every downstream join keep agreeing. A patch that sends one of the join's own aggregate out-fields is ignored — the join recomputes it — with a once-only warning naming the field (`data-router:join-aggregate-field-ignored:*`), instead of being silently stored.
+
+### Internal
+
+- **The filter-row operator customer-path test read the value list straight after clicking the value box, with no wait for it to open, so under the pack's parallel load the list can open late and the test occasionally read the pre-click state and failed even though the list had opened** (BACKLOG-0007059). The test now re-checks the same condition every frame until it holds or 3 s pass for every read of a cell or the value list that follows a click, key or `filters.set` with no wait in between, and a timed-out assertion names the list or filter-cell state it actually saw, so it passes under load and still fails when the list genuinely does not open.
+
+- **Tests prove a histogram chart over a grid draws its bars in both the ESM and UMD load paths** (BACKLOG-0007073). A histogram bound to a numeric grid column renders correctly — the distribution family reads its measure from `y`, not `x`, and the column must be declared in `columns`. The builder's empty chart came from giving the histogram its numbers on `x`, which binds no measure and draws an empty frame with nothing to say why; they worked around it by drawing bars from `statistics.profile().histogram`. A browser test now pins, over both the ESM and script-tag UMD builds, that a histogram draws its bars, that the rows it bins equal the profile's histogram for the same column, and that it follows a filter.
+
 ## [1.129.0] - 2026-11-21
 
 ### Fixed

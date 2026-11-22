@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.129.0, type declarations
+ * Lattice Grid 1.130.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3819,8 +3819,10 @@ export interface DerivedSourceConfig {
   unnest?: string;
   /**
    * Match each row against a second grid on a shared key, and bring some of its
-   * fields across. Runs after `unnest` and before `where`, so a condition: and
-   * a grouping, and a total: can read a field the join produced.
+   * fields across. `select` names fields or columns of that grid — a computed
+   * column qualifies — and a name that is neither warns by name instead of a
+   * silent missing value. Runs after `unnest` and before `where`, so a condition
+   * (and a grouping, and a total) can read a field the join produced.
    */
   join?: DerivedJoin;
   /** A row predicate, applied before grouping. */
@@ -4046,7 +4048,13 @@ export interface DerivedJoin {
   on: string | { left?: string; right?: string };
   /** `inner` keeps only rows that matched; `left` keeps them all. */
   type?: JoinType;
-  /** Which of the partner's fields to bring across. All of them by default. */
+  /**
+   * Which of the partner's fields to bring across — a computed column qualifies,
+   * evaluated per row — all of them by default. A name that is neither a field
+   * nor a column of the joined grid warns by name instead of a silent missing
+   * value. A brought-across field whose name the left side already has is kept
+   * under a predictable `<name>_right` rather than overwriting the left value.
+   */
   select?: string[];
   /** Rename the brought-across fields, when both sides have one worth keeping. */
   prefix?: string;
@@ -10419,8 +10427,14 @@ export interface FiltersApi {
    * dropped too, and if that leaves nothing at all the call is a no-op rather
    * than a clear — a typo must not quietly widen a row set someone had
    * narrowed.
+   *
+   * Returns a Promise when the new filter needs a chunked, off-frame re-filter
+   * to land — a large `where` predicate, or a quick-text
+   * warm-up mid flight — resolving once it has, so `statistics.profile()` and
+   * `profileAsync()` read against it, not the last-good set still being
+   * replaced. Otherwise (the common case, and a veto) returns nothing.
    */
-  set(filters: FilterSet): void;
+  set(filters: FilterSet): void | Promise<void>;
   /**
    * Drop the condition tree, the quick filter, and every `where` predicate that
    * was not registered `{ pinned: true }`.

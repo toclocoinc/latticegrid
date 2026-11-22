@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.129.0</p>
+    <p class="rail__sub">Developer guide · v1.130.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.129.0</span>
+        <span class="chip">Version 1.130.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.129.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.130.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -13501,6 +13501,41 @@ return `${macText} | ${v.access} | ${v.net} | ${v.subnet}`;   // '001a.2b3c.4d5e
       draws its column controls through it (BACKLOG-0005641).
     </p>
 
+    <h3 id="treeselect-live">The treeSelect control</h3>
+    <p class="section-note">The grid's tree-select editor as a standalone form factory, over the same two hierarchical option shapes (BACKLOG-0007048).</p>
+    <pre><code><span class="kw">import</span> { createTreeSelect } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/form'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createTreeSelect(element, config)</code> mounts the same cascading dropdown the form's
+      <code>type: 'treeSelect'</code> item uses, over the same two option shapes the grid's tree-select
+      editor takes &mdash; nested <code>{ id, label, children? }</code> nodes, or a leaf declared by its
+      <code>{ id, path }</code> of ancestor labels, with the intermediate levels synthesised. The value is
+      the chosen node's id, and the closed control shows its label (its full ancestry with
+      <code>showPath</code>, joined by <code>pathSeparator</code>). <code>selectLeavesOnly</code> (default true)
+      makes a branch a container rather than a value, <code>defaultExpanded</code> starts every branch open,
+      and a <code>disabled</code> node is shown but never choosable. The control opens on
+      click, Enter or Alt+Down, filters on typing keeping every match's ancestors, honours the grid editor's
+      arrow/Enter/Escape keyboard model, and virtualises the list so a 20,000-node tree stays responsive. A
+      remote <code>search(query, signal)</code> function is debounced by <code>searchDebounce</code> and
+      handed an <code>AbortSignal</code> so a superseded remote search cancels. The tree resolution lives once in
+      <code>packages/dom/src/editors/tree.js</code>, shared with the grid editor, so the two cannot drift
+      apart.
+    </p>
+    <div class="why">
+      <p><strong>One handle, five verbs.</strong> The handle is
+      <code>{ el, root, input, getValue, setValue, setOptions, reload, open, close, focus, blur,
+      setDisabled, setReadOnly, destroy }</code>. <code>getValue()</code>/<code>setValue()</code> read and
+      write the committed node id, <code>setOptions()</code> replaces the list, <code>reload()</code> re-runs
+      the current search, <code>open()</code>/<code>close()</code> drive the popup,
+      <code>focus()</code>/<code>blur()</code> move keyboard focus, and
+      <code>setDisabled()</code>/<code>setReadOnly()</code> gate editing before <code>destroy()</code> tears
+      it down.</p>
+      <p><strong>Accessible by construction.</strong> The field is a <code>role="combobox"</code> with
+      <code>aria-haspopup="tree"</code> and <code>aria-expanded</code>/<code>aria-controls</code>; its popup
+      is a <code>role="tree"</code> of <code>role="treeitem"</code> rows with <code>aria-level</code>,
+      <code>aria-expanded</code>, <code>aria-selected</code> and <code>aria-disabled</code>, and the input
+      keeps <code>aria-activedescendant</code> on the highlighted row.</p>
+    </div>
+
     <h3 id="speeddial-live">The speed dial control</h3>
     <p class="section-note">A floating action button that fans its actions out as a linear strip or a radial arc.</p>
     <pre><code><span class="kw">import</span> { createSpeedDial } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/form'</span>;</code></pre>
@@ -15962,7 +15997,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.129.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.130.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

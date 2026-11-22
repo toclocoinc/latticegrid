@@ -1,5 +1,5 @@
 {
-  "version": "1.129.0",
+  "version": "1.130.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 817,
+  "count": 819,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2719,6 +2719,16 @@
       "docs": "api/grid.html#derived-source"
     },
     {
+      "id": "source.derived.join.select.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.130.0",
+      "message": "source.mode \"derived\": `join.select` names \"{name}\", which is neither a field of the joined rows nor a column of the joined grid, so the joined field is undefined. Name a field or column of the joined grid — a computed column qualifies.",
+      "meaning": "`join.select` names the fields a derived join brings across from the other grid. The name given is not a field of the joined rows and not a column of the joined grid (a computed column is a column), so the joined field is undefined on every matched row — a silent missing value rather than a value. The derivation still runs; only this brought-across field is empty.",
+      "fix": "Name a field or column of the joined grid. A computed column qualifies and is evaluated per row, so a non-linear step (a waterfall, a test, a rating map) can sit between the two grids.",
+      "docs": "api/grid.html#derived-source"
+    },
+    {
       "id": "source.derived.producer.conflict",
       "module": "core",
       "severity": "warn",
@@ -4059,6 +4069,17 @@
       "meaning": "A rollup-onto-parent join's reducer — `sum`, `avg`, `min`, `max`, `distinctCount`, `first` or `last` — was declared without the child `field` it reduces over. The named result is omitted; `count` is the one reducer that needs no field.",
       "fix": "Add the child field: `field: 'amount'`. Only `count` may omit it.",
       "snippet": "join: { from: 'line', foreignKey: 'orderId', many: true, aggregate: { lineTotal: { field: 'amount', fn: 'sum' } } }",
+      "docs": "api/data-router.html#datarouter-rollup-parent-example"
+    },
+    {
+      "id": "data-router:join-aggregate-field-ignored:*",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.130.0",
+      "message": "a join aggregate field \"{field}\" was sent on an upsert; it is computed from the children and the sent value is ignored.",
+      "meaning": "A rollup-onto-parent join's aggregate field is derived — the join recomputes it from the matching child rows on every child change — so a patch that sends one of its own out-fields (for example `poolLoss`) cannot set it. The router keeps the computed value, drops the sent value, and warns once per field name.",
+      "fix": "Do not send an aggregate out-field on a source upsert; update the child rows instead, and the join recomputes the aggregate.",
+      "snippet": "join: { from: 'loan', foreignKey: 'deal', many: true, aggregate: { poolLoss: { fn: 'sum', field: 'loss' } } }",
       "docs": "api/data-router.html#datarouter-rollup-parent-example"
     },
     {

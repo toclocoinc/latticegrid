@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.129.0</p>
+    <p class="rail__sub">API reference · v1.130.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -552,6 +552,7 @@
         <a class="rail__sub-link" href="#type-ShellOverlay">ShellOverlay</a>
         <a href="#ref-module-form">The form module</a>
         <a class="rail__sub-link" href="#type-Select">Select</a>
+        <a class="rail__sub-link" href="#type-TreeSelect">TreeSelect</a>
         <a class="rail__sub-link" href="#type-Form">Form</a>
         <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
         <a class="rail__sub-link" href="#type-Combo">Combo</a>
@@ -594,7 +595,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.129.0</span>
+      <span class="chip">Version 1.130.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3589,7 +3590,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.129.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.130.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3631,7 +3632,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">coverage()</td><td class="type">{ covered, total, windowed }</td><td class="desc">How much of the data a figure computed from this grid covers &mdash; the question the counters above cannot answer, because on a windowed source they all report the rows it is <em>holding</em> and so agree with each other while the data that has been through is larger. <code>covered</code> is the rows a figure would be computed over; <code>total</code> is the rows the source knows about, or <strong><code>null</code> when it cannot know</strong> (a stream still open that has evicted nothing has no idea how many rows are coming, and says so rather than repeating <code>covered</code>); <code>windowed</code> is true when a window bounded the computation. <strong><code>covered &lt; total</code>, or <code>total === null</code>, means the figure is approximate</strong> &mdash; that is the test to write. False <code>windowed</code> means the figure is over all of it: a memory source, or a stream that finished having dropped nothing. Read on demand and cheap (one <code>matchCount()</code> and one <code>progress()</code> on the source, nothing cached), so call it beside every figure you publish rather than once at setup &mdash; on a live stream the answer moves.</td></tr>
           <tr><td class="sig">count()</td><td class="type">number</td><td class="desc">Display rows: group rows included, collapsed children excluded.</td></tr>
           <tr><td class="sig">totalCount()</td><td class="type">number</td><td class="desc">Source rows before filtering. The denominator of "1,204 of 100,000".</td></tr>
-          <tr><td class="sig">value(key, colId)</td><td class="type">unknown</td><td class="desc">The stored value.</td></tr>
+          <tr><td class="sig">value(key, colId)</td><td class="type">unknown</td><td class="desc">The stored value. Reads through the column model, so a field a derivation produced but no column declares &mdash; a field a join brought across, or a <code>select</code> output &mdash; reads <code>undefined</code> here until it is declared as a column (hidden is fine).</td></tr>
           <tr><td class="sig">text(key, colId)</td><td class="type">string</td><td class="desc">The formatted display text.</td></tr>
           <tr><td class="sig">values(key)</td><td class="type">object</td><td class="desc">Every column's value for one row.</td></tr>
           <tr><td class="sig">data()</td><td class="type">unknown[]</td><td class="desc">The caller's original row objects, in source order.</td></tr>
@@ -3745,12 +3746,18 @@ return `resized ${resized.join('|')}; widths ${widths}; visible ${visible}; pinn
         <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="sig">get()</td><td class="type"><a href="#type-FilterSet">FilterSet</a></td><td class="desc">The whole condition tree.</td></tr>
-          <tr><td class="sig">set(filters)</td><td class="type">void</td><td class="desc">Replace it. <code>null</code> clears everything.</td></tr>
+          <tr><td class="sig">set(filters)</td><td class="type">void | Promise&lt;void&gt;</td><td class="desc">Replace it. <code>null</code> clears everything. A Promise when a chunked re-filter needs to land first (BACKLOG-0007068); see below.</td></tr>
           <tr><td class="sig">quick(text, opts?)</td><td class="type">void</td><td class="desc">The quick filter, applied across every column.</td></tr>
           <tr><td class="sig">clear()</td><td class="type">void</td><td class="desc"></td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note"><strong>Reading <code>statistics.profile</code> right after a filter change.</strong> Over a large dataset, a <code>where</code> predicate (<a href="#list-operators">§9.3</a>, BACKLOG-0006943) or a quick-filter warm-up (BACKLOG-0006944) runs its verdict pass a frame at a time rather than blocking, so <code>filters.set()</code> installs the new condition tree and fires <code>filter:changed</code> immediately, before that chunked pass lands. Reading <code>statistics.profile()</code> in that window answered with the pre-filter rows, and a caller had no way to tell "filtered" from "filtered, but not yet recomputed" apart from polling the row count. <code>filters.set()</code> now returns a Promise exactly when a chunked re-filter is needed (<code>undefined</code> otherwise, as before, and on a veto): awaiting it &mdash; or reading <code>statistics.profile()</code>/<code>profileAsync()</code> any time after it resolves &mdash; is guaranteed the filtered rows, with no polling. <code>filter:changed</code>'s own timing is unchanged, since many listeners (a filter chip, an undo entry) want "accepted", not "landed"; a listener that wants "landed" awaits the Promise this call returns.</p>
+    <pre><code>grid.filters.where('rowSecurity', () =&gt; isVisible(row)); // a where predicate large enough to chunk
+const settled = grid.filters.set({ col: 'region', op: 'eq', value: 'north' });
+if (settled) await settled; // a Promise only when the re-filter needed to chunk
+grid.statistics.profile('margin'); // the filtered rows, guaranteed</code></pre>
 
     <p><strong>Dates and times in a condition.</strong> A condition on a <code>date</code> column compares calendar days. A condition on a <code>datetime</code> column compares the full wall clock &mdash; date and time, to the millisecond (since 1.86.2, BACKLOG-0001711; before, it compared the day alone, so a lower bound of 13:03 on the 4th admitted the 4th&rsquo;s midnight). A zone-less value such as <code>'2024-01-04T13:03'</code> is read as written; an instant &mdash; a <code>Date</code>, epoch milliseconds or an ISO string with <code>Z</code> or an offset &mdash; is read as the wall clock it shows in the grid&rsquo;s <code>timeZone</code>, else the viewer&rsquo;s: the zone the column stored its own values in. The column filter menu on a <code>datetime</code> column takes a date and a time (<code>filter.props.time: false</code> keeps it to days) and writes <code>type: 'datetime'</code>; a condition saved with <code>type: 'date'</code> keeps comparing days.</p>
     <pre data-run="js" data-expect="from 13:03: 10 rows; from 12:00Z in New York (07:00): 17 rows; a date column, from the 4th at 13:03: 3 days" data-covers="export:createHeadlessGrid"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
@@ -5919,7 +5926,7 @@ grid.destroy();
           <tr><td class="name">from</td><td class="type"><a href="#type-Grid">Grid</a> | <a href="#type-UnionSourceOptions">UnionSourceOptions</a>[]</td><td class="desc">Required. The grid to read &mdash; or several to combine into one row set before the rest of the pipeline runs (a <em>union</em>; see below). A bare <code>Grid</code> in the array is shorthand for <code>{ grid }</code>.</td></tr>
           <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. <code>filtered</code> by default. <code>grouped</code> re-aggregates by whatever dimension the user has grouped the source by, so a panel tracks the reader rather than a dimension fixed when the page was built; with the source ungrouped it falls back to <code>groupBy</code>. Ignored (with a warning) when <code>from</code> is a union array &mdash; each entry has its own <code>follow</code> instead.</td></tr>
           <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">Expand an array property, one row per element, keeping the parent's fields. Address the element with a dotted path afterwards: <code>lines.sku</code> is the element, <code>region</code> is still the parent. A row whose property is absent or empty contributes nothing.</td></tr>
-          <tr><td class="name">join</td><td class="type">{ with, on, type, select, prefix, follow }</td><td class="desc">Match each row against a second grid on a shared key and bring some of its fields across. Runs after <code>unnest</code> and before <code>where</code>, so a condition (and a grouping, and a total) can read a field the join produced.</td></tr>
+          <tr><td class="name">join</td><td class="type">{ with, on, type, select, prefix, follow }</td><td class="desc">Match each row against a second grid on a shared key and bring some of its fields across. <code>select</code> names fields or columns of that grid &mdash; a computed column qualifies &mdash; and a name that is neither warns by name instead of a silent missing value. Runs after <code>unnest</code> and before <code>where</code>, so a condition (and a grouping, and a total) can read a field the join produced.</td></tr>
           <tr><td class="name">where</td><td class="type">(row) =&gt; boolean</td><td class="desc">A row predicate, applied before grouping. With no <code>groupBy</code> the rows pass through as themselves, which is how an exceptions list is built.</td></tr>
           <tr><td class="name">bucket</td><td class="type">{ of, by }</td><td class="desc">Round a date column down to the start of its period and group on that. <code>by</code> is <code>day</code>, <code>week</code>, <code>month</code>, <code>quarter</code> or <code>year</code>; weeks start on the ISO Monday.</td></tr>
           <tr><td class="name">groupBy</td><td class="type">string | string[]</td><td class="desc">The dimension, or dimensions, to group by. Omit to pass rows through.</td></tr>
@@ -8119,7 +8126,7 @@ grid.destroy();
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">Required. The grid holding the other side.</td></tr>
           <tr><td class="name">on</td><td class="type">string | { left, right }</td><td class="desc">Required. The shared key: one field name when both sides use it, or one each.</td></tr>
           <tr><td class="name">type</td><td class="type">'inner' | 'left' <small class="literals"><a href="#type-JoinType">JoinType</a></small></td><td class="desc"><code>inner</code> by default, keeping only rows that matched, which is usually what &ldquo;common data&rdquo; means. <code>left</code> keeps every row and leaves the brought-across fields undefined, the shape you want when the unmatched rows <em>are</em> the finding.</td></tr>
-          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across. All of them by default. A brought-across field whose name the left side already has is kept under a predictable <code>&lt;name&gt;_right</code> rather than overwriting the left value.</td></tr>
+          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across &mdash; a computed column qualifies, evaluated per row &mdash; all of them by default. A name that is neither a field nor a column of the joined grid warns by name instead of a silent missing value. A brought-across field whose name the left side already has is kept under a predictable <code>&lt;name&gt;_right</code> rather than overwriting the left value.</td></tr>
           <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Rename every brought-across field, for when both sides have a <code>name</code> worth keeping. With a prefix the clash rule is usually unnecessary — the prefix itself makes each name unique.</td></tr>
           <tr><td class="name">follow</td><td class="type">'all' | 'filtered' <small class="literals"><a href="#type-RowScope">RowScope</a></small></td><td class="desc">Which of the partner's rows to read. <code>all</code> by default: a lookup table is normally the whole table, and a customer list filtered to Europe would otherwise silently drop every other order from a grid the reader takes to be all orders.</td></tr>
         </tbody>
@@ -18943,6 +18950,75 @@ const out = [
 form.destroy();
 return out;</code></pre>
 
+    <h3 id="treeselect">The treeSelect control</h3>
+    <p>A <code>type: 'treeSelect'</code> item is the grid's tree-select editor as a form field (BACKLOG-0007048): a cascading dropdown over the same two hierarchical option shapes the grid editor takes &mdash; nested <code>children</code>, or a leaf declared by its <code>path</code> of ancestor labels, whose intermediate levels are synthesised &mdash; and it stores the chosen node's <code>id</code>, never its label. The closed control shows the node's label, or its full ancestry when <code>showPath: true</code>. It opens on click, Enter or Alt+Down; typing filters the tree keeping every match's ancestors visible; Right expands a branch (then steps into it), Left collapses it (then steps out to the parent), Enter commits a selectable node or expands a container, and Escape closes without change. <code>selectLeavesOnly</code> (default true) makes a branch a container rather than a value, so a branch click only expands it; a <code>disabled</code> node is shown but never choosable. The list is virtualised &mdash; a 20,000-node tree opens and filters without jank &mdash; and a <code>search(query, signal)</code> function is handed an <code>AbortSignal</code>, so a superseded remote search is cancelled exactly as the grid editor's lookup search is. The tree resolution itself lives once in <code>packages/dom/src/editors/tree.js</code>, shared with the grid editor, so the two cannot drift apart. The control is a combobox: the closed field is a text input with <code>role="combobox"</code> and <code>aria-haspopup="tree"</code>, its popup a <code>role="tree"</code> of <code>role="treeitem"</code> rows carrying <code>aria-level</code>/<code>aria-expanded</code>/<code>aria-selected</code>, and the input keeps <code>aria-activedescendant</code> on the highlighted row. A grid column whose <code>edit.editor</code> is <code>'treeSelect'</code> generates one with its lookup options.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createTreeSelect(el, config?)</td><td class="desc">Create a standalone tree select. <code>config</code> is the <code>TreeSelectConfig</code> options below. Returns <code>{ el, root, input, getValue, setValue, setOptions, reload, open, close, focus, blur, setDisabled, setReadOnly, destroy }</code>.</td></tr>
+          <tr><td class="sig">item</td><td class="desc">A <code>type: 'treeSelect'</code> item takes the same options: <code>options</code>, <code>search</code>, <code>selectLeavesOnly</code>, <code>showPath</code>, <code>pathSeparator</code>, <code>defaultExpanded</code>, <code>valueKey</code>, <code>labelKey</code> and <code>clearable</code>, with the search pause named <code>searchDebounce</code>.</td></tr>
+          <tr><td class="sig">options</td><td class="desc">The hierarchical list: <code>{ id, label, children? }</code> or <code>{ id, path }</code> nodes &mdash; the same shapes the grid's tree-select editor takes, so a developer configures tree data once.</td></tr>
+          <tr><td class="sig">getValue() / setValue(value)</td><td class="desc">Read the committed node id (or <code>null</code>), or write one silently &mdash; no event fires. An id naming no node is dropped, as a select drops an unknown option.</td></tr>
+          <tr><td class="sig">open() / close() / focus() / blur()</td><td class="desc">Drive the popup and keyboard focus; <code>setOptions()</code> replaces the list, <code>reload()</code> re-runs the current search, <code>setDisabled()</code>/<code>setReadOnly()</code> gate editing, and <code>destroy()</code> tears the control down.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="treeselect-live-example">Both option shapes, a path label and the standalone factory, executed</h4>
+    <p class="section-note">One form, both option shapes: nested <code>children</code>, and a <code>path</code> whose intermediate levels are
+    synthesised. The value is the chosen node's id, and <code>showPath</code> draws the full ancestry in the closed control.</p>
+    <pre data-run="js" data-expect="col|Colchester|par|EMEA / France / Paris|combobox|tree|tree|Paris" data-covers="export:createForm export:createTreeSelect config:FormItemConfig.type config:FormItemConfig.name config:FormItemConfig.label config:FormItemConfig.options config:FormItemConfig.value config:FormItemConfig.showPath config:FormItemConfig.selectLeavesOnly config:FormItemConfig.pathSeparator config:FormItemConfig.defaultExpanded config:FormItemConfig.valueKey config:FormItemConfig.labelKey config:FormItemConfig.searchDebounce config:FormItemConfig.search config:TreeSelectConfig.options config:TreeSelectConfig.value config:TreeSelectConfig.doc config:TreeSelectConfig.search config:TreeSelectConfig.selectLeavesOnly config:TreeSelectConfig.showPath config:TreeSelectConfig.pathSeparator config:TreeSelectConfig.defaultExpanded config:TreeSelectConfig.valueKey config:TreeSelectConfig.labelKey config:TreeSelectConfig.placeholder config:TreeSelectConfig.clearable config:TreeSelectConfig.name config:TreeSelectConfig.autocomplete config:TreeSelectConfig.disabled config:TreeSelectConfig.readOnly config:TreeSelectConfig.t"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm, createTreeSelect } = await import('../packages/modules/form/index.js');
+
+const { document, root } = createTestDom();
+
+// Both option shapes in one form: nested children, and a path whose intermediate
+// levels are synthesised. The stored value is the chosen node's id.
+const t = (key) => key;
+const form = createForm(root, { rows: [
+  { type: 'treeSelect', name: 'site', label: 'Site',
+    selectLeavesOnly: true, defaultExpanded: false, valueKey: 'id', labelKey: 'label',
+    searchDebounce: 250, search: (q, signal) => [],
+    options: [
+      { id: 'uk', label: 'UK', children: [
+        { id: 'col', label: 'Colchester' },
+        { id: 'lon', label: 'London' },
+      ] },
+    ], value: 'col' },
+  { type: 'treeSelect', name: 'region', label: 'Region', showPath: true, pathSeparator: ' / ',
+    options: [
+      { id: 'par', path: ['EMEA', 'France', 'Paris'] },
+    ], value: 'par' },
+] });
+const site = form.getItem('site').el.querySelector('.lat-treeselect');
+const region = form.getItem('region').el.querySelector('.lat-treeselect');
+const siteShown = site.querySelector('.lat-combo__input').value;      <span class="cmt">// 'Colchester' &mdash; the label</span>
+const regionShown = region.querySelector('.lat-combo__input').value;  <span class="cmt">// 'EMEA / France / Paris' &mdash; showPath</span>
+const values = form.getValue();                                       <span class="cmt">// the committed ids</span>
+const siteValue = values.site;                                        <span class="cmt">// 'col'</span>
+const regionValue = values.region;                                    <span class="cmt">// 'par'</span>
+
+// The standalone factory exposes the combobox + tree roles the control draws.
+const host = document.createElement('div');
+root.appendChild(host);
+const tree = createTreeSelect(host, {
+  options: [{ id: 'par', path: ['EMEA', 'France', 'Paris'] }],
+  value: 'par',
+  doc: document,
+  selectLeavesOnly: true, pathSeparator: ' / ', defaultExpanded: false,
+  valueKey: 'id', labelKey: 'label', search: (q, signal) => [],
+  clearable: false, placeholder: 'Pick a site', autocomplete: 'off', name: 'site',
+  disabled: false, readOnly: false, t,
+});
+const role = tree.input.getAttribute('role');               <span class="cmt">// 'combobox'</span>
+const popup = tree.input.getAttribute('aria-haspopup');     <span class="cmt">// 'tree'</span>
+const list = document.getElementById(tree.input.getAttribute('aria-controls'));
+const listRole = list.getAttribute('role');                 <span class="cmt">// 'tree'</span>
+const label = tree.input.value;                             <span class="cmt">// 'Paris' &mdash; the leaf label</span>
+form.destroy();
+tree.destroy();
+return [siteValue, siteShown, regionValue, regionShown, role, popup, listRole, label].join('|');</code></pre>
+
     <h3 id="listbox">The listbox control</h3>
     <p>A <code>type: 'listbox'</code> item is a scrolling, virtualised option list. <code>selection</code> picks the interaction mode: <code>'single'</code> (the default, click or arrow selects), <code>'multiple'</code> (click replaces the selection, Ctrl/Cmd+click toggles, Shift+click spans a range, a touch tap toggles) or <code>'checkbox'</code> (a box per row plus a select-all row). <code>filter: true</code> adds a search box that narrows the rows by label and description without dropping an already-selected option it hides; <code>groupBy: true</code> buckets the options by their <code>group</code> field under sticky headers; <code>sort: 'asc' | 'desc'</code> orders the rows by label; <code>render(opt)</code> replaces a row's content, handed the option exactly as given so a field this module does not know about still reaches it. <code>height</code> (pixels) or <code>rows</code> (row count) sizes the viewport. <code>reorder: true</code> draws Move up/Move down buttons and accepts Alt+Arrow and drag, and the committed value becomes the full, reordered item array; <code>connect: '&lt;other item name&gt;'</code> links this list to another by name &mdash; a Move selected/Move all pair (and drag, either direction) move items between the two, and each side's value is simply the items it currently holds. <code>min</code>/<code>max</code> cap the selection count, like a multi <code>chips</code> item.</p>
     <p id="listbox-editable"><strong>An editable ordered list (BACKLOG-0002547).</strong> <code>getItem(name).getOptions()</code> reads the current item order exactly as given, independent of selection, the search text or a <code>filter()</code> predicate. With <code>reorder: true</code>, <code>valueAs: 'order'</code> makes the committed value the ordered array of option values in every selection mode &mdash; including the default <code>'single'</code>, where the value would otherwise be just the one selected item, and which an ordered-list item usually wants instead, since the list itself is the data. Every row click fires <code>itemClick</code> with the option and the mouse event, the already-selected row included, and Enter fires <code>activate</code> the same way. <code>getItem(name).addOption(opt, index?)</code>, <code>.removeOption(value)</code> and <code>.updateOption(value, patch)</code> edit the list from the host, keeping selection and order consistent and each firing one <code>change</code>. <code>dragHandle: true</code> draws a grip and drags only from it (a plain pointer drag, not native HTML5 drag-and-drop, so it is driven the same way the grid's own row-drag handle is) and sizes rows to their content instead of a fixed height. <code>getItem(name).filter(fn)</code> (and <code>filter(null)</code> to clear it) shows only the options <code>fn</code> accepts, without touching the canonical order, the selection or the value.</p>
@@ -23637,7 +23713,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">quickState</td><td class="type">(): { text: string; mode: string }</td><td class="desc">&mdash;</td><td class="type"><code>{ text: string; mode: string }</code></td><td class="desc">The quick filter's text and match mode, for restoring a control.</td></tr>
           <tr><td class="name">get</td><td class="type">(): <a href="#type-FilterSet">FilterSet</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FilterSet">FilterSet</a></code></td><td class="desc">The filter tree in force — the structured conditions, not the quick filter or the `where` predicates.</td></tr>
-          <tr><td class="name">set</td><td class="type">(filters: <a href="#type-FilterSet">FilterSet</a>): void</td><td class="desc"><code>filters: <a href="#type-FilterSet">FilterSet</a></code></td><td class="type"><code>void</code></td><td class="desc">Replace the filter tree. `beforeFilter` may cancel it. A condition on a column the user may not read is dropped, since the row count alone would leak the value; a condition naming an operator the grid does not have is dropped too, and if that leaves nothing at all the call is a no-op rather than a clear — a typo must not quietly widen a row set someone had narrowed.</td></tr>
+          <tr><td class="name">set</td><td class="type">(filters: <a href="#type-FilterSet">FilterSet</a>): void | Promise&lt;void&gt;</td><td class="desc"><code>filters: <a href="#type-FilterSet">FilterSet</a></code></td><td class="type"><code>void | Promise&lt;void&gt;</code></td><td class="desc">Replace the filter tree. `beforeFilter` may cancel it. A condition on a column the user may not read is dropped, since the row count alone would leak the value; a condition naming an operator the grid does not have is dropped too, and if that leaves nothing at all the call is a no-op rather than a clear — a typo must not quietly widen a row set someone had narrowed. Returns a Promise when the new filter needs a chunked, off-frame re-filter to land (BACKLOG-0007068) — a large `where` predicate, or a quick-text warm-up mid flight — resolving once it has, so `statistics.profile()` and `profileAsync()` read against it, not the last-good set still being replaced. Otherwise (the common case, and a veto) returns nothing.</td></tr>
           <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop the condition tree, the quick filter, and every `where` predicate that was not registered `{ pinned: true }`.</td></tr>
           <tr><td class="name">quick</td><td class="type">(text: string): void</td><td class="desc"><code>text: string</code></td><td class="type"><code>void</code></td><td class="desc">Set the quick filter text, which matches against what the cells display. `mode` chooses how — `'contains'` (the default), `'words'`, `'fuzzy'` or `'regex'` — and persists until changed, so a host can set it once and pass text alone afterwards. `beforeFilter` may cancel it, and keystrokes coalesce into one undo entry.</td></tr>
           <tr><td class="name">where</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The names of the `where` predicates in force, in registration order.</td></tr>
@@ -25045,7 +25121,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">from</td><td class="type"><a href="#type-Grid">Grid</a> | <a href="#type-UnionSourceOptions">UnionSourceOptions</a>[]</td><td class="desc">The grid to read, or several to combine into one row set before the rest of the pipeline runs (BACKLOG-0001045). A bare `Grid` is shorthand for a `UnionSourceOptions` with no `label`/`follow`/`map` override, so an existing `from: &lt;grid&gt;` keeps meaning exactly what it always has. Given an array, every source is read (each narrowed by its own `follow`, defaulting to `'filtered'` as a lone `from` does today), concatenated in **declaration order** — deterministic, not interleaved — and only then does `unnest`/`join`/`where`/`bucket`/`groupBy`/`select`/`sort`/`limit`/ `limitPer`/`cumulative` run, over the combined set, so "the worst performers across both" is one derivation rather than a hand-merge. The output carries the **union of the sources' fields**: a field present on only one source is `undefined` on rows from the others. Sources are **not** type-reconciled — if two disagree on what a field means or holds, that is not resolved for you; give each source a `map` to project it into a common shape first. Every row also carries `__source` (the entry's `label`, or its declaration index when unlabelled), which is required — not optional — because without it a combined list cannot be read, filtered or grouped by where it came from; it is an ordinary field to `where`, `groupBy` and `select`. And because the derived key (`__key`) would otherwise collide across sources sharing the same identifiers, it is namespaced by the same source tag when nothing is grouped (a grouped union's `__key` is the group value, exactly as today, and rows from different sources correctly land in the *same* group when their group values agree — that merging is the point of grouping a union, not a collision to guard against). This is **not** a join: there is no dedup or merge-on-key, and it draws no UNION/UNION ALL distinction — overlapping rows from two sources simply both appear. Reach for `join` when two sides share a key and you want them matched rather than stacked. An empty source contributes nothing and the rest still combine; a source that fails to read is named in a `warnOnce` and skipped for that pass rather than silently dropped, because a silently missing source would make "worst across both" quietly wrong. A source list that includes the grid being derived, directly or through a chain, is refused when the source is built (naming the offender) rather than recursed into. `crossFilter` has no single target once there is more than one parent, so it is not supported alongside a union `from` (ignored, with a `warnOnce`, rather than guessing which parent to push onto).</td></tr>
           <tr><td class="name">follow</td><td class="type"><a href="#type-DerivedFollow">DerivedFollow</a> <small class="literals">'filtered' | 'all' | 'selected' | 'grouped'</small></td><td class="desc">Which of its rows to read. `filtered` by default. Ignored — with a `warnOnce` — when `from` is a union array: each entry there carries its own `follow` instead (BACKLOG-0001045). <small>(optional)</small></td></tr>
           <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">An array property to expand, one row per element, before anything else. <small>(optional)</small></td></tr>
-          <tr><td class="name">join</td><td class="type"><a href="#type-DerivedJoin">DerivedJoin</a></td><td class="desc">Match each row against a second grid on a shared key, and bring some of its fields across. Runs after `unnest` and before `where`, so a condition: and a grouping, and a total: can read a field the join produced. <small>(optional)</small></td></tr>
+          <tr><td class="name">join</td><td class="type"><a href="#type-DerivedJoin">DerivedJoin</a></td><td class="desc">Match each row against a second grid on a shared key, and bring some of its fields across. `select` names fields or columns of that grid — a computed column qualifies — and a name that is neither warns by name instead of a silent missing value. Runs after `unnest` and before `where`, so a condition (and a grouping, and a total) can read a field the join produced. <small>(optional)</small></td></tr>
           <tr><td class="name">bucket</td><td class="type">{ of: string; by: 'day' | 'week' | 'month' | 'quarter' | 'year' }</td><td class="desc">Round a date column down to a period, and group on that. <small>(optional)</small></td></tr>
           <tr><td class="name">groupBy</td><td class="type">string | string[]</td><td class="desc">The dimension, or dimensions, to group by. Omit to pass rows through. <small>(optional)</small></td></tr>
           <tr><td class="name">select</td><td class="type">Record&lt;string, <a href="#type-DerivedSelect">DerivedSelect</a>&gt;</td><td class="desc">The reduced columns, by output id. <small>(optional)</small></td></tr>
@@ -26365,7 +26441,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid holding the other side.</td></tr>
           <tr><td class="name">on</td><td class="type">string | { left?: string; right?: string }</td><td class="desc">The shared key: one field name when both sides use it, or one each.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-JoinType">JoinType</a> <small class="literals">'inner' | 'left'</small></td><td class="desc">`inner` keeps only rows that matched; `left` keeps them all. <small>(optional)</small></td></tr>
-          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across. All of them by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across — a computed column qualifies, evaluated per row — all of them by default. A name that is neither a field nor a column of the joined grid warns by name instead of a silent missing value. A brought-across field whose name the left side already has is kept under a predictable `&lt;name&gt;_right` rather than overwriting the left value. <small>(optional)</small></td></tr>
           <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Rename the brought-across fields, when both sides have one worth keeping. <small>(optional)</small></td></tr>
           <tr><td class="name">follow</td><td class="type"><a href="#type-RowScope">RowScope</a> <small class="literals">'all' | 'filtered'</small></td><td class="desc">Which of the partner's rows to read. `all` by default. <small>(optional)</small></td></tr>
         </tbody>
@@ -36715,6 +36791,22 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-FormTreeSelectOption">FormTreeSelectOption</h4>
+    <p class="section-note">One node of a `treeSelect` item's hierarchical option set (BACKLOG-0007048), in either of the two shapes the grid's tree-select editor takes: nested `children`, or a leaf declared by its `path` of ancestor labels.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string | number</td><td class="desc">The node's stored id — the value committed when it is chosen. Omitted on a synthesised `path` level, which makes that level a container rather than a value. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The node's display label; the last `path` segment (or the id) when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">children</td><td class="type"><a href="#type-FormTreeSelectOption">FormTreeSelectOption</a>[]</td><td class="desc">The node's children, nested arbitrarily deep. Mutually exclusive with `path`. <small>(optional)</small></td></tr>
+          <tr><td class="name">path</td><td class="type">string[]</td><td class="desc">The leaf's ancestry labels — `['EMEA', 'UK', 'Colchester']` — synthesising the intermediate levels. Mutually exclusive with `children`. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Whether the node is shown but not selectable. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">A per-node icon name. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type">string</td><td class="desc">A per-node decoration token. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-FormStep">FormStep</h4>
     <p class="section-note">One wizard step: a labelled group of rows, shown one at a time.</p>
     <div class="table-wrap">
@@ -36882,7 +36974,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">min</td><td class="type">number | string</td><td class="desc">The minimum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">max</td><td class="type">number | string</td><td class="desc">The maximum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8) (BACKLOG-0002256). <small>(optional)</small></td></tr>
-          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a> | <a href="#type-FormToggleGroupOption">FormToggleGroupOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a> | <a href="#type-FormToggleGroupOption">FormToggleGroupOption</a> | <a href="#type-FormTreeSelectOption">FormTreeSelectOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142); or the hierarchical nodes of a `treeSelect` item (`{ id, label, children? }` or `{ id, path }` entries) (BACKLOG-0007048). <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">'single' | 'multiple' | 'checkbox'</td><td class="desc">A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row) (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">filter</td><td class="type">boolean</td><td class="desc">Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">groupBy</td><td class="type">boolean</td><td class="desc">Bucket a `listbox` item's options by their `group` field under sticky headers (BACKLOG-0002256). <small>(optional)</small></td></tr>
@@ -36894,6 +36986,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">orientation</td><td class="type">'vertical' | 'horizontal'</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. <small>(optional)</small></td></tr>
           <tr><td class="name">native</td><td class="type">boolean</td><td class="desc">Keep the native `&lt;select&gt;` element rather than the rendered trigger and listbox (BACKLOG-0002168). <small>(optional)</small></td></tr>
+          <tr><td class="name">selectLeavesOnly</td><td class="type">boolean</td><td class="desc">On a `treeSelect` item, whether a branch is a container rather than a value (default true) — only leaves may be committed (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">showPath</td><td class="type">boolean</td><td class="desc">On a `treeSelect` item, show the chosen node's full ancestry in the closed control rather than its label alone (default false) (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">pathSeparator</td><td class="type">string</td><td class="desc">The text between ancestry levels in a `treeSelect` item's closed path label (default `' / '`) (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">defaultExpanded</td><td class="type">boolean</td><td class="desc">On a `treeSelect` item, start with every branch expanded (default false) (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">valueKey</td><td class="type">string</td><td class="desc">The option field a `treeSelect` item stores as the id (default `'id'`) (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">labelKey</td><td class="type">string</td><td class="desc">The option field a `treeSelect` item shows as the label (default `'label'`) (BACKLOG-0007048). <small>(optional)</small></td></tr>
+          <tr><td class="name">searchDebounce</td><td class="type">number</td><td class="desc">The pause, in milliseconds, before a `treeSelect` item's remote `search` fires (default 250) (BACKLOG-0007048). <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The locale the `datepicker` formats month/weekday names in, and the `number` item's format and typed-input separators resolve against; the viewer's when omitted (BACKLOG-0002142). <small>(optional)</small></td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">The timeZone the `datepicker` reads a Date/epoch value in, like the grid's date columns (BACKLOG-0002142). <small>(optional)</small></td></tr>
           <tr><td class="name">granularity</td><td class="type"><a href="#type-FormDateRangeGranularity">FormDateRangeGranularity</a> <small class="literals">'day' | 'month'</small></td><td class="desc">The `daterange` granularity: `day` (default) or `month` — a year-month range picker of two years of twelve month cells (BACKLOG-0002255). <small>(optional)</small></td></tr>
@@ -36982,6 +37081,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">render</td><td class="type">(option: <a href="#type-FormOption">FormOption</a>) =&gt; Node | string</td><td class="desc"><code>option: <a href="#type-FormOption">FormOption</a></code></td><td class="type"><code>=&gt; Node | string</code></td><td class="desc">A custom row renderer for a `listbox`/`select`/`combo` option, returning a DOM node or an HTML string (sanitised before insertion). <small>(optional)</small></td></tr>
+          <tr><td class="name">search</td><td class="type">(query: string, signal: AbortSignal) =&gt; Promise&lt;unknown[]&gt; | unknown[]</td><td class="desc"><code>query: string</code><br><code>signal: AbortSignal</code></td><td class="type"><code>=&gt; Promise&lt;unknown[]&gt; | unknown[]</code></td><td class="desc">A remote option source for a `treeSelect` item, handed the query and an `AbortSignal` so a superseded request can be cancelled (BACKLOG-0007048). <small>(optional)</small></td></tr>
           <tr><td class="name">upload</td><td class="type">((file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;) | <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></td><td class="desc"><code>(file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;</code></td><td class="type"><code>| <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></code></td><td class="desc">The host upload callback for a `file` item (`(file, { onProgress, signal }) =&gt; void | Promise&lt;void&gt;`), or an `avatar` item's own upload config, posted as multipart form data (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">onImage</td><td class="type">(file: File) =&gt; Promise&lt;string&gt; | string</td><td class="desc"><code>file: File</code></td><td class="type"><code>=&gt; Promise&lt;string&gt; | string</code></td><td class="desc">A host callback returning a source URL for an inserted image. <small>(optional)</small></td></tr>
           <tr><td class="name">tickTemplate</td><td class="type">(value: number) =&gt; string</td><td class="desc"><code>value: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a `slider` tick's label and a thumb's `aria-valuetext`; the plain number when omitted (BACKLOG-0002340). <small>(optional)</small></td></tr>
@@ -37321,6 +37421,75 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h5 id="type-Select-events">Events</h5>
+    <p class="section-note">No events.</p>
+    <h4 id="type-TreeSelectConfig">TreeSelectConfig</h4>
+    <p class="section-note">The options `createTreeSelect` takes: the form's `type: 'treeSelect'` item as a standalone control (BACKLOG-0007048). The option shapes — `children` and `path` — and every behaviour match the grid's tree-select editor, sharing the same tree resolution.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">options</td><td class="type">unknown[]</td><td class="desc">The hierarchical option list: `{ id, label, children? }` or `{ id, path }` nodes. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectLeavesOnly</td><td class="type">boolean</td><td class="desc">Whether a branch is a container rather than a value (default true). <small>(optional)</small></td></tr>
+          <tr><td class="name">showPath</td><td class="type">boolean</td><td class="desc">Show the chosen node's full ancestry in the closed control (default false). <small>(optional)</small></td></tr>
+          <tr><td class="name">pathSeparator</td><td class="type">string</td><td class="desc">The text between ancestry levels (default `' / '`). <small>(optional)</small></td></tr>
+          <tr><td class="name">defaultExpanded</td><td class="type">boolean</td><td class="desc">Start with every branch expanded (default false). <small>(optional)</small></td></tr>
+          <tr><td class="name">valueKey</td><td class="type">string</td><td class="desc">The option field holding the id (default `'id'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">labelKey</td><td class="type">string</td><td class="desc">The option field holding the label (default `'label'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The initial value — a node id. <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">The text the input shows while nothing is chosen. <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control while a value is held. <small>(optional)</small></td></tr>
+          <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">The search debounce, in milliseconds (default 250). <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The accessible name of the input. <small>(optional)</small></td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The input name, when `autocomplete` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">autocomplete</td><td class="type">string</td><td class="desc">The native `autocomplete` token. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only. <small>(optional)</small></td></tr>
+          <tr><td class="name">doc</td><td class="type">Document</td><td class="desc">The owner document, for a control mounted outside the main document. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">search</td><td class="type">(query: string, signal: AbortSignal) =&gt; Promise&lt;unknown[]&gt; | unknown[]</td><td class="desc"><code>query: string</code><br><code>signal: AbortSignal</code></td><td class="type"><code>=&gt; Promise&lt;unknown[]&gt; | unknown[]</code></td><td class="desc">A remote option source, handed the query and an `AbortSignal`; a non-empty query replaces the static list. <small>(optional)</small></td></tr>
+          <tr><td class="name">t</td><td class="type">(key: string, params?: object) =&gt; string</td><td class="desc"><code>key: string</code><br><code>params?: object</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">A message resolver for the control's own strings. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-TreeSelect">TreeSelect</h4>
+    <p class="section-note">The tree-select instance {@link createTreeSelect} returns (BACKLOG-0007048). Committing a node dispatches a DOM `change` event on the host element; the value is the chosen node's id.</p>
+    <h5 id="type-TreeSelect-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The host element the tree select mounted into.</td></tr>
+          <tr><td class="name">root</td><td class="type">HTMLElement</td><td class="desc">The tree select's root element.</td></tr>
+          <tr><td class="name">input</td><td class="type">HTMLElement</td><td class="desc">The search input.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-TreeSelect-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getValue</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">The committed node id, or null.</td></tr>
+          <tr><td class="name">setValue</td><td class="type">(value: unknown): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc"><code>value: unknown</code></td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Write a committed value silently; no `change` fires.</td></tr>
+          <tr><td class="name">setOptions</td><td class="type">(options: unknown[]): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc"><code>options: unknown[]</code></td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Replace the static option list, keeping a value still present.</td></tr>
+          <tr><td class="name">reload</td><td class="type">(): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Re-run the current search.</td></tr>
+          <tr><td class="name">open</td><td class="type">(): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Open the tree popup.</td></tr>
+          <tr><td class="name">close</td><td class="type">(): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Close the tree popup.</td></tr>
+          <tr><td class="name">focus</td><td class="type">(): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Focus the search input.</td></tr>
+          <tr><td class="name">blur</td><td class="type">(): <a href="#type-TreeSelect">TreeSelect</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-TreeSelect">TreeSelect</a></code></td><td class="desc">Blur the search input.</td></tr>
+          <tr><td class="name">setDisabled</td><td class="type">(disabled: boolean): void</td><td class="desc"><code>disabled: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Enable or disable the control.</td></tr>
+          <tr><td class="name">setReadOnly</td><td class="type">(readOnly: boolean): void</td><td class="desc"><code>readOnly: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Mark the control read-only.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the control and its listeners.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-TreeSelect-events">Events</h5>
     <p class="section-note">No events.</p>
     <h4 id="type-ComboConfig">ComboConfig</h4>
     <div class="table-wrap">
@@ -43489,7 +43658,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormControlType">FormControlType</h4>
     <p class="section-note">The control types a form item may name.</p>
-    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider' | 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan'</code></p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'treeSelect' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider' | 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormDateRangeGranularity">FormDateRangeGranularity</h4>
     <p class="section-note">The granularity of a `daterange` item (BACKLOG-0002255): a day range or a year-month range.</p>
@@ -44446,7 +44615,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.129.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.130.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

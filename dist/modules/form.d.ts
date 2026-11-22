@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.129.0, form module type declarations
+ * Lattice Grid 1.130.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -21,7 +21,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider' | 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'treeSelect' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider' | 'ipv4' | 'ipv6' | 'cidr' | 'mac' | 'vlan';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -122,6 +122,24 @@ export interface FormOptionGroup {
   label: string;
   /** The group's options, nested groups allowed. */
   options: (string | FormOption | FormOptionGroup)[];
+}
+
+/** One node of a `treeSelect` item's hierarchical option set, in either of the two shapes the grid's tree-select editor takes: nested `children`, or a leaf declared by its `path` of ancestor labels. */
+export interface FormTreeSelectOption {
+  /** The node's stored id — the value committed when it is chosen. Omitted on a synthesised `path` level, which makes that level a container rather than a value. */
+  id?: string | number;
+  /** The node's display label; the last `path` segment (or the id) when omitted. */
+  label?: string;
+  /** The node's children, nested arbitrarily deep. Mutually exclusive with `path`. */
+  children?: FormTreeSelectOption[];
+  /** The leaf's ancestry labels — `['EMEA', 'UK', 'Colchester']` — synthesising the intermediate levels. Mutually exclusive with `children`. */
+  path?: string[];
+  /** Whether the node is shown but not selectable. */
+  disabled?: boolean;
+  /** A per-node icon name. */
+  icon?: string;
+  /** A per-node decoration token. */
+  variant?: string;
 }
 
 /** When an item re-checks itself: on a committed edit, on blur, or only on `validate()`. */
@@ -432,8 +450,8 @@ export interface FormItemConfig extends ComboConfig {
   max?: number | string;
   /** The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8). */
   rows?: number;
-  /** The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects, or `{ label, options }` groups; or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries). */
-  options?: (string | FormOption | FormOptionGroup | FormChipOption | FormToggleGroupOption)[];
+  /** The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects, or `{ label, options }` groups; the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries); or the hierarchical nodes of a `treeSelect` item (`{ id, label, children? }` or `{ id, path }` entries). */
+  options?: (string | FormOption | FormOptionGroup | FormChipOption | FormToggleGroupOption | FormTreeSelectOption)[];
   /** A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row). */
   selection?: 'single' | 'multiple' | 'checkbox';
   /** Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides. */
@@ -458,6 +476,22 @@ export interface FormItemConfig extends ComboConfig {
   columns?: number;
   /** Keep the native `<select>` element rather than the rendered trigger and listbox. */
   native?: boolean;
+  /** On a `treeSelect` item, whether a branch is a container rather than a value (default true) — only leaves may be committed. */
+  selectLeavesOnly?: boolean;
+  /** On a `treeSelect` item, show the chosen node's full ancestry in the closed control rather than its label alone (default false). */
+  showPath?: boolean;
+  /** The text between ancestry levels in a `treeSelect` item's closed path label (default `' / '`). */
+  pathSeparator?: string;
+  /** On a `treeSelect` item, start with every branch expanded (default false). */
+  defaultExpanded?: boolean;
+  /** The option field a `treeSelect` item stores as the id (default `'id'`). */
+  valueKey?: string;
+  /** The option field a `treeSelect` item shows as the label (default `'label'`). */
+  labelKey?: string;
+  /** The pause, in milliseconds, before a `treeSelect` item's remote `search` fires (default 250). */
+  searchDebounce?: number;
+  /** A remote option source for a `treeSelect` item, handed the query and an `AbortSignal` so a superseded request can be cancelled. */
+  search?: (query: string, signal: AbortSignal) => Promise<unknown[]> | unknown[];
   /** The locale the `datepicker` formats month/weekday names in, and the `number` item's format and typed-input separators resolve against; the viewer's when omitted. */
   locale?: string;
   /** The timeZone the `datepicker` reads a Date/epoch value in, like the grid's date columns. */
@@ -1105,6 +1139,80 @@ export interface Select {
   destroy(): void;
 }
 
+/** The options `createTreeSelect` takes: the form's `type: 'treeSelect'` item as a standalone control. The option shapes — `children` and `path` — and every behaviour match the grid's tree-select editor, sharing the same tree resolution. */
+export interface TreeSelectConfig {
+  /** The hierarchical option list: `{ id, label, children? }` or `{ id, path }` nodes. */
+  options?: unknown[];
+  /** A remote option source, handed the query and an `AbortSignal`; a non-empty query replaces the static list. */
+  search?: (query: string, signal: AbortSignal) => Promise<unknown[]> | unknown[];
+  /** Whether a branch is a container rather than a value (default true). */
+  selectLeavesOnly?: boolean;
+  /** Show the chosen node's full ancestry in the closed control (default false). */
+  showPath?: boolean;
+  /** The text between ancestry levels (default `' / '`). */
+  pathSeparator?: string;
+  /** Start with every branch expanded (default false). */
+  defaultExpanded?: boolean;
+  /** The option field holding the id (default `'id'`). */
+  valueKey?: string;
+  /** The option field holding the label (default `'label'`). */
+  labelKey?: string;
+  /** The initial value — a node id. */
+  value?: unknown;
+  /** The text the input shows while nothing is chosen. */
+  placeholder?: string;
+  /** Show a clear control while a value is held. */
+  clearable?: boolean;
+  /** The search debounce, in milliseconds (default 250). */
+  debounce?: number;
+  /** The accessible name of the input. */
+  ariaLabel?: string;
+  /** The input name, when `autocomplete` is set. */
+  name?: string;
+  /** The native `autocomplete` token. */
+  autocomplete?: string;
+  /** Start disabled. */
+  disabled?: boolean;
+  /** Start read-only. */
+  readOnly?: boolean;
+  /** A message resolver for the control's own strings. */
+  t?: (key: string, params?: object) => string;
+  /** The owner document, for a control mounted outside the main document. */
+  doc?: Document;
+}
+
+/** The tree-select instance {@link createTreeSelect} returns. Committing a node dispatches a DOM `change` event on the host element; the value is the chosen node's id. */
+export interface TreeSelect {
+  /** The host element the tree select mounted into. */
+  el: HTMLElement;
+  /** The tree select's root element. */
+  root: HTMLElement;
+  /** The search input. */
+  input: HTMLElement;
+  /** The committed node id, or null. */
+  getValue(): unknown;
+  /** Write a committed value silently; no `change` fires. */
+  setValue(value: unknown): TreeSelect;
+  /** Replace the static option list, keeping a value still present. */
+  setOptions(options: unknown[]): TreeSelect;
+  /** Re-run the current search. */
+  reload(): TreeSelect;
+  /** Open the tree popup. */
+  open(): TreeSelect;
+  /** Close the tree popup. */
+  close(): TreeSelect;
+  /** Focus the search input. */
+  focus(): TreeSelect;
+  /** Blur the search input. */
+  blur(): TreeSelect;
+  /** Enable or disable the control. */
+  setDisabled(disabled: boolean): void;
+  /** Mark the control read-only. */
+  setReadOnly(readOnly: boolean): void;
+  /** Remove the control and its listeners. */
+  destroy(): void;
+}
+
 export interface ComboConfig {
   /** The paging loader. Absent when `options` is used. */
   load?: (query: ComboLoadQuery) => ComboLoadResult | Promise<ComboLoadResult>;
@@ -1713,6 +1821,9 @@ export function createCombo(el: HTMLElement, config?: ComboConfig): Combo;
 
 /** Create a standalone themed select inside an element: the form's `type: 'select'` control, also the piece a kanban board takes as `form: { createSelect }`. */
 export function createSelect(el: HTMLElement, opts?: SelectConfig): Select;
+
+/** Create a standalone hierarchical tree select inside an element: the form's `type: 'treeSelect'` control. */
+export function createTreeSelect(el: HTMLElement, opts?: TreeSelectConfig): TreeSelect;
 
 /** Create a standalone floating speed dial inside an element. */
 export function createSpeedDial(el: HTMLElement, config?: SpeedDialConfig): SpeedDial;

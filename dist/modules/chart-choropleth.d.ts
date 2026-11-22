@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.129.0, chart-choropleth module type declarations
+ * Lattice Grid 1.130.0, chart-choropleth module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
