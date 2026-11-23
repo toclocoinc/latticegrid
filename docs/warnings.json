@@ -1,5 +1,5 @@
 {
-  "version": "1.130.0",
+  "version": "1.131.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 819,
+  "count": 820,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -546,6 +546,17 @@
       "meaning": "A column named in the chart spec is not a column of the grid. It is asked first, before emptiness, because a missing column does not produce an empty binding: every row answers `undefined` for it, which is one category or one null measure, so a chart bound to one would otherwise draw a complete frame around nothing. The chart shows its empty state instead, and the message lists the columns the grid does have.",
       "fix": "Bind a column the grid declares — the id, not the header title — or declare the column on the grid. The spec key that named it (`x`, `y`, `measures`, `source`, `target`, …) is printed with it.",
       "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: 'amount' });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:*:distribution:measure",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.131.0",
+      "message": "a distribution chart draws the readings of a numeric column and was given none. Put the column on `y` (`{ type: 'histogram', y: 'price' }`); a numeric column on `x` alone is read as the measure too.",
+      "meaning": "A histogram, boxplot, qq, ecdf, lorenz or violin chart had no `y` or `measures` and no numeric column on `x`, so nothing was bound and the frame is empty. The id carries the chart's own id.",
+      "fix": "Name the numeric column on `y`.",
+      "snippet": "createChart({ grid, container, type: 'histogram', y: 'price' });",
       "docs": "api/charts.html#chartsmodule"
     },
     {

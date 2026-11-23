@@ -9,6 +9,25 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.131.0] - 2026-11-23
+
+### Changed
+
+- A trial form now shows its notice below its fields instead of over them: the unlicensed notice is its own band under the last field and any buttons, so it never covers a label or input on a short form (BACKLOG-0007063).
+
+### Fixed
+
+- A histogram, box plot, Q-Q, ECDF, Lorenz or violin chart given its numeric column on `x` alone now draws it as the measure, exactly as if it were on `y`; a spec with no measure at all warns once instead of drawing an empty frame (BACKLOG-0007076).
+
+### Internal
+
+- Customer-path regression cases for the Data Router and derived-grid defects the CDO demos found (BACKLOG-0007077)
+  - router.apply reaching a joined source's rollup (BACKLOG-0007065)
+  - a derived join converging when its left source and partner change in the same tick (BACKLOG-0007066)
+  - join.select reading a computed column (BACKLOG-0007067)
+  - statistics.profile settling with filters.set (BACKLOG-0007068)
+  - a seq router's rollup staying live across a parent patch (BACKLOG-0007074)
+
 ## [1.130.0] - 2026-11-22
 
 ### Added
