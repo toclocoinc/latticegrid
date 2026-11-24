@@ -1607,6 +1607,8 @@ declare class LatticeFormComponent extends LatticeViewerBase<Form> {
     readonly itemClick: EventEmitter<any>;
     /** The viewer's `activate` event: a `listbox` row was activated with Enter. */
     readonly activate: EventEmitter<any>;
+    /** The viewer's `stepChange` event: a wizard finished moving to another step (BACKLOG-0007137). */
+    readonly stepChange: EventEmitter<any>;
     /**
      * Build the form. `createForm(el, config)` takes its host element directly.
      * @param element the host element
@@ -1615,7 +1617,7 @@ declare class LatticeFormComponent extends LatticeViewerBase<Form> {
      */
     protected mount(element: HTMLElement, config: Props): Form;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeFormComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeFormComponent, "lattice-form", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeChange": "beforeChange"; "change": "change"; "input": "input"; "click": "click"; "focus": "focus"; "blur": "blur"; "validated": "validated"; "complete": "complete"; "customColorsChange": "customColorsChange"; "open": "open"; "close": "close"; "itemClick": "itemClick"; "activate": "activate"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeFormComponent, "lattice-form", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeChange": "beforeChange"; "change": "change"; "input": "input"; "click": "click"; "focus": "focus"; "blur": "blur"; "validated": "validated"; "complete": "complete"; "customColorsChange": "customColorsChange"; "open": "open"; "close": "close"; "itemClick": "itemClick"; "activate": "activate"; "stepChange": "stepChange"; }, never, never, true, never>;
 }
 
 declare class LatticeDesignerComponent implements OnChanges, OnDestroy {

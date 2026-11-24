@@ -912,7 +912,7 @@ const VIEWER_EVENTS$1 = Object.freeze({
     ]),
 
     form: Object.freeze([
-        'beforeChange', 'change', 'input', 'click', 'focus', 'blur', 'validated', 'complete', 'customColorsChange', 'open', 'close', 'itemClick', 'activate',
+        'beforeChange', 'change', 'input', 'click', 'focus', 'blur', 'validated', 'complete', 'customColorsChange', 'open', 'close', 'itemClick', 'activate', 'stepChange',
     ]),
 });
 
@@ -3559,6 +3559,8 @@ class LatticeFormComponent extends LatticeViewerBase {
         this.itemClick = new EventEmitter();
 
         this.activate = new EventEmitter();
+
+        this.stepChange = new EventEmitter();
     }
 
     mount(element, config) {
@@ -3566,7 +3568,7 @@ class LatticeFormComponent extends LatticeViewerBase {
         return createForm(element, config);
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeFormComponent, isStandalone: true, selector: "lattice-form", inputs: { config: "config" }, outputs: { beforeChange: "beforeChange", change: "change", input: "input", click: "click", focus: "focus", blur: "blur", validated: "validated", complete: "complete", customColorsChange: "customColorsChange", open: "open", close: "close", itemClick: "itemClick", activate: "activate" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeFormComponent, isStandalone: true, selector: "lattice-form", inputs: { config: "config" }, outputs: { beforeChange: "beforeChange", change: "change", input: "input", click: "click", focus: "focus", blur: "blur", validated: "validated", complete: "complete", customColorsChange: "customColorsChange", open: "open", close: "close", itemClick: "itemClick", activate: "activate", stepChange: "stepChange" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, decorators: [{
             type: Component,
@@ -3598,6 +3600,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], itemClick: [{
                 type: Output
             }], activate: [{
+                type: Output
+            }], stepChange: [{
                 type: Output
             }] } });
 

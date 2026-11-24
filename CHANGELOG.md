@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.132.0] - 2026-11-24
+
+### Added
+
+- A wizard form fires a `stepChange` event once for every completed step move, after the redraw, as `{ from, to, fromId, toId, source }` — the zero-based step indexes and step ids, and a `source` of `user` (the Back/Next buttons or the indicator), `api` (`next()`, `back()`, `goToStep()`) or `rebuild` (a re-mount that left a different step active); inside the handler the new step is already active and its body visible. A move refused by validation, a same-step or out-of-range `goToStep()`, `back()` on the first step, `next()` on the last step and the first draw fire nothing; the React and Angular form components expose it too (BACKLOG-0007137).
+
 ## [1.131.0] - 2026-11-23
 
 ### Changed

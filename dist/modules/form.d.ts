@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.131.0, form module type declarations
+ * Lattice Grid 1.132.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1335,7 +1335,9 @@ export type FormEventName =
   /** A `speeddial` menu action was activated, or a `listbox` row was clicked, selected row included. */
   | 'itemClick'
   /** A `listbox` row's Enter-key equivalent of a click. */
-  | 'activate';
+  | 'activate'
+  /** A wizard finished moving to another step. */
+  | 'stepChange';
 
 /** What a handler receives, per form event. */
 export interface FormEventPayloads {
@@ -1365,6 +1367,8 @@ export interface FormEventPayloads {
   itemClick: FormSpeedDialItemClickEvent | FormListboxItemClickEvent;
   /** A `listbox` row was activated with Enter. */
   activate: FormListboxItemClickEvent;
+  /** A wizard finished moving to another step. */
+  stepChange: FormStepChangeEvent;
 }
 
 /** The fields every form event carries. */
@@ -1387,6 +1391,22 @@ export interface FormValueEvent extends FormEvent {
 
 /** A `complete` payload: every box of an `otp` item is now filled. */
 export interface FormCompleteEvent extends FormValueEvent {
+}
+
+/** A `stepChange` payload: a wizard finished moving to another step. */
+export interface FormStepChangeEvent {
+  /** Which event this is: `'stepChange'`. */
+  type: 'stepChange';
+  /** The zero-based index of the step moved from. */
+  from: number;
+  /** The zero-based index of the step moved to. */
+  to: number;
+  /** The id of the step moved from. */
+  fromId: string;
+  /** The id of the step moved to. */
+  toId: string;
+  /** Who asked for the move: `user` (the Back/Next buttons or the step indicator), `api` (`next()`, `back()`, `goToStep()`) or `rebuild` (a re-mount that left a different step active). */
+  source: 'user' | 'api' | 'rebuild';
 }
 
 /** A `customColorsChange` payload: a `color` item's custom-colours row gained a newly picked colour. */
