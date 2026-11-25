@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.133.1] - 2026-11-25
+
+### Fixed
+
+- **A column filter's Equals list shows its values in alphabetical order** (BACKLOG-0007174). It showed them in the order they first appeared in the data, while the value list on the next tab was already alphabetical. A lookup column keeps its own option order, as before.
+
 ## [1.133.0] - 2026-11-25
 
 ### Added

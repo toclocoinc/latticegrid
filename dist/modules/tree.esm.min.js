@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.133.0, tree module
+ * Lattice Grid 1.133.1, tree module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
