@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.132.0, form module type declarations
+ * Lattice Grid 1.133.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1034,6 +1034,8 @@ export interface FormConfig {
   stepOrientation?: FormStepOrientation;
   /** Whether a forward step move validates the current step first (`true`, the default). Set `false` to run `validate()` yourself and navigate unchecked. */
   validateSteps?: boolean;
+  /** Whether the wizard draws its own Back/Next/Finish row under the active step (`true`, the default). Set `false` when the host draws its own and drive the wizard with `next()`/`back()`/`goToStep()` instead. */
+  stepNav?: boolean;
   /** A `t(key, params)` catalogue for the separator's accessible label. */
   messages?: { t(key: string, params?: object): string };
   /** The grid factory (`createGrid`) every `grid` item uses unless it names its own. */

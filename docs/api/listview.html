@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>List view API Reference — Lattice Grid 1.132.0</title>
+<title>List view API Reference — Lattice Grid 1.133.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -508,6 +508,17 @@
     <code>data-no-drag</code>; a double-click still selects a word. A row moved to another list leaves
     the source completely &mdash; its rows, paint, order and selection &mdash; and a copy leaves the
     source untouched.</p>
+    <p><strong>Paging and pinned items.</strong> <code>pagination: { enabled, pageSize, pageSizes }</code>
+    takes the same shape as the grid's own <code>GridConfig.pagination</code> and pages the list through
+    the grid's paging &mdash; there is no second implementation, only a compact, touch-sized pager under
+    the list: Previous, Next and &ldquo;Page n of m&rdquo;, each target at least 44&times;44 CSS px, theme
+    tokens only. <code>true</code> pages at the grid's default size (100); an object pages at its
+    <code>pageSize</code>. <code>list.data.filter</code> applies across every item and resets to page 1,
+    and the page count follows the filtered set. <code>pinnedTop</code> &mdash; an array of item ids, or
+    a predicate over the items &mdash; keeps those items above the paged items on every page, outside the
+    page count: the grid's own pinned rows, so a &ldquo;New site&rdquo; card always stays on top. Pinned
+    items are chrome, not data &mdash; not counted by <code>list.data</code>, not selectable or
+    reorderable.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -605,6 +616,8 @@ list.destroy();
           <tr><td class="name">collapsibleGroups</td><td class="type">boolean</td><td class="desc">A click, or Enter or Space on a focused heading, folds its group down to the heading; arrow keys then stop on headings too. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">groupsCollapsed</td><td class="type">boolean</td><td class="desc">Start with every group folded (with `collapsibleGroups`). Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">pullToRefresh</td><td class="type"><a href="#type-ListViewPullToRefresh">ListViewPullToRefresh</a></td><td class="desc">Touch pull-to-refresh (BACKLOG-0005188): pull the list down while it is scrolled to the top and release past `threshold` to call `onRefresh` once. Mouse and pen pointers are ignored. Off unless `enabled` is `true`; change it later with `list.setPullToRefresh`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pagination</td><td class="type">{ enabled?: boolean; pageSize?: number; pageSizes?: number[] } | boolean</td><td class="desc">Page the list a page at a time through the grid's own paging — no second implementation (BACKLOG-0007161). `true` pages at the grid's default page size; an object pages at its `pageSize` unless it says `enabled: false`. `pageSizes` is accepted for parity with the grid's own `pagination`, but the list's compact pager offers no size selector. A touch-sized pager (Previous, Next, "Page n of m") sits under the list, driving the grid's page API. `list.data.filter` applies across every item and resets to page 1; the page count follows the filtered set. Default: off. <small>(optional)</small></td></tr>
+          <tr><td class="name">pinnedTop</td><td class="type">unknown[] | ((item: <a href="types.html#type-ListViewItem">ListViewItem</a>) =&gt; boolean)</td><td class="desc">Items kept above the paged items on every page (BACKLOG-0007161): an array of item ids, or a predicate over the items, drawn once at the top through the grid's own pinned rows — outside the paged rows and the page count, so a "New site" card always stays on top. Pinned items are chrome, not data: not counted by `list.data`, not selectable or reorderable. Default: none. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

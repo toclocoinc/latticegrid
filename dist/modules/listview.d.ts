@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.132.0, listview module type declarations
+ * Lattice Grid 1.133.0, listview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -115,6 +115,26 @@ export interface ListViewConfig {
    * change it later with `list.setPullToRefresh`.
    */
   pullToRefresh?: ListViewPullToRefresh;
+  /**
+   * Page the list a page at a time through the grid's own paging — no second
+   * implementation. `true` pages at the grid's default
+   * page size; an object pages at its `pageSize` unless it says
+   * `enabled: false`. `pageSizes` is accepted for parity with the grid's own
+   * `pagination`, but the list's compact pager offers no size selector. A
+   * touch-sized pager (Previous, Next, "Page n of m") sits under the list,
+   * driving the grid's page API. `list.data.filter` applies across every item
+   * and resets to page 1; the page count follows the filtered set. Default: off.
+   */
+  pagination?: { enabled?: boolean; pageSize?: number; pageSizes?: number[] } | boolean;
+  /**
+   * Items kept above the paged items on every page: an
+   * array of item ids, or a predicate over the items, drawn once at the top
+   * through the grid's own pinned rows — outside the paged rows and the page
+   * count, so a "New site" card always stays on top. Pinned items are chrome,
+   * not data: not counted by `list.data`, not selectable or reorderable.
+   * Default: none.
+   */
+  pinnedTop?: unknown[] | ((item: ListViewItem) => boolean);
 }
 
 /** The options of {@link ListViewConfig.pullToRefresh} and `list.setPullToRefresh`. */

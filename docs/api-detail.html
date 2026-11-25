@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.132.0</p>
+    <p class="rail__sub">Developer guide · v1.133.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.132.0</span>
+        <span class="chip">Version 1.133.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1904,7 +1904,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.132.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.133.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12676,6 +12676,38 @@ states.push(true);
 list.destroy();
 return states.join(' || ');</code></pre>
 
+    <h3 id="listview-pager-example">Pagination and pinned items</h3>
+    <p class="section-note"><code>pagination: { enabled, pageSize, pageSizes }</code> takes the same shape as the grid's own <code>GridConfig.pagination</code> and pages the list through the grid's paging, with a compact touch-sized pager under the list (Previous, Next, &ldquo;Page n of m&rdquo;). <code>pinnedTop</code> &mdash; ids or a predicate &mdash; keeps items above the paged items on every page, outside the page count. Run headless, the pager's readout is read back from the DOM and the pinned item from the sticky strip.</p>
+    <pre data-run="js" data-expect="Page 1 of 60 || Page 2 of 60 || New site || New site || Page 1 of 3" data-covers="config:ListViewConfig.pagination config:ListViewConfig.pinnedTop"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createList } = await import('../packages/modules/listview/index.js');
+
+const dom = createTestDom();
+const template = (item) =&gt; {
+  const div = dom.root.ownerDocument.createElement('div');
+  div.textContent = item.name;
+  return div;
+};
+const list = createList(dom.root, {
+  createGrid,
+  data: [{ id: 'new', name: 'New site' }, ...Array.from({ length: 3000 }, (_, i) =&gt; ({ id: i, name: 'Site ' + i }))],
+  template,
+  pagination: { enabled: true, pageSize: 50 },   // 3,000 items at 50 per page
+  pinnedTop: ['new'],                              // the "New site" card always on top
+});
+
+const page = () =&gt; dom.root.querySelector('.lat-listview-pager__page').textContent;
+const sticky = () =&gt; dom.root.querySelector('.lat-sticky-top').textContent;
+const p1 = page();                                                 // Page 1 of 60
+const pinned1 = sticky();                                          // New site, above the page
+dom.root.querySelector('.lat-listview-pager__next').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const p2 = page();                                                 // Page 2 of 60
+const pinned2 = sticky();                                          // still New site on page 2
+list.data.filter((item) =&gt; item.id &lt; 120);                         // a filter resets to page 1
+const p3 = page();                                                 // Page 1 of 3
+list.destroy();
+return [p1, p2, pinned1, pinned2, p3].join(' || ');</code></pre>
+
     <h3 id="dataview-live">The data view module</h3>
     <p class="section-note">The opt-in data view: items laid out as template-drawn cards that wrap into rows, with selection, two-dimensional keyboard navigation and drag to reorder.</p>
     <pre><code><span class="kw">import</span> { createDataView } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/dataview'</span>;</code></pre>
@@ -13380,7 +13412,14 @@ return out;</code></pre>
       inside the handler the new step is already active. A refused move, a same-step or out-of-range
       <code>goToStep()</code>, <code>back()</code> on the first step, <code>next()</code> on the last
       step and the first draw fire nothing. Set <code>validateSteps: false</code> to navigate
-      unchecked and run <code>form.validate()</code> yourself.</p>
+      unchecked and run <code>form.validate()</code> yourself. The indicator sits above a
+      Back/Next/Finish row, <code>.lat-form__step-nav</code>, that <code>stepNav</code> (default
+      <code>true</code>) draws under the active step on every step, including the last (where
+      <code>next()</code> reads "Finish"); <code>stepNav: false</code> leaves the row out of the
+      document on every step, with no empty space left behind, while <code>next()</code>,
+      <code>back()</code>, <code>goToStep()</code>, the indicator's own clicks, step validation and
+      <code>stepChange</code> all keep working exactly as with the row drawn &mdash; a host that draws
+      its own Back/Next/Finish footer wires it to those same calls.</p>
       <p><strong>Validation is opt-in and per item.</strong> Mark an item <code>required</code>, or
       give it a <code>validation</code> rule &mdash; a built-in name (<code>email</code>,
       <code>number</code>, <code>integer</code>, <code>url</code>), a RegExp, or a function
@@ -16004,7 +16043,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.132.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.133.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

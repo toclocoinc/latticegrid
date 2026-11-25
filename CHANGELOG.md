@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.133.0] - 2026-11-25
+
+### Added
+
+- A wizard form takes a `stepNav` option (default `true`): set `stepNav: false` to leave the built-in Back/Next/Finish row (`.lat-form__step-nav`) out of every step, including the last, with no empty space left behind, for a host that draws its own step buttons — `next()`, `back()`, `goToStep()`, the step indicator's clicks, step validation and the `stepChange` event all keep working the same way (BACKLOG-0007136).
+
+- `createList` pages through the grid's own paging with `pagination: { enabled, pageSize, pageSizes }` — the same shape as `GridConfig.pagination`, no second implementation — drawing a compact touch-sized pager under the list (Previous, Next and "Page n of m", each target at least 44×44 CSS px, theme tokens only); `list.data.filter` applies across every item and resets to page 1, and the page count follows the filtered set. `pinnedTop` — an array of item ids or a predicate — keeps those items above the paged items on every page, outside the page count, so a "New site" card always stays on top (BACKLOG-0007161).
+
+### Fixed
+
+- **List rows sized to their content no longer show cut off on first load on iPhone** <!-- not-breaking: the old rows clipped their card text, so no working integration could have depended on the short height --> (BACKLOG-0007160). When a web font finished loading after the first rows were drawn, those rows kept their too-short height and clipped the card text. The rows now grow to their full height once the text settles, with nothing for the host to do.
+
+- A paged grid or list told screen readers "Page 2 of 1" whatever the real number of pages; the live region now announces the same page count as the pager.
+
+- **Pinned rows size to their content with `itemHeight: 'auto'`** (BACKLOG-0007165). A `createList` pinned card was drawn in the grid's fixed 32 px slot and clipped, while the paged rows below it measured to their template. Each pinned row now measures to its own template height — and re-measures when a web font finishes loading — so a 44 px pinned card stays whole and the body starts right under it. A fixed `itemHeight` number still pins rows at that number.
+
 ## [1.132.0] - 2026-11-24
 
 ### Added
